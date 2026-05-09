@@ -1,0 +1,39 @@
+{
+  "name": "wonderland-playhouse",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:types": "supabase gen types typescript --project-id $SUPABASE_PROJECT_ID > lib/database.types.ts"
+  },
+  "dependencies": {
+    "next": "15.0.3",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "@supabase/supabase-js": "^2.46.1",
+    "@supabase/ssr": "^0.5.2",
+    "stripe": "^17.4.0",
+    "resend": "^4.0.0",
+    "react-email": "^3.0.2",
+    "@react-email/components": "^0.0.30",
+    "lucide-react": "^0.460.0",
+    "tailwind-merge": "^2.5.4",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.15",
+    "typescript": "^5.6.3",
+    "eslint": "^9",
+    "eslint-config-next": "15.0.3"
+  }
+}
