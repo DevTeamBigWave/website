@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import Stripe from 'stripe';
-import { stripe } from '@/lib/stripe';
+import { getStripe } from '@/lib/stripe';
 import { supabaseAdmin } from '@/lib/supabase';
 import { sendPartyConfirmation, sendOpenPlayConfirmation, sendOwnerNotification } from '@/lib/email';
 
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
 
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET!);
+    event = getStripe().webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET!);
   } catch (err: any) {
     console.error('Stripe webhook signature failed:', err.message);
     return NextResponse.json({ error: `Webhook signature failed: ${err.message}` }, { status: 400 });

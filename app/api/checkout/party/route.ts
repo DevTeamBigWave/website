@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { stripe } from '@/lib/stripe';
+import { getStripe } from '@/lib/stripe';
 import { supabaseAdmin } from '@/lib/supabase';
 import { calculatePartyPricing, PACKAGES, EXTENSIONS, fmt, type PackageId, type ExtensionId } from '@/lib/pricing';
 
@@ -106,7 +106,7 @@ export async function POST(request: Request) {
     .filter(Boolean)
     .join(' · ');
 
-  const session = await stripe.checkout.sessions.create({
+  const session = await getStripe().checkout.sessions.create({
     mode: 'payment',
     payment_method_types: ['card'],
     customer_email: body.email,
