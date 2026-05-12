@@ -1,6 +1,14 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY!);
+let _resend: Resend | null = null;
+function resend(): Resend {
+  if (_resend) return _resend;
+  const key = process.env.RESEND_API_KEY;
+  if (!key) throw new Error('RESEND_API_KEY is not set');
+  _resend = new Resend(key);
+  return _resend;
+}
+
 const FROM = process.env.RESEND_FROM_EMAIL!;
 const OWNER = process.env.OWNER_NOTIFY_EMAIL!;
 const SITE = process.env.NEXT_PUBLIC_SITE_URL!;
@@ -52,7 +60,7 @@ export async function sendPartyConfirmation(party: any) {
     </div>
   `;
 
-  return resend.emails.send({
+  return resend().emails.send({
     from: FROM,
     to: party.email,
     subject: `🎉 Your party is booked — ${fmtDate(party.date)}`,
@@ -84,7 +92,7 @@ export async function sendOpenPlayConfirmation(ticket: any) {
     </div>
   `;
 
-  return resend.emails.send({
+  return resend().emails.send({
     from: FROM,
     to: ticket.email,
     subject: `Your open play ticket — ${fmtDate(ticket.date)}`,
@@ -114,5 +122,5 @@ export async function sendOwnerNotification({ subject, party }: { subject: strin
     </div>
   `;
 
-  return resend.emails.send({ from: FROM, to: OWNER, subject, html });
+  return resend().emails.send({ from: FROM, to: OWNER, subject, html });
 }
