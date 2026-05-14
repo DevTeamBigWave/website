@@ -20,4 +20,3 @@ yarn-error.log*
 .idea/
 
 next-env.d.ts
-lib/database.types.ts
