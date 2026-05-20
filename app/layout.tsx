@@ -1,5 +1,20 @@
 import type { Metadata } from 'next';
+import { Fredoka, Nunito } from 'next/font/google';
 import './globals.css';
+
+const display = Fredoka({
+  subsets: ['latin'],
+  variable: '--font-display',
+  weight: ['400', '500', '600', '700'],
+  display: 'swap',
+});
+
+const sans = Nunito({
+  subsets: ['latin'],
+  variable: '--font-sans',
+  weight: ['400', '500', '600', '700', '800'],
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: {
@@ -7,14 +22,14 @@ export const metadata: Metadata = {
     template: '%s · Wonderland Playhouse',
   },
   description:
-    "Brooklyn's 4,000 sq ft indoor playhouse. Birthday parties, open play, and a soft place to land for kids 0–7.",
+    "Brooklyn's private 4,000 sq ft indoor playhouse for kids 0–7. Birthday parties, open play, and a soft place to land.",
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.wonderlandplayhouse.com'
   ),
   openGraph: {
     title: 'Wonderland Playhouse',
     description:
-      "Brooklyn's 4,000 sq ft indoor playhouse. Birthday parties, open play, kids 0–7.",
+      "Brooklyn's private 4,000 sq ft indoor playhouse. Birthday parties + open play for kids 0–7.",
     url: '/',
     siteName: 'Wonderland Playhouse',
     locale: 'en_US',
@@ -22,6 +37,7 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: '/favicon.ico',
+    apple: '/logo.png',
   },
 };
 
@@ -31,8 +47,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-cream text-ink">{children}</body>
+    <html lang="en" className={`${display.variable} ${sans.variable}`}>
+      <body className="min-h-screen bg-cream text-slate-700">{children}</body>
     </html>
   );
 }
