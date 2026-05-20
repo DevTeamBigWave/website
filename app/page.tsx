@@ -1,5 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { AnnouncementBar, Header } from '@/components/Header';
+import { Footer } from '@/components/Footer';
 
 export default function HomePage() {
   return (
@@ -8,65 +10,11 @@ export default function HomePage() {
       <Header />
       <Hero />
       <Offerings />
+      <OpenPlayDetails />
       <WeekdaySpecial />
       <Visit />
       <Footer />
     </>
-  );
-}
-
-function AnnouncementBar() {
-  return (
-    <div className="bg-coral text-white">
-      <div className="mx-auto flex max-w-6xl items-center justify-center gap-2 px-4 py-2.5 text-center text-sm font-semibold">
-        <span aria-hidden>🎉</span>
-        <span>
-          Limited-time offer: 20% off private parties Mon–Thu, 12pm &amp; 2pm slots
-        </span>
-        <Link
-          href="/book"
-          className="ml-2 hidden rounded-full bg-white/20 px-3 py-0.5 text-xs font-bold underline-offset-2 hover:bg-white/30 sm:inline-flex"
-        >
-          Book now →
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-function Header() {
-  return (
-    <header className="border-b border-slate-100 bg-cream/80 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-        <Link href="/" className="flex items-center gap-3">
-          <Image
-            src="/logo.jpg"
-            alt="Wonderland Playhouse"
-            width={566}
-            height={395}
-            priority
-            className="h-12 w-auto md:h-14"
-          />
-        </Link>
-        <nav className="hidden items-center gap-8 text-sm font-semibold text-slate-600 md:flex">
-          <Link href="#parties" className="hover:text-coral">Parties</Link>
-          <Link href="#open-play" className="hover:text-coral">Open Play</Link>
-          <Link href="#visit" className="hover:text-coral">Visit</Link>
-          <Link
-            href="/book"
-            className="rounded-full bg-coral px-5 py-2.5 text-white shadow-playful transition hover:bg-coral-600"
-          >
-            Book a Party
-          </Link>
-        </nav>
-        <Link
-          href="/book"
-          className="rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white shadow-playful md:hidden"
-        >
-          Book
-        </Link>
-      </div>
-    </header>
   );
 }
 
@@ -77,26 +25,26 @@ function Hero() {
         <div className="relative z-10">
           <p className="mb-4 inline-flex items-center gap-2 rounded-full bg-sky-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-slate-600">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-coral" />
-            Brooklyn · Kids 0–7
+            Brooklyn · Kids 0–8
           </p>
           <h1 className="font-display text-5xl leading-[1.05] text-slate-700 sm:text-6xl md:text-7xl">
             Your child&rsquo;s birthday,{' '}
             <span className="text-coral">the whole 4,000 sq&nbsp;ft.</span>
           </h1>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-slate-500">
-            Brooklyn&rsquo;s private play space for kids 0–7. We handle setup,
+            Brooklyn&rsquo;s private play space for kids 0–8. We handle setup,
             host, and cleanup. You bring the cake.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link
-              href="/book"
+              href="/parties"
               className="rounded-full bg-coral px-7 py-4 text-base font-bold text-white shadow-playful transition hover:bg-coral-600"
             >
               Book a Private Party
             </Link>
             <Link
-              href="/book/open-play"
+              href="#open-play"
               className="rounded-full border-2 border-slate-200 bg-white px-7 py-4 text-base font-bold text-slate-600 transition hover:border-slate-400"
             >
               Open Play Hours
@@ -104,7 +52,7 @@ function Hero() {
           </div>
 
           <Link
-            href="/book"
+            href="/parties"
             className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-coral hover:text-coral-700"
           >
             <span className="inline-flex items-center justify-center rounded-full bg-sunshine px-2.5 py-1 text-xs font-extrabold text-slate-700">
@@ -145,7 +93,6 @@ function Offerings() {
         </div>
 
         <div className="grid gap-6 md:grid-cols-5">
-          {/* Private — the hero offering */}
           <div className="relative overflow-hidden rounded-3xl bg-coral p-8 text-white shadow-playful md:col-span-3">
             <div className="absolute -right-12 -top-12 h-48 w-48 rounded-full bg-white/10" aria-hidden />
             <div className="absolute -bottom-16 -right-8 h-40 w-40 rounded-full bg-sunshine/30" aria-hidden />
@@ -155,8 +102,8 @@ function Offerings() {
               </p>
               <h3 className="font-display text-3xl sm:text-4xl">Private Party</h3>
               <p className="mt-3 max-w-md text-white/90">
-                The entire 4,000 sq ft is yours. No other families, no shared
-                play areas — just your guests, your music, your celebration.
+                The entire 4,000 sq ft is yours. Pick any 2-hour window —
+                first come, first serve. No other families, no shared play areas.
               </p>
               <ul className="mt-6 space-y-2 text-sm font-semibold text-white/95">
                 <li>✓ Up to 25 children</li>
@@ -170,7 +117,7 @@ function Offerings() {
                   <p className="text-xs text-white/80">flat rate · 50% deposit holds the date</p>
                 </div>
                 <Link
-                  href="/book"
+                  href="/parties"
                   className="rounded-full bg-white px-6 py-3 text-sm font-bold text-coral shadow transition hover:bg-cream"
                 >
                   Book private →
@@ -179,34 +126,26 @@ function Offerings() {
             </div>
           </div>
 
-          {/* Semi-Private */}
           <div className="flex flex-col rounded-3xl border border-slate-100 bg-white p-7 shadow-card md:col-span-2">
             <h3 className="font-display text-2xl text-slate-700">Semi-Private</h3>
             <p className="mt-2 text-sm text-slate-500">
-              Your party, shared with a few other families in the space.
+              Your party, shared with 1–2 other families in the space.
             </p>
             <ul className="mt-5 flex-1 space-y-1.5 text-sm text-slate-600">
               <li>• Up to 15 children</li>
-              <li>• 2 hours of play</li>
+              <li>• 2 hours, set time slots</li>
               <li>• Dedicated party host</li>
               <li>• Setup &amp; cleanup</li>
             </ul>
             <div className="mt-6 flex items-end justify-between">
               <p className="font-display text-3xl text-slate-700">$650</p>
-              <Link
-                href="/book"
-                className="text-sm font-bold text-coral hover:text-coral-700"
-              >
+              <Link href="/parties" className="text-sm font-bold text-coral hover:text-coral-700">
                 Book →
               </Link>
             </div>
           </div>
 
-          {/* Open Play */}
-          <div
-            id="open-play"
-            className="flex flex-col rounded-3xl border-2 border-sky-200 bg-sky-50 p-7 md:col-span-5"
-          >
+          <div id="open-play" className="flex flex-col rounded-3xl border-2 border-sky-200 bg-sky-50 p-7 md:col-span-5">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="max-w-xl">
                 <h3 className="font-display text-2xl text-slate-700">Open Play</h3>
@@ -235,6 +174,92 @@ function Offerings() {
   );
 }
 
+function OpenPlayDetails() {
+  return (
+    <section className="bg-cream-deep py-16">
+      <div className="mx-auto max-w-6xl px-6">
+        <div className="grid gap-8 rounded-3xl bg-white p-8 shadow-card md:grid-cols-[1fr_1.4fr] md:p-12">
+          <div>
+            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-coral">Open play, in detail</p>
+            <h2 className="font-display text-3xl text-slate-700 sm:text-4xl">
+              How a visit works.
+            </h2>
+            <p className="mt-4 text-slate-500">
+              Drop in any day we&rsquo;re open — no reservation required, though
+              pre-paying lets you skip the front desk.
+            </p>
+            <Link
+              href="/book/open-play"
+              className="mt-6 inline-flex items-center gap-2 rounded-full bg-coral px-6 py-3 text-sm font-bold text-white shadow-playful transition hover:bg-coral-600"
+            >
+              Reserve a visit →
+            </Link>
+            <p className="mt-4 text-xs text-slate-400">
+              Want unlimited visits?{' '}
+              <Link href="/memberships" className="font-semibold text-coral hover:text-coral-700">
+                See memberships →
+              </Link>
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <DetailCard
+              label="Per child"
+              value="$25"
+              note="+ tax · 2-hour pass"
+              tone="coral"
+            />
+            <DetailCard
+              label="Adults"
+              value="Free"
+              note="parents play free"
+              tone="sky"
+            />
+            <DetailCard
+              label="Under 10 months"
+              value="Free"
+              note="welcome any time"
+              tone="sunshine"
+            />
+            <DetailCard
+              label="Ages"
+              value="0–8"
+              note="play area for 0–8 only"
+              tone="slate"
+            />
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function DetailCard({
+  label,
+  value,
+  note,
+  tone,
+}: {
+  label: string;
+  value: string;
+  note: string;
+  tone: 'coral' | 'sky' | 'sunshine' | 'slate';
+}) {
+  const toneStyles = {
+    coral: 'bg-coral-50 text-coral-700',
+    sky: 'bg-sky-50 text-sky-600',
+    sunshine: 'bg-sunshine-50 text-slate-700',
+    slate: 'bg-slate-50 text-slate-700',
+  } as const;
+  return (
+    <div className={`rounded-2xl p-5 ${toneStyles[tone]}`}>
+      <p className="text-[10px] font-bold uppercase tracking-wider opacity-70">{label}</p>
+      <p className="mt-1 font-display text-3xl">{value}</p>
+      <p className="mt-1 text-xs opacity-75">{note}</p>
+    </div>
+  );
+}
+
 function WeekdaySpecial() {
   return (
     <section className="bg-sunshine">
@@ -253,7 +278,7 @@ function WeekdaySpecial() {
           </p>
         </div>
         <Link
-          href="/book"
+          href="/parties"
           className="rounded-full bg-slate-700 px-7 py-4 text-base font-bold text-white shadow-card transition hover:bg-slate-600"
         >
           Check weekday dates →
@@ -295,7 +320,7 @@ function Visit() {
               info@wonderlandplayhouse.com
             </a>
           </Row>
-          <Row label="Ages">Kids 0–7</Row>
+          <Row label="Ages">Kids 0–8</Row>
         </div>
       </div>
     </section>
@@ -308,24 +333,5 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
       <dt className="text-xs font-bold uppercase tracking-wider text-coral">{label}</dt>
       <dd className="text-base text-slate-600">{children}</dd>
     </div>
-  );
-}
-
-function Footer() {
-  return (
-    <footer className="bg-slate-700 py-12 text-cream">
-      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 px-6 md:flex-row">
-        <Image
-          src="/logo.jpg"
-          alt="Wonderland Playhouse"
-          width={566}
-          height={395}
-          className="h-12 w-auto opacity-90"
-        />
-        <p className="text-xs opacity-70">
-          © {new Date().getFullYear()} Wonderland Playhouse · 3830 Nostrand Ave, Brooklyn NY 11235
-        </p>
-      </div>
-    </footer>
   );
 }

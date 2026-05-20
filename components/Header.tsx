@@ -1,0 +1,68 @@
+import Image from 'next/image';
+import Link from 'next/link';
+
+const navItems = [
+  { href: '/parties', label: 'Parties' },
+  { href: '/memberships', label: 'Memberships' },
+  { href: '/gift-cards', label: 'Gift Cards' },
+  { href: '/about', label: 'About' },
+];
+
+export function AnnouncementBar() {
+  return (
+    <div className="bg-coral text-white">
+      <div className="mx-auto flex max-w-6xl items-center justify-center gap-2 px-4 py-2.5 text-center text-sm font-semibold">
+        <span aria-hidden>🎉</span>
+        <span>
+          Limited-time offer: 20% off private parties Mon–Thu, 12pm &amp; 2pm slots
+        </span>
+        <Link
+          href="/parties"
+          className="ml-2 hidden rounded-full bg-white/20 px-3 py-0.5 text-xs font-bold hover:bg-white/30 sm:inline-flex"
+        >
+          Book now →
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+export function Header() {
+  return (
+    <header className="border-b border-slate-100 bg-cream/80 backdrop-blur">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+        <Link href="/" className="flex items-center gap-3">
+          <Image
+            src="/logo.jpg"
+            alt="Wonderland Playhouse"
+            width={566}
+            height={395}
+            priority
+            className="h-12 w-auto md:h-14"
+          />
+        </Link>
+
+        <nav className="hidden items-center gap-6 text-sm font-semibold text-slate-600 lg:flex">
+          {navItems.map((item) => (
+            <Link key={item.href} href={item.href} className="hover:text-coral">
+              {item.label}
+            </Link>
+          ))}
+          <Link
+            href="/parties"
+            className="rounded-full bg-coral px-5 py-2.5 text-white shadow-playful transition hover:bg-coral-600"
+          >
+            Book a Party
+          </Link>
+        </nav>
+
+        <Link
+          href="/parties"
+          className="rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white shadow-playful lg:hidden"
+        >
+          Book
+        </Link>
+      </div>
+    </header>
+  );
+}
