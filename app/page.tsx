@@ -40,10 +40,10 @@ function Header() {
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         <Link href="/" className="flex items-center gap-3">
           <Image
-            src="/logo.png"
+            src="/logo.jpg"
             alt="Wonderland Playhouse"
-            width={140}
-            height={90}
+            width={566}
+            height={395}
             priority
             className="h-12 w-auto md:h-14"
           />
@@ -117,7 +117,7 @@ function Hero() {
         <div className="relative">
           <div className="relative aspect-[4/3] w-full overflow-hidden rounded-3xl shadow-card">
             <Image
-              src="/hero.png"
+              src="/hero.jpg"
               alt="Two children walking hand in hand on a magical checkerboard path"
               fill
               priority
@@ -316,10 +316,10 @@ function Footer() {
     <footer className="bg-slate-700 py-12 text-cream">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 px-6 md:flex-row">
         <Image
-          src="/logo.png"
+          src="/logo.jpg"
           alt="Wonderland Playhouse"
-          width={120}
-          height={80}
+          width={566}
+          height={395}
           className="h-12 w-auto opacity-90"
         />
         <p className="text-xs opacity-70">
