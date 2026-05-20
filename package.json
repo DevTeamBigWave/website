@@ -10,6 +10,7 @@
     "db:types": "supabase gen types typescript --project-id $SUPABASE_PROJECT_ID > lib/database.types.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.97.1",
     "@react-email/components": "^0.0.30",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.46.1",

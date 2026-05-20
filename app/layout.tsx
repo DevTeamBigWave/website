@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Fredoka, Nunito } from 'next/font/google';
 import './globals.css';
+import { ChatWidget } from '@/components/ChatWidget';
 
 const display = Fredoka({
   subsets: ['latin'],
@@ -48,7 +49,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${display.variable} ${sans.variable}`}>
-      <body className="min-h-screen bg-cream text-slate-700">{children}</body>
+      <body className="min-h-screen bg-cream text-slate-700">
+        {children}
+        <ChatWidget />
+      </body>
     </html>
   );
 }
