@@ -18,6 +18,7 @@ export default function PartiesPage() {
       <Packages />
       <Difference />
       <OneStopShop />
+      <PartyGallery />
       <WeekdayCallout />
       <Faq />
       <FinalCta />
@@ -261,10 +262,44 @@ function OneStopShop() {
           />
         </div>
 
-        <div className="mt-12 grid gap-5 md:grid-cols-3">
-          <PhotoPlaceholder alt="Party decor setup" tone="coral" className="aspect-[4/3]" />
-          <PhotoPlaceholder alt="Custom desserts" tone="sunshine" className="aspect-[4/3]" />
-          <PhotoPlaceholder alt="Entertainment in action" tone="sky" className="aspect-[4/3]" />
+        <div className="mt-12 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+          <PhotoPlaceholder src="/photos/decor-02.jpeg" alt="Custom party decor at Wonderland" className="aspect-square" />
+          <PhotoPlaceholder src="/photos/decor-05.jpeg" alt="Themed birthday party setup" className="aspect-square" />
+          <PhotoPlaceholder src="/photos/decor-08.jpeg" alt="Balloon arrangement" className="aspect-square" />
+          <PhotoPlaceholder src="/photos/decor-04.jpeg" alt="Decor detail" className="aspect-square" />
+          <PhotoPlaceholder src="/photos/decor-06.jpeg" alt="Party styling" className="aspect-square" />
+          <PhotoPlaceholder src="/photos/decor-09.jpeg" alt="Themed setup" className="aspect-square" />
+          <PhotoPlaceholder src="/photos/decor-03.jpeg" alt="Balloon and table decor" className="aspect-square" />
+          <PhotoPlaceholder src="/photos/decor-07.jpeg" alt="Birthday decor" className="aspect-square" />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PartyGallery() {
+  return (
+    <section className="bg-cream-deep py-20">
+      <div className="mx-auto max-w-6xl px-6">
+        <div className="max-w-2xl">
+          <SectionEyebrow>Recent parties</SectionEyebrow>
+          <h2 className="font-display text-4xl text-slate-700 sm:text-5xl">
+            What it looks like in here.
+          </h2>
+          <p className="mt-4 text-slate-500">
+            A few moments from recent birthdays at Wonderland.
+          </p>
+        </div>
+
+        <div className="mt-12 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+          <PhotoPlaceholder src="/photos/party-01.jpeg" alt="Birthday party at Wonderland Playhouse" className="aspect-[4/5]" />
+          <PhotoPlaceholder src="/photos/party-02.jpeg" alt="Kids playing at a party" className="aspect-[4/5]" />
+          <PhotoPlaceholder src="/photos/party-03.jpeg" alt="Birthday celebration" className="aspect-[4/5]" />
+          <PhotoPlaceholder src="/photos/party-04.jpeg" alt="Party scene" className="aspect-[4/5]" />
+          <PhotoPlaceholder src="/photos/party-05.jpeg" alt="Kids enjoying the playhouse" className="aspect-[4/5]" />
+          <PhotoPlaceholder src="/photos/party-06.jpeg" alt="Birthday party guests" className="aspect-[4/5]" />
+          <PhotoPlaceholder src="/photos/party-07.jpeg" alt="Party moment" className="aspect-[4/5]" />
+          <PhotoPlaceholder src="/photos/party-08.jpeg" alt="Happy birthday at Wonderland" className="aspect-[4/5]" />
         </div>
       </div>
     </section>

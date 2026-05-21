@@ -67,17 +67,17 @@ function TheSpace() {
             </p>
           </div>
           <PhotoPlaceholder
+            src="/photos/party-05.jpeg"
             alt="Inside Wonderland Playhouse"
-            tone="mixed"
             className="aspect-[4/3]"
           />
         </div>
 
         <div className="mt-10 grid gap-4 md:grid-cols-4">
-          <PhotoPlaceholder alt="Play area" tone="coral" className="aspect-square" />
-          <PhotoPlaceholder alt="Party room" tone="sunshine" className="aspect-square" />
-          <PhotoPlaceholder alt="Sensory tables" tone="sky" className="aspect-square" />
-          <PhotoPlaceholder alt="Art corner" tone="mixed" className="aspect-square" />
+          <PhotoPlaceholder src="/photos/decor-01.jpeg" alt="Custom party setup" className="aspect-square" />
+          <PhotoPlaceholder src="/photos/party-02.jpeg" alt="Kids at play" className="aspect-square" />
+          <PhotoPlaceholder src="/photos/decor-10.jpeg" alt="Themed decor" className="aspect-square" />
+          <PhotoPlaceholder src="/photos/party-07.jpeg" alt="Birthday celebration" className="aspect-square" />
         </div>
       </div>
     </section>
