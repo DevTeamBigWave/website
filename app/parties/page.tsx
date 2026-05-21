@@ -127,7 +127,7 @@ function Packages() {
               <Bullet white>2 hours, exclusive use of the space</Bullet>
               <Bullet white>Pick any 2-hour window (first come, first serve)</Bullet>
               <Bullet white>Dedicated host + helper</Bullet>
-              <Bullet white>Setup, cleanup, themed decor</Bullet>
+              <Bullet white>Setup and cleanup included</Bullet>
               <Bullet white>Closes open play for the day</Bullet>
             </ul>
 
@@ -187,7 +187,6 @@ function Difference() {
               <CompareRow label="Max children" semi="15" priv="25" />
               <CompareRow label="Party host" semi="✓" priv="✓ + helper" />
               <CompareRow label="Setup &amp; cleanup" semi="✓" priv="✓" />
-              <CompareRow label="Custom themed decor" semi="—" priv="✓" />
               <CompareRow label="Closes open play that day" semi="No" priv="Yes" />
               <CompareRow label="Mon-Thu 20% discount" semi="—" priv="12pm or 2pm slots" />
               <tr>
@@ -223,9 +222,9 @@ function OneStopShop() {
             We handle everything except the cake.
           </h2>
           <p className="mt-4 text-slate-500">
-            No vendor juggling, no day-of stress. Themed decor, entertainment,
-            custom desserts, music — all in one place, all included or available
-            as add-ons.
+            No vendor juggling, no day-of stress. Host, setup, and cleanup are
+            included. Themed decor, custom desserts, entertainment, and music
+            are available as add-ons — all booked in one place.
           </p>
         </div>
 

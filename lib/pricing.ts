@@ -30,7 +30,7 @@ export const PACKAGES = {
       'Up to 25 children',
       '2 hours, exclusive use',
       'Dedicated host + helper',
-      'Setup, cleanup, themed decor',
+      'Setup and cleanup',
     ],
   },
 } as const;

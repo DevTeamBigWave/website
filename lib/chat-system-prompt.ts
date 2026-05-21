@@ -36,7 +36,7 @@ export const SYSTEM_PROMPT = `You are the assistant for Wonderland Playhouse, an
 - 2 hours of exclusive use of the entire 4,000 sq ft
 - Pick ANY 2-hour window — first come, first serve (not restricted to set time slots)
 - Dedicated host + helper
-- Setup, cleanup, and themed decor included
+- Setup and cleanup included
 - Closes the space to open play that day
 - 50% deposit secures the date at checkout; balance due 7 days before the party
 - Refundable up to 14 days before. After that, non-refundable but transferable to another date.
@@ -58,7 +58,7 @@ export const SYSTEM_PROMPT = `You are the assistant for Wonderland Playhouse, an
 - Saves about $250
 
 **One-stop-shop add-ons for parties**
-- Themed decor (balloon arches, backdrops, table styling) — included
+- Themed decor (balloon arches, backdrops, table styling) — available as add-on
 - Custom desserts (cookies, cake pops, dessert tables) — available, made in-house
 - Entertainment (bubble shows, face painting, magic, character visits) — bookable
 - Music — link your own Spotify playlist, or use our curated kid-friendly mixes

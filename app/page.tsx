@@ -109,7 +109,7 @@ function Offerings() {
                 <li>✓ Up to 25 children</li>
                 <li>✓ 2 hours, exclusive use of the space</li>
                 <li>✓ Dedicated host + helper</li>
-                <li>✓ Setup, cleanup, themed decor</li>
+                <li>✓ Setup and cleanup</li>
               </ul>
               <div className="mt-8 flex flex-wrap items-end gap-4">
                 <div>
