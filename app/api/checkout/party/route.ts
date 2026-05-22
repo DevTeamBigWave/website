@@ -13,10 +13,33 @@ const PartyCheckoutSchema = z.object({
   email: z.string().email(),
   phone: z.string().min(7).max(40),
   childName: z.string().min(1).max(80),
-  childAge: z.coerce.number().int().min(0).max(18),
+  // DOB is the source of truth going forward — age is computed from it.
+  // Optional for now to keep the older API contract working; the new
+  // booking form will make this required.
+  childDob: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'childDob must be YYYY-MM-DD')
+    .optional(),
+  childAge: z.coerce.number().int().min(0).max(18).optional(),
   headcount: z.coerce.number().int().min(1).max(60),
   notes: z.string().max(2000).optional(),
 });
+
+// If a DOB is provided, compute the age the kid is *turning* on the party date.
+// Otherwise fall back to the client-supplied childAge.
+function computeAgeTurning(dob: string | undefined, partyDate: Date, fallback: number | undefined): number | null {
+  if (dob) {
+    const [y, m, d] = dob.split('-').map(Number);
+    // Age "turning" = how old they'll be at their next birthday on or before partyDate
+    let age = partyDate.getFullYear() - y;
+    const hadBirthday =
+      partyDate.getMonth() + 1 > m ||
+      (partyDate.getMonth() + 1 === m && partyDate.getDate() >= d);
+    if (!hadBirthday) age -= 1;
+    return age + 1; // age turning = current age + 1 (this is a birthday party)
+  }
+  return fallback ?? null;
+}
 
 export async function POST(request: Request) {
   let body;
@@ -73,7 +96,8 @@ export async function POST(request: Request) {
       duration_minutes: PACKAGES[body.packageId as PackageId].durationMinutes,
       extension_minutes: body.extensionId ? EXTENSIONS[body.extensionId as ExtensionId].minutes : 0,
       child_name: body.childName,
-      child_age: body.childAge,
+      child_age: computeAgeTurning(body.childDob, date, body.childAge),
+      child_dob: body.childDob ?? null,
       headcount: body.headcount,
       notes: body.notes,
       parent_name: body.parentName,
@@ -97,7 +121,8 @@ export async function POST(request: Request) {
 
   // Create Stripe checkout session
   const pkg = PACKAGES[body.packageId as PackageId];
-  const lineItemName = `${pkg.name} Birthday Party — ${body.childName}'s ${body.childAge ? `${body.childAge}th ` : ''}birthday`;
+  const ageTurning = computeAgeTurning(body.childDob, date, body.childAge);
+  const lineItemName = `${pkg.name} Birthday Party — ${body.childName}'s ${ageTurning ? `${ageTurning}th ` : ''}birthday`;
   const description = [
     new Date(body.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
     body.time,
