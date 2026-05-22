@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 
 type ChatMessage = { role: 'user' | 'assistant'; content: string };
 
@@ -12,6 +13,7 @@ const GREETING: ChatMessage = {
 };
 
 export function ChatWidget() {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([GREETING]);
   const [input, setInput] = useState('');
@@ -19,6 +21,8 @@ export function ChatWidget() {
   const [status, setStatus] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const isHidden = pathname?.startsWith('/admin') ?? false;
 
   useEffect(() => {
     try {
@@ -153,6 +157,9 @@ export function ChatWidget() {
       // ignore
     }
   };
+
+  // Hide on admin pages — checked here, after all hooks have run
+  if (isHidden) return null;
 
   return (
     <>
