@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { MobileNav } from '@/components/MobileNav';
 
 const navItems = [
   { href: '/parties', label: 'Parties' },
@@ -56,12 +57,15 @@ export function Header() {
           </Link>
         </nav>
 
-        <Link
-          href="/parties"
-          className="rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white shadow-playful lg:hidden"
-        >
-          Book
-        </Link>
+        <div className="flex items-center gap-2 lg:hidden">
+          <Link
+            href="/parties"
+            className="rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white shadow-playful"
+          >
+            Book
+          </Link>
+          <MobileNav items={navItems} />
+        </div>
       </div>
     </header>
   );
