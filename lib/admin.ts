@@ -72,3 +72,13 @@ export async function requireAdmin(): Promise<AdminProfile> {
     displayName: row.display_name,
   };
 }
+
+// Stronger guard: requires owner role. Use on team management, refunds,
+// anything destructive. Redirects to /admin if signed in but not owner.
+export async function requireOwner(): Promise<AdminProfile> {
+  const me = await requireAdmin();
+  if (me.role !== 'owner') {
+    redirect('/admin?error=owner_only');
+  }
+  return me;
+}

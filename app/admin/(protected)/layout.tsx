@@ -7,7 +7,7 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
-const nav = [
+const baseNav = [
   { href: '/admin', label: 'Dashboard' },
   { href: '/admin/parties', label: 'Parties' },
   { href: '/admin/customers', label: 'Customers' },
@@ -19,6 +19,10 @@ export default async function ProtectedAdminLayout({
   children: ReactNode;
 }) {
   const me = await requireAdmin();
+  const nav =
+    me.role === 'owner'
+      ? [...baseNav, { href: '/admin/team', label: 'Team' }]
+      : baseNav;
 
   return (
     <div className="min-h-screen bg-slate-50">
