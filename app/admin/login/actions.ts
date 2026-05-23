@@ -30,9 +30,17 @@ function authServerClient() {
 }
 
 async function getOrigin(): Promise<string> {
-  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
+  // Prefer the actual request origin over env vars — eliminates a class of
+  // misconfigurations where NEXT_PUBLIC_SITE_URL drifts from the deployed URL.
   const h = await headers();
-  return `https://${h.get('host') ?? 'website-production-4594.up.railway.app'}`;
+  const host = h.get('host');
+  const proto = h.get('x-forwarded-proto') ?? 'https';
+  if (host) return `${proto}://${host}`;
+  // Fallback only if request headers somehow missing
+  return (
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    'https://website-production-4594.up.railway.app'
+  );
 }
 
 async function isAllowlisted(email: string): Promise<boolean> {
