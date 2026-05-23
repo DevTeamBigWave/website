@@ -67,6 +67,19 @@ export function Header() {
           <MobileNav items={navItems} />
         </div>
       </div>
+
+      {/* Mobile/tablet horizontal tab bar — always-visible nav so users don't have to hunt for the hamburger */}
+      <nav className="flex gap-1 overflow-x-auto border-t border-slate-100 px-4 py-2 text-sm font-semibold text-slate-600 lg:hidden">
+        {navItems.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className="whitespace-nowrap rounded-full px-3 py-1.5 transition hover:bg-cream-deep hover:text-coral"
+          >
+            {item.label}
+          </Link>
+        ))}
+      </nav>
     </header>
   );
 }
