@@ -29,6 +29,12 @@ function authServerClient() {
   );
 }
 
+async function getOrigin(): Promise<string> {
+  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
+  const h = await headers();
+  return `https://${h.get('host') ?? 'website-production-4594.up.railway.app'}`;
+}
+
 async function isAllowlisted(email: string): Promise<boolean> {
   const admin = supabaseAdmin();
   const { data } = await admin
@@ -40,7 +46,29 @@ async function isAllowlisted(email: string): Promise<boolean> {
   return !!data;
 }
 
-// Sign in with email + password
+// Kick off Google OAuth — Supabase generates the auth URL, we redirect to it.
+// Google sends users back to Supabase, which calls our /admin/auth/callback.
+// Allowlist check happens in requireAdmin() once they hit /admin.
+export async function signInWithGoogle(): Promise<void> {
+  const supabase = await authServerClient();
+  const origin = await getOrigin();
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: `${origin}/admin/auth/callback`,
+      skipBrowserRedirect: true,
+    },
+  });
+
+  if (error || !data?.url) {
+    redirect('/admin/login?error=oauth_init_failed');
+  }
+
+  redirect(data.url);
+}
+
+// Sign in with email + password (fallback if Google is unavailable)
 export async function signInWithPassword(
   _prev: LoginState,
   formData: FormData,
@@ -66,8 +94,6 @@ export async function signInWithPassword(
 }
 
 // Set or reset a password for an allowlisted admin email.
-// Creates the auth user if it doesn't exist; otherwise updates the password.
-// No email confirmation required — the admin_users allowlist IS the verification.
 export async function setPassword(
   _prev: LoginState,
   formData: FormData,
@@ -87,7 +113,6 @@ export async function setPassword(
 
   const admin = supabaseAdmin();
 
-  // Look up existing auth user by email
   const { data: list } = await admin.auth.admin.listUsers();
   const existing = list?.users?.find(
     (u) => u.email?.toLowerCase() === email,
