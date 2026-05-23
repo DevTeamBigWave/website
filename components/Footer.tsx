@@ -49,8 +49,11 @@ export function Footer() {
         </div>
       </div>
 
-      <div className="mx-auto mt-10 max-w-6xl border-t border-cream/15 px-6 pt-6 text-xs text-cream/60">
-        © {new Date().getFullYear()} Wonderland Playhouse · Brooklyn, NY
+      <div className="mx-auto mt-10 max-w-6xl border-t border-cream/15 px-6 pt-6 flex flex-col items-start justify-between gap-2 text-xs text-cream/60 sm:flex-row">
+        <p>© {new Date().getFullYear()} Wonderland Playhouse · Brooklyn, NY</p>
+        <Link href="/admin" className="text-cream/40 transition hover:text-sunshine">
+          Staff →
+        </Link>
       </div>
     </footer>
   );

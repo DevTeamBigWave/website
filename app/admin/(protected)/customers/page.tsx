@@ -108,7 +108,14 @@ export default async function AdminCustomersPage({
               )}
               {rows.map((c) => (
                 <tr key={c.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-3 font-semibold">{c.parent_name}</td>
+                  <td className="px-4 py-3 font-semibold">
+                    <a
+                      href={`/admin/customers/${c.id}`}
+                      className="text-slate-700 hover:text-coral"
+                    >
+                      {c.parent_name}
+                    </a>
+                  </td>
                   <td className="px-4 py-3 text-xs">
                     <div>{c.email}</div>
                     {c.phone && <div className="text-slate-500">{c.phone}</div>}
