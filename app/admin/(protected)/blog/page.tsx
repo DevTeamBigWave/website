@@ -28,7 +28,7 @@ export default async function AdminBlogPage() {
         </div>
         <div className="flex gap-2">
           <GenerateBlogButton defaultCount={3} label="Generate 3 now" />
-          <GenerateBlogButton defaultCount={6} label="Kickoff: generate 6" variant="accent" />
+          <GenerateBlogButton defaultCount={9} label="Kickoff: generate 9" variant="accent" />
         </div>
       </header>
 

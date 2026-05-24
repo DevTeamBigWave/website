@@ -40,6 +40,35 @@ export const metadata: Metadata = {
     icon: '/favicon.ico',
     apple: '/logo.jpg',
   },
+  other: {
+    'instagram:profile': 'https://www.instagram.com/wonderlandplayhouseny',
+  },
+};
+
+const LOCAL_BUSINESS_JSON_LD = {
+  '@context': 'https://schema.org',
+  '@type': 'LocalBusiness',
+  name: 'Wonderland Playhouse',
+  image: 'https://www.wonderlandplayhouse.com/logo.jpg',
+  url: 'https://www.wonderlandplayhouse.com',
+  telephone: '+1-718-889-1777',
+  email: 'info@wonderlandplayhouse.com',
+  address: {
+    '@type': 'PostalAddress',
+    streetAddress: '3830 Nostrand Ave',
+    addressLocality: 'Brooklyn',
+    addressRegion: 'NY',
+    postalCode: '11235',
+    addressCountry: 'US',
+  },
+  geo: {
+    '@type': 'GeoCoordinates',
+    latitude: 40.5891,
+    longitude: -73.9389,
+  },
+  sameAs: ['https://www.instagram.com/wonderlandplayhouseny'],
+  priceRange: '$$',
+  areaServed: 'Brooklyn, NY',
 };
 
 export default function RootLayout({
@@ -50,6 +79,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${display.variable} ${sans.variable}`}>
       <body className="min-h-screen bg-cream text-slate-700">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(LOCAL_BUSINESS_JSON_LD) }}
+        />
         {children}
         <ChatWidget />
       </body>
