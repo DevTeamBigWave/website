@@ -4,7 +4,13 @@ import { revalidatePath } from 'next/cache';
 import Stripe from 'stripe';
 import { stripe } from '@/lib/stripe';
 import { supabaseAdmin } from '@/lib/supabase';
-import { sendPartyConfirmation, sendOpenPlayConfirmation, sendOwnerNotification } from '@/lib/email';
+import {
+  sendPartyConfirmation,
+  sendOpenPlayConfirmation,
+  sendOwnerNotification,
+  sendGiftCardToRecipient,
+  sendGiftCardPurchaserReceipt,
+} from '@/lib/email';
 import { createPartyEvent } from '@/lib/google-calendar';
 
 // Stripe sends raw bodies — App Router gives us req.text() which preserves them
@@ -88,6 +94,45 @@ export async function POST(request: Request) {
         }
       }
 
+      if (type === 'gift_card') {
+        const giftCardId = session.metadata?.gift_card_id;
+        if (!giftCardId) break;
+
+        const { data: card, error: cardErr } = await supabase
+          .from('gift_cards')
+          .update({
+            status: 'active',
+            paid_at: new Date().toISOString(),
+            stripe_payment_intent: session.payment_intent as string,
+          })
+          .eq('id', giftCardId)
+          .eq('status', 'pending')
+          .select()
+          .single();
+
+        if (cardErr || !card) {
+          console.error('Could not activate gift card:', cardErr);
+          break;
+        }
+
+        const emailResults = await Promise.allSettled([
+          sendGiftCardToRecipient(card),
+          sendGiftCardPurchaserReceipt(card),
+        ]);
+
+        if (emailResults[0].status === 'fulfilled') {
+          await supabase
+            .from('gift_cards')
+            .update({ recipient_emailed_at: new Date().toISOString() })
+            .eq('id', giftCardId);
+        } else {
+          console.error('Gift card recipient email failed:', emailResults[0].reason);
+        }
+        if (emailResults[1].status === 'rejected') {
+          console.error('Gift card purchaser receipt failed:', emailResults[1].reason);
+        }
+      }
+
       if (type === 'open_play') {
         const ticketId = session.metadata?.open_play_id;
         if (!ticketId) break;
@@ -111,7 +156,7 @@ export async function POST(request: Request) {
     }
 
     case 'checkout.session.expired': {
-      // Cancel any 'hold' party tied to an expired session
+      // Cancel any 'hold' party / 'pending' gift card tied to an expired session
       const session = event.data.object as Stripe.Checkout.Session;
       const partyId = session.metadata?.party_id;
       if (partyId) {
@@ -120,6 +165,14 @@ export async function POST(request: Request) {
           .update({ status: 'cancelled', cancellation_reason: 'Stripe session expired' })
           .eq('id', partyId)
           .eq('status', 'hold');
+      }
+      const giftCardId = session.metadata?.gift_card_id;
+      if (giftCardId) {
+        await supabase
+          .from('gift_cards')
+          .update({ status: 'void', voided_at: new Date().toISOString(), void_reason: 'Stripe session expired' })
+          .eq('id', giftCardId)
+          .eq('status', 'pending');
       }
       break;
     }

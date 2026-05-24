@@ -72,10 +72,10 @@ function Amounts() {
             Any amount $25 and up — perfect for splitting between guests on a group gift.
           </p>
           <Link
-            href="/inquire?topic=gift-card"
+            href="/gift-cards/buy"
             className="mt-5 inline-flex items-center gap-2 rounded-full bg-slate-700 px-6 py-3 text-sm font-bold text-white transition hover:bg-slate-600"
           >
-            Request a custom amount →
+            Pick a custom amount →
           </Link>
         </div>
       </div>
@@ -90,7 +90,7 @@ function DenomCard({ amount, note }: { amount: number; note: string }) {
       <p className="mt-2 text-xs uppercase tracking-wider text-slate-400">Gift card</p>
       <p className="mt-3 flex-1 text-sm text-slate-600">{note}</p>
       <Link
-        href={`/inquire?topic=gift-card&amount=${amount}`}
+        href={`/gift-cards/buy?amount=${amount}`}
         className="mt-6 inline-flex items-center justify-center rounded-full bg-coral px-5 py-2.5 text-sm font-bold text-white shadow-playful transition hover:bg-coral-600"
       >
         Send a ${amount} card →
@@ -127,9 +127,8 @@ function HowItWorks() {
         </div>
 
         <div className="mt-12 rounded-3xl bg-sunshine-50 border-2 border-sunshine-200 p-6 text-center text-sm text-slate-700">
-          <strong>Heads up:</strong> Online checkout for gift cards is launching shortly.
-          For now, tap any &ldquo;send&rdquo; button above and we&rsquo;ll process your purchase by phone
-          or email — usually within a few hours.
+          <strong>No expiration.</strong> Partial balances stick around — a
+          $100 card covers a $25 visit and leaves $75 for next time.
         </div>
       </div>
     </section>
@@ -156,7 +155,7 @@ function FinalCta() {
           Their parents will thank you more.
         </p>
         <Link
-          href="/inquire?topic=gift-card"
+          href="/gift-cards/buy"
           className="mt-8 inline-flex items-center gap-2 rounded-full bg-white px-7 py-4 text-base font-bold text-coral shadow transition hover:bg-cream"
         >
           Buy a gift card →

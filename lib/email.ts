@@ -183,6 +183,121 @@ export async function sendPartyTwentyFourHourReminder(party: any) {
 }
 
 // ---------------------------------------------------------------------------
+// Gift card recipient: you just got gifted a card
+// ---------------------------------------------------------------------------
+export async function sendGiftCardToRecipient(card: {
+  code: string;
+  amount_cents: number;
+  recipient_name: string;
+  recipient_email: string;
+  purchaser_name: string;
+  message: string | null;
+}) {
+  const firstName = card.recipient_name.split(' ')[0];
+  const fromName = card.purchaser_name.split(' ')[0];
+
+  const html = `
+    <div style="font-family: Nunito, Helvetica, sans-serif; max-width: 580px; margin: 0 auto; color: #2C4253;">
+      <div style="background: linear-gradient(135deg, #ff7783 0%, #fdda26 100%); color: white; padding: 40px 24px; border-radius: 16px 16px 0 0; text-align: center;">
+        <p style="margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: 3px; opacity: 0.95;">A gift for you</p>
+        <h1 style="margin: 12px 0 0; font-size: 34px; line-height: 1.1;">${fmtMoney(card.amount_cents)} to Wonderland Playhouse</h1>
+        <p style="margin: 12px 0 0; opacity: 0.95; font-size: 15px;">From ${card.purchaser_name}</p>
+      </div>
+      <div style="background: #FFFBF5; padding: 32px 24px; border-radius: 0 0 16px 16px;">
+        <p style="line-height: 1.6;">Hi ${firstName},</p>
+        <p style="line-height: 1.6;">${fromName} sent you a gift card for Wonderland Playhouse — a magical, low-stim play space in Brooklyn for kids 0–8. Use it for open play visits, a birthday party deposit, or anything else on the menu.</p>
+
+        ${
+          card.message
+            ? `<div style="background: #FFF4F5; border-left: 4px solid #ff7783; padding: 16px 20px; margin: 24px 0; border-radius: 4px;">
+                 <p style="margin: 0 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #ff7783; font-weight: bold;">A note from ${fromName}</p>
+                 <p style="margin: 0; font-style: italic; line-height: 1.6;">${escapeHtml(card.message)}</p>
+               </div>`
+            : ''
+        }
+
+        <div style="background: #2C4253; color: white; padding: 28px 20px; border-radius: 16px; text-align: center; margin: 28px 0;">
+          <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.7;">Your gift card code</div>
+          <div style="font-size: 28px; font-weight: bold; letter-spacing: 3px; margin-top: 12px; font-family: 'Courier New', monospace;">${card.code}</div>
+          <div style="font-size: 13px; margin-top: 12px; opacity: 0.7;">Balance: ${fmtMoney(card.amount_cents)}</div>
+        </div>
+
+        <p style="line-height: 1.6;"><strong>How to use it:</strong></p>
+        <ul style="line-height: 1.8;">
+          <li>Book a <a href="${SITE}/parties" style="color: #ff7783;">birthday party</a> or an <a href="${SITE}/book/open-play" style="color: #ff7783;">open play visit</a></li>
+          <li>Enter the code at checkout — the balance comes off your total</li>
+          <li>Partial balances stick around for next time. No expiration.</li>
+        </ul>
+
+        <p style="line-height: 1.6; margin-top: 28px;">Questions? Just reply to this email or call (718) 889-1777.</p>
+
+        <hr style="border: none; border-top: 1px solid #2C4253; opacity: 0.1; margin: 28px 0;">
+        <p style="font-size: 12px; opacity: 0.6;">Wonderland Playhouse · 3830 Nostrand Ave, Brooklyn · (718) 889-1777</p>
+      </div>
+    </div>
+  `;
+
+  return resend().emails.send({
+    from: FROM,
+    to: card.recipient_email,
+    subject: `🎁 ${card.purchaser_name} sent you a Wonderland Playhouse gift card`,
+    html,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Gift card purchaser: payment receipt confirmation
+// ---------------------------------------------------------------------------
+export async function sendGiftCardPurchaserReceipt(card: {
+  code: string;
+  amount_cents: number;
+  purchaser_name: string;
+  purchaser_email: string;
+  recipient_name: string;
+  recipient_email: string;
+}) {
+  const html = `
+    <div style="font-family: Nunito, Helvetica, sans-serif; max-width: 580px; margin: 0 auto; color: #2C4253;">
+      <div style="background: #2C4253; color: white; padding: 32px 24px; border-radius: 16px 16px 0 0;">
+        <h1 style="margin: 0; font-size: 24px;">Gift card sent ✓</h1>
+        <p style="margin: 8px 0 0; opacity: 0.8; font-size: 14px;">${fmtMoney(card.amount_cents)} to ${card.recipient_name}</p>
+      </div>
+      <div style="background: #FFFBF5; padding: 32px 24px; border-radius: 0 0 16px 16px;">
+        <p style="line-height: 1.6;">Hi ${card.purchaser_name.split(' ')[0]},</p>
+        <p style="line-height: 1.6;">Your ${fmtMoney(card.amount_cents)} gift card was sent to <strong>${card.recipient_name}</strong> at ${card.recipient_email}.</p>
+
+        <table style="width: 100%; border-collapse: collapse; margin: 24px 0; font-size: 14px;">
+          <tr><td style="padding: 8px 0; color: #7A8A9A;">Amount</td><td style="padding: 8px 0; text-align: right;">${fmtMoney(card.amount_cents)}</td></tr>
+          <tr><td style="padding: 8px 0; color: #7A8A9A;">Code</td><td style="padding: 8px 0; text-align: right; font-family: monospace;">${card.code}</td></tr>
+          <tr><td style="padding: 8px 0; color: #7A8A9A;">Sent to</td><td style="padding: 8px 0; text-align: right;">${card.recipient_email}</td></tr>
+        </table>
+
+        <p style="line-height: 1.6; font-size: 14px;">Keep this email — if the recipient loses their code, we can look it up from this receipt.</p>
+
+        <hr style="border: none; border-top: 1px solid #2C4253; opacity: 0.1; margin: 24px 0;">
+        <p style="font-size: 12px; opacity: 0.6;">Wonderland Playhouse · (718) 889-1777</p>
+      </div>
+    </div>
+  `;
+
+  return resend().emails.send({
+    from: FROM,
+    to: card.purchaser_email,
+    subject: `Receipt: ${fmtMoney(card.amount_cents)} gift card to ${card.recipient_name}`,
+    html,
+  });
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// ---------------------------------------------------------------------------
 // Owner: someone just paid you
 // ---------------------------------------------------------------------------
 export async function sendOwnerNotification({ subject, party }: { subject: string; party: any }) {
