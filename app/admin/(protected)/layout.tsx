@@ -13,6 +13,7 @@ const baseNav = [
   { href: '/admin/customers', label: 'Customers' },
   { href: '/admin/waivers', label: 'Waivers' },
   { href: '/admin/gift-cards', label: 'Gift Cards' },
+  { href: '/admin/marketing', label: 'Marketing' },
   { href: '/admin/blog', label: 'Blog' },
 ];
 

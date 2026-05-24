@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { unsubscribeUrl } from '@/lib/marketing';
 
 let _resend: Resend | null = null;
 function resend(): Resend {
@@ -395,6 +396,148 @@ export async function sendBalanceInvoiceReady(args: {
     from: FROM,
     to: args.email,
     subject: `Your party balance is ready — ${fmtMoney(args.balance_cents)} due`,
+    html,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Birthday reminder — 12, 8, or 4 weeks out
+// ---------------------------------------------------------------------------
+type BirthdayTouchpoint = '12w' | '8w' | '4w';
+
+const TOUCHPOINT_COPY: Record<
+  BirthdayTouchpoint,
+  { subject: (name: string, age: number) => string; heading: string; body: (firstName: string, childName: string, age: number, dateStr: string) => string; urgency: string }
+> = {
+  '12w': {
+    subject: (n, a) => `${n} turns ${a} soon — let's start planning`,
+    heading: '12 weeks out · plenty of options',
+    body: (first, child, age, date) =>
+      `Hi ${first} — just a heads-up that ${child}'s ${ordinal(age)} birthday is coming up on ${date}. The best dates (weekends, especially Saturday afternoons) tend to book about 6–8 weeks out. If you're thinking about a private party at the Playhouse, this is the easy time to lock in your first-choice date.`,
+    urgency: 'Plenty of weekends still open this far out.',
+  },
+  '8w': {
+    subject: (n, a) => `8 weeks until ${n}'s ${ordinal(a)} — popular dates filling up`,
+    heading: '8 weeks out · time to lock it in',
+    body: (first, child, age, date) =>
+      `Hi ${first} — ${child}'s ${ordinal(age)} birthday is 8 weeks out (${date}). Saturday afternoons are usually gone by this point, but Sundays and Mon–Thu afternoons (Mon–Thu private parties are 20% off) are still open.`,
+    urgency: 'Most Saturdays are taken at this point. Sundays and Mon–Thu still good.',
+  },
+  '4w': {
+    subject: (n, a) => `4 weeks until ${n}'s birthday — last-call planning`,
+    heading: '4 weeks out · let\'s make it happen',
+    body: (first, child, age, date) =>
+      `Hi ${first} — ${child}'s ${ordinal(age)} is in 4 weeks (${date}). Most prime slots are spoken for, but we usually have a few weekday afternoons or evening private slots left. If a venue party isn't in the cards this year, we'd love to host ${child} for an open play visit on the day.`,
+    urgency: 'Weekend slots are basically gone. Weekday afternoons + evenings still good.',
+  },
+};
+
+function ordinal(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return `${n}${s[(v - 20) % 10] ?? s[v] ?? s[0]}`;
+}
+
+export async function sendBirthdayReminder(args: {
+  touchpoint: BirthdayTouchpoint;
+  parent_name: string;
+  parent_email: string;
+  child_name: string;
+  turning_age: number;
+  birthday_date: string; // YYYY-MM-DD
+}) {
+  const tp = TOUCHPOINT_COPY[args.touchpoint];
+  const firstName = args.parent_name.split(' ')[0] || args.parent_name;
+  const niceDate = new Date(args.birthday_date + 'T00:00:00').toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
+  const unsub = unsubscribeUrl(SITE, args.parent_email, 'birthday_reminders');
+
+  const html = `
+    <div style="font-family: Nunito, Helvetica, sans-serif; max-width: 580px; margin: 0 auto; color: #2C4253;">
+      <div style="background: linear-gradient(135deg, #ff7783 0%, #fdda26 100%); color: white; padding: 32px 24px; border-radius: 16px 16px 0 0;">
+        <p style="margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: 3px; opacity: 0.95;">${tp.heading}</p>
+        <h1 style="margin: 10px 0 0; font-size: 28px; line-height: 1.15;">${args.child_name}'s ${ordinal(args.turning_age)} birthday</h1>
+        <p style="margin: 6px 0 0; opacity: 0.95; font-size: 15px;">${niceDate}</p>
+      </div>
+      <div style="background: #FFFBF5; padding: 32px 24px; border-radius: 0 0 16px 16px;">
+        <p style="line-height: 1.6;">${tp.body(firstName, args.child_name, args.turning_age, niceDate)}</p>
+        <p style="line-height: 1.6; font-size: 14px; color: #6B7C8E;">${tp.urgency}</p>
+        <p style="margin: 28px 0;">
+          <a href="${SITE}/parties" style="background: #ff7783; color: white; padding: 14px 28px; border-radius: 999px; text-decoration: none; font-weight: bold;">
+            See party packages →
+          </a>
+        </p>
+        <p style="line-height: 1.6; font-size: 14px;">Prefer to talk it through? <a href="${SITE}/inquire" style="color: #ff7783;">Book a 20-min call</a>.</p>
+        <hr style="border: none; border-top: 1px solid #2C4253; opacity: 0.1; margin: 28px 0;">
+        <p style="font-size: 11px; color: #2C4253; opacity: 0.55; line-height: 1.6;">
+          Wonderland Playhouse · 3830 Nostrand Ave, Brooklyn · (718) 889-1777<br>
+          You're getting this because you booked or signed up with us. <a href="${unsub}" style="color: #2C4253; opacity: 0.7;">Unsubscribe from birthday reminders</a>.
+        </p>
+      </div>
+    </div>
+  `;
+
+  return resend().emails.send({
+    from: FROM,
+    to: args.parent_email,
+    subject: tp.subject(args.child_name, args.turning_age),
+    html,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Generic marketing campaign send (newsletter, promo blast, special event)
+// ---------------------------------------------------------------------------
+export async function sendMarketingCampaign(args: {
+  to: string;
+  to_name: string;
+  subject: string;
+  body_text: string; // raw text from admin; we wrap in branded layout
+  cta_label?: string;
+  cta_href?: string;
+}) {
+  const unsub = unsubscribeUrl(SITE, args.to, 'promotions');
+  const firstName = args.to_name.split(' ')[0] || args.to_name;
+  const paragraphs = args.body_text
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => `<p style="line-height: 1.65; margin: 0 0 16px;">${escapeHtml(p).replace(/\n/g, '<br>')}</p>`)
+    .join('');
+
+  const html = `
+    <div style="font-family: Nunito, Helvetica, sans-serif; max-width: 580px; margin: 0 auto; color: #2C4253;">
+      <div style="background: #ff7783; color: white; padding: 28px 24px; border-radius: 16px 16px 0 0;">
+        <h1 style="margin: 0; font-size: 26px; line-height: 1.15;">${escapeHtml(args.subject)}</h1>
+      </div>
+      <div style="background: #FFFBF5; padding: 32px 24px; border-radius: 0 0 16px 16px;">
+        <p style="line-height: 1.6;">Hi ${escapeHtml(firstName)},</p>
+        ${paragraphs}
+        ${
+          args.cta_label && args.cta_href
+            ? `<p style="margin: 24px 0;">
+                 <a href="${args.cta_href}" style="background: #ff7783; color: white; padding: 14px 28px; border-radius: 999px; text-decoration: none; font-weight: bold;">
+                   ${escapeHtml(args.cta_label)} →
+                 </a>
+               </p>`
+            : ''
+        }
+        <hr style="border: none; border-top: 1px solid #2C4253; opacity: 0.1; margin: 28px 0;">
+        <p style="font-size: 11px; color: #2C4253; opacity: 0.55; line-height: 1.6;">
+          Wonderland Playhouse · 3830 Nostrand Ave, Brooklyn · (718) 889-1777<br>
+          You're on this list because you booked or signed up with us. <a href="${unsub}" style="color: #2C4253; opacity: 0.7;">Unsubscribe</a>.
+        </p>
+      </div>
+    </div>
+  `;
+
+  return resend().emails.send({
+    from: FROM,
+    to: args.to,
+    subject: args.subject,
     html,
   });
 }
