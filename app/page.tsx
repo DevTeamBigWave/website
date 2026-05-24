@@ -116,7 +116,7 @@ function Offerings() {
               </ul>
               <div className="mt-8 flex flex-wrap items-end gap-4">
                 <div>
-                  <p className="font-display text-4xl">$1,250</p>
+                  <p className="font-display text-4xl">$1,250<span className="ml-1 text-base font-normal text-white/80">+ tax</span></p>
                   <p className="text-xs text-white/80">flat rate · 50% deposit holds the date</p>
                 </div>
                 <Link
@@ -143,7 +143,7 @@ function Offerings() {
               <li>• Setup &amp; cleanup</li>
             </ul>
             <div className="mt-6 flex items-end justify-between">
-              <p className="font-display text-3xl text-slate-700">$650</p>
+              <p className="font-display text-3xl text-slate-700">$650<span className="ml-1 text-sm font-normal text-slate-400">+ tax</span></p>
               <Link href="/parties" className="text-sm font-bold text-coral hover:text-coral-700">
                 Book →
               </Link>
@@ -161,7 +161,7 @@ function Offerings() {
               </div>
               <div className="flex flex-wrap items-end gap-4">
                 <div className="text-right">
-                  <p className="font-display text-3xl text-slate-700">$25</p>
+                  <p className="font-display text-3xl text-slate-700">$25<span className="ml-1 text-sm font-normal text-slate-400">+ tax</span></p>
                   <p className="text-xs text-slate-500">per child · 2 hour pass</p>
                 </div>
                 <Link
