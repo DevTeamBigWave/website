@@ -59,7 +59,7 @@ function Hero() {
             <span className="inline-flex items-center justify-center rounded-full bg-sunshine px-2.5 py-1 text-xs font-extrabold text-slate-700">
               20% OFF
             </span>
-            Weekday afternoons — Mon–Thu at 12pm or 2pm →
+            All private parties Mon–Thu →
           </Link>
         </div>
 
@@ -276,9 +276,9 @@ function WeekdaySpecial() {
             20% off weekday private parties.
           </h2>
           <p className="mt-3 max-w-2xl text-slate-700/80">
-            Book your child&rsquo;s private party Mon–Thu at the 12pm or 2pm
-            slot and we&rsquo;ll knock 20% off the rate. Same space, same host,
-            same cake.
+            Book your child&rsquo;s private party any time Mon–Thu and
+            we&rsquo;ll knock 20% off the rate. Same space, same host, same
+            cake.
           </p>
         </div>
         <Link

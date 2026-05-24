@@ -123,7 +123,7 @@ function Packages() {
               $1,250<span className="ml-1 text-base font-normal text-white/80">+ tax</span>
             </p>
             <p className="mt-1 text-xs font-bold uppercase tracking-wider text-sunshine">
-              20% off Mon–Thu afternoons
+              20% off any Mon–Thu
             </p>
 
             <ul className="mt-6 flex-1 space-y-2.5 text-sm font-semibold text-white/95">
@@ -411,8 +411,8 @@ function WeekdayCallout() {
             Save 20% on Mon–Thu private parties.
           </h2>
           <p className="mt-3 max-w-2xl text-slate-700/80">
-            Pick the 12pm or 2pm slot Mon–Thu and the discount is automatic at
-            checkout. Same space, same host, same cake.
+            Any time slot Mon–Thu — the discount is automatic at checkout.
+            Same space, same host, same cake.
           </p>
         </div>
         <Link

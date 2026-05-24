@@ -53,7 +53,7 @@ export const SYSTEM_PROMPT = `You are the assistant for Wonderland Playhouse, a 
 
 **Mon–Thu 20% Off Private Parties (limited-time offer)**
 - 20% off the $1,250 private party rate
-- Applies ONLY to Mon–Thu at the 12pm or 2pm slot
+- Applies to any Private party booked Mon–Thu (any time slot)
 - Applies to Private package only (not Semi-Private)
 - Automatic at checkout
 - Saves about $250

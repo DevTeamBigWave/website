@@ -78,8 +78,7 @@ export function partyTimesFor(packageId: PackageId): readonly string[] {
   return packageId === 'private' ? PRIVATE_PARTY_TIMES : SEMI_PARTY_TIMES;
 }
 
-// 20% off Mon–Thu afternoons. The two qualifying time slots:
-const DISCOUNT_TIMES = ['12:00 PM', '2:00 PM'] as const;
+// 20% off all private parties booked Mon–Thu (any time slot).
 const DISCOUNT_RATE = 0.2;
 
 // NYC sales tax
@@ -116,15 +115,13 @@ export interface PartyPricing {
 }
 
 /**
- * The 20% Mon–Thu afternoon discount rule.
- * Only applies to Private package on Mon-Thu at 12pm or 2pm.
+ * The 20% Mon–Thu discount rule.
+ * Applies to any Private party booked Mon–Thu (any time slot).
  */
 export function isWeekdayAfternoonDiscount(input: PartyPricingInput): boolean {
   if (input.packageId !== 'private') return false;
   const day = input.date.getDay(); // 0=Sun, 1=Mon, ..., 4=Thu, 6=Sat
-  const isMonThu = day >= 1 && day <= 4;
-  const isAfternoonSlot = (DISCOUNT_TIMES as readonly string[]).includes(input.time);
-  return isMonThu && isAfternoonSlot;
+  return day >= 1 && day <= 4;
 }
 
 export function calculatePartyPricing(input: PartyPricingInput): PartyPricing {
