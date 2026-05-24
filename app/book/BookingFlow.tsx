@@ -331,9 +331,15 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                 <p className="text-sm text-slate-500">Loading availability…</p>
               ) : (
                 <>
-                  <p className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Date
-                  </p>
+                  <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Date
+                    </p>
+                    <p className="inline-flex items-center gap-1.5 text-xs text-slate-500">
+                      <span className="inline-block h-2.5 w-2.5 rounded-sm border border-sky-200 bg-sky-50" />
+                      Fri–Sun
+                    </p>
+                  </div>
                   <div className="space-y-6">
                     {daysByMonth.map((group) => (
                       <div key={group.label}>
@@ -344,6 +350,8 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                           {group.days.map((d) => {
                             const selected = date && sameDay(d, date);
                             const blocked = isDayUnavailable(d);
+                            const dow = d.getDay();
+                            const isWeekend = dow === 0 || dow === 5 || dow === 6;
                             return (
                               <button
                                 key={d.toISOString()}
@@ -358,7 +366,9 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                                     ? 'cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300'
                                     : selected
                                       ? 'border-coral bg-coral text-white'
-                                      : 'border-slate-200 bg-white hover:border-slate-400'
+                                      : isWeekend
+                                        ? 'border-sky-200 bg-sky-50 text-slate-700 hover:border-sky-400'
+                                        : 'border-slate-200 bg-white hover:border-slate-400'
                                 }`}
                               >
                                 <p className="text-[10px] uppercase tracking-wider opacity-70">
