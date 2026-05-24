@@ -67,8 +67,11 @@ export function MobileNav({ items: _items }: { items: NavItem[] }) {
             className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
           />
 
-          <div className="absolute inset-x-0 top-0 max-h-[92vh] overflow-y-auto rounded-b-3xl bg-cream p-6 shadow-card">
-            <div className="flex items-center justify-between">
+          <div
+            className="absolute inset-x-0 top-0 flex flex-col rounded-b-3xl bg-cream shadow-card"
+            style={{ maxHeight: '100dvh' }}
+          >
+            <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-none rounded-b-none border-b border-slate-100 bg-cream px-6 pt-6 pb-3">
               <p className="font-display text-lg text-slate-700">Menu</p>
               <button
                 type="button"
@@ -83,7 +86,12 @@ export function MobileNav({ items: _items }: { items: NavItem[] }) {
               </button>
             </div>
 
-            <p className="mt-6 mb-2 text-xs font-bold uppercase tracking-wider text-coral">Book</p>
+            <div
+              className="flex-1 overflow-y-auto px-6 pt-4 pb-6"
+              style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
+            >
+
+            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-coral">Book</p>
             <div className="grid grid-cols-2 gap-2">
               {BOOK_ACTIONS.map((b) => (
                 <Link
@@ -136,6 +144,7 @@ export function MobileNav({ items: _items }: { items: NavItem[] }) {
                 </svg>
                 @wonderlandplayhouseny
               </a>
+            </div>
             </div>
           </div>
         </div>
