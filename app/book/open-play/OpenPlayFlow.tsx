@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { OPEN_PLAY_PRICE_CENTS, calculateOpenPlayPricing, fmt } from '@/lib/pricing';
 import { OPEN_PLAY_HOURS_DISPLAY } from '@/lib/hours';
+import { GiftCardInput } from '@/components/GiftCardInput';
 
 type AvailabilityRow = {
   date: string;
@@ -32,6 +33,7 @@ export function OpenPlayFlow({ cancelled }: { cancelled: boolean }) {
     phone: '',
   });
   const [paymentMethod, setPaymentMethod] = useState<'online' | 'at_door'>('online');
+  const [giftCard, setGiftCard] = useState<{ code: string; balanceCents: number } | null>(null);
 
   const [availability, setAvailability] = useState<AvailabilityRow[]>([]);
   const [loadingAvailability, setLoadingAvailability] = useState(true);
@@ -141,6 +143,7 @@ export function OpenPlayFlow({ cancelled }: { cancelled: boolean }) {
         email: details.email.trim(),
         phone: details.phone.trim(),
         paymentMethod,
+        ...(giftCard && paymentMethod === 'online' ? { giftCardCode: giftCard.code } : {}),
       };
 
       const res = await fetch('/api/checkout/open-play', {
@@ -448,6 +451,14 @@ export function OpenPlayFlow({ cancelled }: { cancelled: boolean }) {
           {/* Submit */}
           {date && (
             <div className="space-y-3">
+              {paymentMethod === 'online' && (
+                <GiftCardInput
+                  appliedCard={giftCard}
+                  onApply={setGiftCard}
+                  onClear={() => setGiftCard(null)}
+                  maxApplyCents={pricing.totalCents}
+                />
+              )}
               {error && (
                 <p className="rounded-xl bg-coral-50 px-4 py-3 text-sm text-coral-700">
                   {error}
@@ -464,7 +475,15 @@ export function OpenPlayFlow({ cancelled }: { cancelled: boolean }) {
                     ? 'Starting checkout…'
                     : 'Reserving…'
                   : paymentMethod === 'online'
-                    ? `Pay ${fmt(pricing.totalCents)} & reserve`
+                    ? (() => {
+                        const credit = giftCard
+                          ? Math.min(giftCard.balanceCents, pricing.totalCents)
+                          : 0;
+                        const owed = Math.max(0, pricing.totalCents - credit);
+                        return owed <= 0
+                          ? `Reserve with gift card`
+                          : `Pay ${fmt(owed)} & reserve`;
+                      })()
                     : `Reserve (pay ${fmt(pricing.totalCents)} at door)`}
               </button>
               <p className="text-xs text-slate-400">

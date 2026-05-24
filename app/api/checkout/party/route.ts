@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { stripe } from '@/lib/stripe';
 import { supabaseAdmin } from '@/lib/supabase';
 import { calculatePartyPricing, PACKAGES, EXTENSIONS, fmt, type PackageId, type ExtensionId } from '@/lib/pricing';
+import { getGiftCardByCode, balanceCents } from '@/lib/gift-cards';
+import { finalizeParty } from '@/lib/finalize-booking';
 
 const PartyCheckoutSchema = z.object({
   packageId: z.enum(['private', 'semi']),
@@ -23,6 +25,7 @@ const PartyCheckoutSchema = z.object({
   childAge: z.coerce.number().int().min(0).max(18).optional(),
   headcount: z.coerce.number().int().min(1).max(40),
   notes: z.string().max(2000).optional(),
+  giftCardCode: z.string().max(40).optional(),
 });
 
 // If a DOB is provided, compute the age the kid is *turning* on the party date.
@@ -137,6 +140,44 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Could not create booking', detail: insertError?.message }, { status: 500 });
   }
 
+  // Gift card lookup (if a code was passed) — applied against the deposit.
+  let giftCardId: string | undefined;
+  let giftCardApplyCents = 0;
+  if (body.giftCardCode) {
+    const card = await getGiftCardByCode(body.giftCardCode);
+    if (!card || card.status !== 'active' || balanceCents(card) <= 0) {
+      return NextResponse.json(
+        { error: 'Invalid or empty gift card code.' },
+        { status: 400 },
+      );
+    }
+    giftCardId = card.id;
+    giftCardApplyCents = Math.min(balanceCents(card), pricing.depositCents);
+  }
+
+  const chargeCents = pricing.depositCents - giftCardApplyCents;
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ?? 'https://wonderlandplayhouse.com';
+
+  // $0 case: gift card covers entire deposit. Skip Stripe, confirm immediately.
+  if (chargeCents <= 0) {
+    await finalizeParty(party.id, {
+      giftCardId,
+      giftCardApplyCents,
+    });
+    return NextResponse.json({
+      url: `${siteUrl}/book/confirm?party_id=${party.id}&gift=1`,
+      partyId: party.id,
+    });
+  }
+
+  // Stripe minimum is $0.50 — if the remainder is below that, top up the card
+  // redemption back to allow Stripe to charge $0.50 minimum.
+  if (chargeCents > 0 && chargeCents < 50) {
+    giftCardApplyCents = Math.max(0, giftCardApplyCents - (50 - chargeCents));
+  }
+  const finalChargeCents = pricing.depositCents - giftCardApplyCents;
+
   // Create Stripe checkout session
   const pkg = PACKAGES[body.packageId as PackageId];
   const ageTurning = computeAgeTurning(body.childDob, date, body.childAge);
@@ -145,6 +186,7 @@ export async function POST(request: Request) {
     new Date(body.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
     body.time,
     pricing.discountApplied ? `20% Mon–Thu discount applied (saved ${fmt(pricing.discountCents)})` : null,
+    giftCardApplyCents > 0 ? `Gift card applied (saved ${fmt(giftCardApplyCents)})` : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -158,7 +200,7 @@ export async function POST(request: Request) {
         quantity: 1,
         price_data: {
           currency: 'usd',
-          unit_amount: pricing.depositCents,
+          unit_amount: finalChargeCents,
           product_data: {
             name: `Deposit · ${lineItemName}`,
             description,
@@ -169,9 +211,10 @@ export async function POST(request: Request) {
     metadata: {
       party_id: party.id,
       type: 'party_deposit',
+      ...(giftCardId ? { gift_card_id: giftCardId, gift_card_apply_cents: String(giftCardApplyCents) } : {}),
     },
-    success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/book/confirm?party_id=${party.id}&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/book?cancelled=true`,
+    success_url: `${siteUrl}/book/confirm?party_id=${party.id}&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${siteUrl}/book?cancelled=true`,
     expires_at: Math.floor(Date.now() / 1000) + 30 * 60, // 30min
   });
 

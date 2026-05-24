@@ -1,17 +1,13 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
-import { revalidatePath } from 'next/cache';
 import Stripe from 'stripe';
 import { stripe } from '@/lib/stripe';
 import { supabaseAdmin } from '@/lib/supabase';
 import {
-  sendPartyConfirmation,
-  sendOpenPlayConfirmation,
-  sendOwnerNotification,
   sendGiftCardToRecipient,
   sendGiftCardPurchaserReceipt,
 } from '@/lib/email';
-import { createPartyEvent } from '@/lib/google-calendar';
+import { finalizeParty, finalizeOpenPlay } from '@/lib/finalize-booking';
 
 // Stripe sends raw bodies — App Router gives us req.text() which preserves them
 export async function POST(request: Request) {
@@ -41,57 +37,17 @@ export async function POST(request: Request) {
         const partyId = session.metadata?.party_id;
         if (!partyId) break;
 
-        // FLIP TO CONFIRMED — this fires the postgres trigger that blocks the date
-        const { data: party, error } = await supabase
-          .from('parties')
-          .update({
-            status: 'confirmed',
-            deposit_paid_at: new Date().toISOString(),
-            stripe_deposit_payment_intent: session.payment_intent as string,
-            hold_expires_at: null,
-          })
-          .eq('id', partyId)
-          .select()
-          .single();
+        const giftCardId = session.metadata?.gift_card_id;
+        const giftCardApplyCents = session.metadata?.gift_card_apply_cents
+          ? parseInt(session.metadata.gift_card_apply_cents, 10)
+          : undefined;
 
-        if (error || !party) {
-          console.error('Could not confirm party:', error);
-          break;
-        }
-
-        // Bust the availability cache so the next visitor sees the block immediately
-        revalidatePath('/api/availability');
-        revalidatePath('/book');
-        revalidatePath('/');
-
-        // Fire emails + create Google Calendar event in parallel (non-blocking —
-        // don't fail the webhook if any side-effect fails)
-        const siteUrl =
-          process.env.NEXT_PUBLIC_SITE_URL ??
-          'https://website-production-4594.up.railway.app';
-
-        const [, , calendarResult] = await Promise.allSettled([
-          sendPartyConfirmation(party),
-          sendOwnerNotification({
-            subject: `🎉 New party booked: ${party.child_name}'s ${party.package} party`,
-            party,
-          }),
-          createPartyEvent(party, siteUrl),
-        ]);
-
-        // If calendar event was created, save its ID on the party row so we
-        // can delete it later on cancellation
-        if (
-          calendarResult.status === 'fulfilled' &&
-          calendarResult.value
-        ) {
-          await supabase
-            .from('parties')
-            .update({ google_calendar_event_id: calendarResult.value })
-            .eq('id', party.id);
-        } else if (calendarResult.status === 'rejected') {
-          console.error('Calendar event creation failed:', calendarResult.reason);
-        }
+        await finalizeParty(partyId, {
+          paymentIntent: session.payment_intent as string,
+          giftCardId,
+          giftCardApplyCents,
+          stripeSessionId: session.id,
+        });
       }
 
       if (type === 'gift_card') {
@@ -137,20 +93,17 @@ export async function POST(request: Request) {
         const ticketId = session.metadata?.open_play_id;
         if (!ticketId) break;
 
-        const { data: ticket } = await supabase
-          .from('open_play')
-          .update({
-            status: 'paid',
-            paid_at: new Date().toISOString(),
-            stripe_payment_intent: session.payment_intent as string,
-          })
-          .eq('id', ticketId)
-          .select()
-          .single();
+        const giftCardId = session.metadata?.gift_card_id;
+        const giftCardApplyCents = session.metadata?.gift_card_apply_cents
+          ? parseInt(session.metadata.gift_card_apply_cents, 10)
+          : undefined;
 
-        if (ticket) {
-          await sendOpenPlayConfirmation(ticket);
-        }
+        await finalizeOpenPlay(ticketId, {
+          paymentIntent: session.payment_intent as string,
+          giftCardId,
+          giftCardApplyCents,
+          stripeSessionId: session.id,
+        });
       }
       break;
     }

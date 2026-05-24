@@ -11,6 +11,7 @@ import {
   type PackageId,
   type ExtensionId,
 } from '@/lib/pricing';
+import { GiftCardInput } from '@/components/GiftCardInput';
 
 type AvailabilityRow = {
   date: string;
@@ -56,6 +57,7 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
   const [loadingAvailability, setLoadingAvailability] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [giftCard, setGiftCard] = useState<{ code: string; balanceCents: number } | null>(null);
 
   useEffect(() => {
     let stop = false;
@@ -203,6 +205,7 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
           .filter(Boolean)
           .join('\n\n')
           .slice(0, 2000),
+        ...(giftCard ? { giftCardCode: giftCard.code } : {}),
       };
 
       const res = await fetch('/api/checkout/party', {
@@ -540,6 +543,14 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
           {/* Submit */}
           {packageId && date && time && (
             <div className="space-y-3">
+              {pricing && (
+                <GiftCardInput
+                  appliedCard={giftCard}
+                  onApply={setGiftCard}
+                  onClear={() => setGiftCard(null)}
+                  maxApplyCents={pricing.depositCents}
+                />
+              )}
               {error && (
                 <p className="rounded-xl bg-coral-50 px-4 py-3 text-sm text-coral-700">
                   {error}
@@ -554,7 +565,15 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                 {submitting
                   ? 'Starting checkout…'
                   : pricing
-                    ? `Pay ${fmt(pricing.depositCents)} deposit & lock the date`
+                    ? (() => {
+                        const credit = giftCard
+                          ? Math.min(giftCard.balanceCents, pricing.depositCents)
+                          : 0;
+                        const owed = pricing.depositCents - credit;
+                        return owed <= 0
+                          ? `Confirm with gift card · lock the date`
+                          : `Pay ${fmt(owed)} deposit & lock the date`;
+                      })()
                     : 'Complete the form to continue'}
               </button>
               <p className="text-xs text-slate-400">
@@ -611,10 +630,25 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                   <span className="text-sm text-white/85">Total</span>
                   <span className="font-display text-2xl">{fmt(pricing.totalCents)}</span>
                 </div>
+                {giftCard && (
+                  <Row
+                    label="Gift card"
+                    value={`−${fmt(Math.min(giftCard.balanceCents, pricing.depositCents))}`}
+                    accent
+                  />
+                )}
                 <div className="flex items-baseline justify-between">
-                  <span className="text-sm text-sunshine">Deposit today</span>
+                  <span className="text-sm text-sunshine">Due today</span>
                   <span className="font-display text-3xl text-sunshine">
-                    {fmt(pricing.depositCents)}
+                    {fmt(
+                      Math.max(
+                        0,
+                        pricing.depositCents -
+                          (giftCard
+                            ? Math.min(giftCard.balanceCents, pricing.depositCents)
+                            : 0),
+                      ),
+                    )}
                   </span>
                 </div>
                 <p className="text-xs text-white/60">
