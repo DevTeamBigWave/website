@@ -50,10 +50,18 @@ export default async function ProtectedAdminLayout({
               ))}
             </nav>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <span className="hidden text-sm text-slate-500 sm:inline">
               {me.displayName ?? me.email}
             </span>
+            <Link
+              href="/"
+              target="_blank"
+              rel="noopener"
+              className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-coral hover:text-coral"
+            >
+              View site ↗
+            </Link>
             <form action="/admin/auth/signout" method="post">
               <button
                 type="submit"
