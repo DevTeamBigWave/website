@@ -129,8 +129,8 @@ function WhatWeOffer() {
           <Offer
             label="Semi-Private Party"
             price="$650"
-            note="shared with 1–2 families · set time slots"
-            blurb="Your party, shared with 1–2 other families. Same host, same care, smaller commitment."
+            note="dedicated party room · 1pm or 3pm start"
+            blurb="Your party gets the dedicated party room. Open play continues in the rest of the venue."
             href="/parties"
             cta="Book semi-private"
             tone="slate"

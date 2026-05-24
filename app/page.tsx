@@ -132,12 +132,13 @@ function Offerings() {
           <div className="flex flex-col rounded-3xl border border-slate-100 bg-white p-7 shadow-card md:col-span-2">
             <h3 className="font-display text-2xl text-slate-700">Semi-Private</h3>
             <p className="mt-2 text-sm text-slate-500">
-              Your party, shared with 1–2 other families in the space.
+              Your dedicated party room. Open play continues in the rest of
+              the venue.
             </p>
             <ul className="mt-5 flex-1 space-y-1.5 text-sm text-slate-600">
               <li>• 10 kids + birthday child included</li>
               <li>• $25 per extra kid (up to 40 total)</li>
-              <li>• 2 hours, set time slots</li>
+              <li>• 2 hours, set start times (1pm or 3pm)</li>
               <li>• Dedicated party host</li>
               <li>• Setup &amp; cleanup</li>
             </ul>
