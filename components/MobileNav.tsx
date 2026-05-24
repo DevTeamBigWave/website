@@ -6,16 +6,33 @@ import Link from 'next/link';
 
 type NavItem = { href: string; label: string };
 
-export function MobileNav({ items }: { items: NavItem[] }) {
+const BOOK_ACTIONS: Array<{ href: string; label: string; sub: string; emoji: string }> = [
+  { href: '/book', label: 'Book a Party', sub: 'Semi-private or private', emoji: '🎉' },
+  { href: '/book/open-play', label: 'Book Open Play', sub: '$25/kid · 12–7pm daily', emoji: '🎈' },
+  { href: '/tour', label: 'Free Tour', sub: '30-min in-person walkthrough', emoji: '👀' },
+  { href: '/inquire', label: 'Book a Call', sub: '20-min, talk it through', emoji: '📞' },
+];
+
+const PAGES: Array<{ href: string; label: string }> = [
+  { href: '/parties', label: 'Parties' },
+  { href: '/memberships', label: 'Memberships' },
+  { href: '/gift-cards', label: 'Gift Cards' },
+  { href: '/blog', label: 'Blog' },
+  { href: '/about', label: 'About' },
+];
+
+const INSTAGRAM_URL = 'https://www.instagram.com/wonderlandplayhouseny';
+const DIRECTIONS_URL =
+  'https://www.google.com/maps/dir/?api=1&destination=Wonderland+Playhouse,+3830+Nostrand+Ave,+Brooklyn,+NY+11235';
+
+export function MobileNav({ items: _items }: { items: NavItem[] }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
-  // Close the panel whenever the route changes
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
 
-  // Prevent body scroll when the menu is open
   useEffect(() => {
     if (open) {
       const original = document.body.style.overflow;
@@ -34,17 +51,7 @@ export function MobileNav({ items }: { items: NavItem[] }) {
         aria-label="Open menu"
         className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:border-coral hover:text-coral lg:hidden"
       >
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.4"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden
-        >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <line x1="4" y1="7" x2="20" y2="7" />
           <line x1="4" y1="12" x2="20" y2="12" />
           <line x1="4" y1="17" x2="20" y2="17" />
@@ -53,7 +60,6 @@ export function MobileNav({ items }: { items: NavItem[] }) {
 
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          {/* Backdrop */}
           <button
             type="button"
             aria-label="Close menu"
@@ -61,8 +67,7 @@ export function MobileNav({ items }: { items: NavItem[] }) {
             className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
           />
 
-          {/* Panel */}
-          <div className="absolute inset-x-0 top-0 rounded-b-3xl bg-cream p-6 shadow-card">
+          <div className="absolute inset-x-0 top-0 max-h-[92vh] overflow-y-auto rounded-b-3xl bg-cream p-6 shadow-card">
             <div className="flex items-center justify-between">
               <p className="font-display text-lg text-slate-700">Menu</p>
               <button
@@ -71,49 +76,66 @@ export function MobileNav({ items }: { items: NavItem[] }) {
                 aria-label="Close menu"
                 className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-coral hover:text-coral"
               >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden
-                >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
               </button>
             </div>
 
-            <nav className="mt-6 flex flex-col gap-1">
-              {items.map((item) => (
+            <p className="mt-6 mb-2 text-xs font-bold uppercase tracking-wider text-coral">Book</p>
+            <div className="grid grid-cols-2 gap-2">
+              {BOOK_ACTIONS.map((b) => (
+                <Link
+                  key={b.href}
+                  href={b.href}
+                  className="flex flex-col rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left transition hover:border-coral hover:shadow-card"
+                >
+                  <span className="text-lg" aria-hidden>{b.emoji}</span>
+                  <span className="mt-1 text-sm font-bold text-slate-700">{b.label}</span>
+                  <span className="text-xs text-slate-400">{b.sub}</span>
+                </Link>
+              ))}
+            </div>
+
+            <p className="mt-6 mb-2 text-xs font-bold uppercase tracking-wider text-coral">Explore</p>
+            <nav className="flex flex-col gap-0.5">
+              {PAGES.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="rounded-2xl px-4 py-3 text-lg font-semibold text-slate-700 transition hover:bg-white hover:text-coral"
+                  className="rounded-xl px-3 py-2.5 text-base font-semibold text-slate-700 transition hover:bg-white hover:text-coral"
                 >
                   {item.label}
                 </Link>
               ))}
             </nav>
 
-            <Link
-              href="/parties"
-              className="mt-6 flex items-center justify-center rounded-full bg-coral px-6 py-3 text-base font-bold text-white shadow-playful transition hover:bg-coral-600"
-            >
-              Book a Party
-            </Link>
-
-            <div className="mt-6 space-y-1 border-t border-slate-100 pt-5 text-sm text-slate-500">
-              <p>3830 Nostrand Ave, Brooklyn</p>
-              <p>
-                <a href="tel:+17188891777" className="hover:text-coral">
-                  (718) 889-1777
-                </a>
-              </p>
+            <p className="mt-6 mb-2 text-xs font-bold uppercase tracking-wider text-coral">Visit + reach us</p>
+            <div className="space-y-1.5 text-sm text-slate-600">
+              <p>3830 Nostrand Ave, Brooklyn NY 11235</p>
+              <a href={DIRECTIONS_URL} target="_blank" rel="noopener noreferrer" className="block text-coral hover:text-coral-700">
+                Get directions →
+              </a>
+              <a href="tel:+17188891777" className="block hover:text-coral">
+                (718) 889-1777
+              </a>
+              <a href="mailto:info@wonderlandplayhouse.com" className="block hover:text-coral">
+                info@wonderlandplayhouse.com
+              </a>
+              <a
+                href={INSTAGRAM_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 pt-1 text-coral hover:text-coral-700"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+                  <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                  <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+                </svg>
+                @wonderlandplayhouseny
+              </a>
             </div>
           </div>
         </div>
@@ -121,3 +143,4 @@ export function MobileNav({ items }: { items: NavItem[] }) {
     </>
   );
 }
+
