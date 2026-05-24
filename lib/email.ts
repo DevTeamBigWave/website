@@ -298,6 +298,108 @@ function escapeHtml(s: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Customer: planning call invite (sent from admin after deposit)
+// ---------------------------------------------------------------------------
+export async function sendPartyPlanningCallInvite(party: {
+  parent_name: string;
+  email: string;
+  child_name: string | null;
+  date: string;
+}) {
+  const firstName = party.parent_name.split(' ')[0];
+  const html = `
+    <div style="font-family: Nunito, Helvetica, sans-serif; max-width: 580px; margin: 0 auto; color: #2C4253;">
+      <div style="background: #ff7783; color: white; padding: 32px 24px; border-radius: 16px 16px 0 0;">
+        <h1 style="margin: 0; font-size: 26px;">Let's plan the details.</h1>
+        <p style="margin: 8px 0 0; opacity: 0.9; font-size: 14px;">${party.child_name ?? 'Your'} party · ${fmtDate(party.date)}</p>
+      </div>
+      <div style="background: #FFFBF5; padding: 32px 24px; border-radius: 0 0 16px 16px;">
+        <p style="line-height: 1.6;">Hi ${firstName},</p>
+        <p style="line-height: 1.6;">Your deposit is in and the date is locked. Now the fun part — let's lock in the theme, cake, food, entertainment, and any other add-ons.</p>
+        <p style="line-height: 1.6;">Grab a 30-minute slot that works for you:</p>
+        <p style="margin: 24px 0;">
+          <a href="${SITE}/inquire" style="background: #ff7783; color: white; padding: 14px 28px; border-radius: 999px; text-decoration: none; font-weight: bold;">
+            Schedule planning call →
+          </a>
+        </p>
+        <p style="line-height: 1.6; font-size: 14px; color: #6B7C8E;">Prefer to chat by text? Reply to this email or call (718) 889-1777.</p>
+        <hr style="border: none; border-top: 1px solid #2C4253; opacity: 0.1; margin: 24px 0;">
+        <p style="font-size: 12px; opacity: 0.6;">Wonderland Playhouse · 3830 Nostrand Ave, Brooklyn · (718) 889-1777</p>
+      </div>
+    </div>
+  `;
+  return resend().emails.send({
+    from: FROM,
+    to: party.email,
+    subject: `Let's plan ${party.child_name ?? 'the'} party — schedule a quick call`,
+    html,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Customer: balance invoice ready (admin sends from /admin/parties/[id])
+// ---------------------------------------------------------------------------
+export async function sendBalanceInvoiceReady(args: {
+  parent_name: string;
+  email: string;
+  child_name: string | null;
+  date: string;
+  balance_cents: number;
+  hosted_invoice_url: string;
+  add_ons: Array<{ name: string; qty: number; unit_price_cents: number }>;
+}) {
+  const firstName = args.parent_name.split(' ')[0];
+  const addOnsHtml = args.add_ons.length
+    ? `
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px;">
+          <tr><th colspan="2" style="text-align: left; padding: 8px 0; border-bottom: 1px solid #E5E5E5; color: #7A8A9A; font-weight: bold;">Add-ons</th></tr>
+          ${args.add_ons
+            .map(
+              (a) => `
+                <tr>
+                  <td style="padding: 6px 0; color: #2C4253;">${a.name}${a.qty > 1 ? ` × ${a.qty}` : ''}</td>
+                  <td style="padding: 6px 0; text-align: right; color: #2C4253;">${fmtMoney(a.unit_price_cents * a.qty)}</td>
+                </tr>`,
+            )
+            .join('')}
+        </table>`
+    : '';
+
+  const html = `
+    <div style="font-family: Nunito, Helvetica, sans-serif; max-width: 580px; margin: 0 auto; color: #2C4253;">
+      <div style="background: #50758f; color: white; padding: 32px 24px; border-radius: 16px 16px 0 0;">
+        <h1 style="margin: 0; font-size: 24px;">Your party balance is ready.</h1>
+        <p style="margin: 8px 0 0; opacity: 0.85; font-size: 14px;">${args.child_name ?? 'Birthday'} party · ${fmtDate(args.date)}</p>
+      </div>
+      <div style="background: #FFFBF5; padding: 32px 24px; border-radius: 0 0 16px 16px;">
+        <p style="line-height: 1.6;">Hi ${firstName},</p>
+        <p style="line-height: 1.6;">Here's the final invoice with everything we&rsquo;ve put together for the party. The deposit is already credited.</p>
+        ${addOnsHtml}
+        <div style="background: #FFF4F5; padding: 20px; border-radius: 12px; text-align: center; margin: 24px 0;">
+          <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 2px; color: #ff7783; font-weight: bold;">Balance due</div>
+          <div style="font-size: 36px; font-weight: bold; color: #2C4253; margin-top: 8px;">${fmtMoney(args.balance_cents)}</div>
+        </div>
+        <p style="margin: 24px 0;">
+          <a href="${args.hosted_invoice_url}" style="background: #ff7783; color: white; padding: 14px 28px; border-radius: 999px; text-decoration: none; font-weight: bold;">
+            View &amp; pay invoice →
+          </a>
+        </p>
+        <p style="line-height: 1.6; font-size: 14px;">Pay securely via Stripe. Card or bank transfer. Due 7 days before the party — pay any time before that.</p>
+        <p style="line-height: 1.6; font-size: 14px;">Questions? Reply to this email or call (718) 889-1777.</p>
+        <hr style="border: none; border-top: 1px solid #2C4253; opacity: 0.1; margin: 24px 0;">
+        <p style="font-size: 12px; opacity: 0.6;">Wonderland Playhouse · 3830 Nostrand Ave, Brooklyn · (718) 889-1777</p>
+      </div>
+    </div>
+  `;
+  return resend().emails.send({
+    from: FROM,
+    to: args.email,
+    subject: `Your party balance is ready — ${fmtMoney(args.balance_cents)} due`,
+    html,
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Owner: someone just paid you
 // ---------------------------------------------------------------------------
 export async function sendOwnerNotification({ subject, party }: { subject: string; party: any }) {

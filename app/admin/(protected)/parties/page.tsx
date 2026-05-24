@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { supabaseAdmin } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
@@ -78,28 +79,40 @@ export default async function AdminPartiesPage({
                 </tr>
               )}
               {rows.map((p) => (
-                <tr key={p.id} className="hover:bg-slate-50">
+                <tr key={p.id} className="cursor-pointer hover:bg-slate-50">
                   <td className="px-4 py-3">
-                    <div className="font-semibold">{fmtDate(p.date)}</div>
-                    <div className="text-xs text-slate-500">{fmtTime(p.start_time)}</div>
+                    <Link href={`/admin/parties/${p.id}`} className="block">
+                      <div className="font-semibold text-slate-700">{fmtDate(p.date)}</div>
+                      <div className="text-xs text-slate-500">{fmtTime(p.start_time)}</div>
+                    </Link>
                   </td>
-                  <td className="px-4 py-3 capitalize">{p.package}</td>
-                  <td className="px-4 py-3">
-                    {p.child_name ?? '—'}
-                    {p.child_age != null && (
-                      <span className="ml-1 text-xs text-slate-400">turning {p.child_age}</span>
-                    )}
+                  <td className="px-4 py-3 capitalize">
+                    <Link href={`/admin/parties/${p.id}`} className="block">{p.package}</Link>
                   </td>
                   <td className="px-4 py-3">
-                    <div>{p.parent_name}</div>
-                    <div className="text-xs text-slate-500">{p.email}</div>
+                    <Link href={`/admin/parties/${p.id}`} className="block">
+                      {p.child_name ?? '—'}
+                      {p.child_age != null && (
+                        <span className="ml-1 text-xs text-slate-400">turning {p.child_age}</span>
+                      )}
+                    </Link>
                   </td>
-                  <td className="px-4 py-3">{p.headcount}</td>
                   <td className="px-4 py-3">
-                    <StatusPill status={p.status} />
+                    <Link href={`/admin/parties/${p.id}`} className="block">
+                      <div>{p.parent_name}</div>
+                      <div className="text-xs text-slate-500">{p.email}</div>
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Link href={`/admin/parties/${p.id}`} className="block">{p.headcount}</Link>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Link href={`/admin/parties/${p.id}`} className="block">
+                      <StatusPill status={p.status} />
+                    </Link>
                   </td>
                   <td className="px-4 py-3 text-right font-display text-base">
-                    {fmtMoney(p.total_cents)}
+                    <Link href={`/admin/parties/${p.id}`} className="block">{fmtMoney(p.total_cents)}</Link>
                   </td>
                 </tr>
               ))}

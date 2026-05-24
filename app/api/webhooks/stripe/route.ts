@@ -130,6 +130,28 @@ export async function POST(request: Request) {
       break;
     }
 
+    case 'invoice.paid': {
+      const invoice = event.data.object as Stripe.Invoice;
+      const partyId = invoice.metadata?.party_id;
+      const type = invoice.metadata?.type;
+      if (type === 'party_balance' && partyId) {
+        await supabase
+          .from('parties')
+          .update({
+            balance_paid_at: new Date().toISOString(),
+            balance_paid_amount_cents: invoice.amount_paid,
+          })
+          .eq('id', partyId);
+      }
+      break;
+    }
+
+    case 'invoice.payment_failed': {
+      const invoice = event.data.object as Stripe.Invoice;
+      console.warn('Invoice payment failed:', invoice.id, invoice.metadata);
+      break;
+    }
+
     case 'charge.refunded': {
       // Surface in admin only — don't auto-cancel since refunds can be partial
       console.log('Charge refunded:', event.data.object);
