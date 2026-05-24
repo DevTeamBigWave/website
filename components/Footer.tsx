@@ -73,6 +73,7 @@ export function Footer() {
             <li><Link href="/gift-cards" className="hover:text-sunshine">Gift Cards</Link></li>
             <li><Link href="/about" className="hover:text-sunshine">About</Link></li>
             <li><Link href="/blog" className="hover:text-sunshine">Blog</Link></li>
+            <li><Link href="/waiver" className="hover:text-sunshine">Waiver</Link></li>
           </ul>
         </div>
       </div>

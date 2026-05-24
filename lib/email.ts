@@ -48,7 +48,7 @@ export async function sendPartyConfirmation(party: any) {
           <tr><td style="padding: 8px 0; color: #7A5A3F;">Balance due ${fmtDate(balanceDueDate)}</td><td style="padding: 8px 0; text-align: right;"><strong>${fmtMoney(balance)}</strong></td></tr>
         </table>
 
-        <p style="line-height: 1.6;"><strong>Before the day:</strong> please have everyone in your group sign the waiver. <a href="${SITE}/waiver" style="color: #C66B3D;">Sign here</a>.</p>
+        <p style="line-height: 1.6;"><strong>Before the day:</strong> sign the waiver once and you&rsquo;re covered for the year. <a href="${SITE}/waiver?email=${encodeURIComponent(party.email)}" style="color: #C66B3D;">Sign here →</a> Share the same link with your guests.</p>
         <p style="line-height: 1.6;"><strong>Want to plan details?</strong> <a href="${SITE}/plan-call" style="color: #C66B3D;">Book a 15-minute call</a> any time before the party.</p>
 
         <hr style="border: none; border-top: 1px solid #1F1B16; opacity: 0.1; margin: 24px 0;">
@@ -85,7 +85,7 @@ export async function sendOpenPlayConfirmation(ticket: any) {
           <div style="font-size: 32px; font-weight: bold; letter-spacing: 4px; margin-top: 8px;">${ticket.ticket_code.toUpperCase()}</div>
         </div>
         <p style="line-height: 1.6; font-size: 14px;">Arrive any time during open hours. Stay up to 2 hours. Grip socks required (we sell them at the door if you forget).</p>
-        <p style="line-height: 1.6; font-size: 14px;">Save time at check-in: <a href="${SITE}/waiver?code=${ticket.ticket_code}" style="color: #C66B3D;">sign your waiver now</a>.</p>
+        <p style="line-height: 1.6; font-size: 14px;">Save time at check-in: <a href="${SITE}/waiver?email=${encodeURIComponent(ticket.email)}" style="color: #C66B3D;">sign your waiver now</a> — once a year covers every visit.</p>
         <hr style="border: none; border-top: 1px solid #1F1B16; opacity: 0.1; margin: 24px 0;">
         <p style="font-size: 12px; color: #1F1B16; opacity: 0.6;">3830 Nostrand Ave, Brooklyn · (718) 889-1777</p>
       </div>
@@ -123,7 +123,7 @@ export async function sendPartySevenDayReminder(party: any) {
 
         <p style="line-height: 1.6;"><strong>Before the day:</strong></p>
         <ul style="line-height: 1.8;">
-          <li>Have all your guests sign the waiver: <a href="${SITE}/waiver" style="color: #ff7783;">Sign here</a></li>
+          <li>Share the waiver link with your guests: <a href="${SITE}/waiver" style="color: #ff7783;">${SITE}/waiver</a> — they sign once for the whole year</li>
           <li>Confirm your add-ons (decor, food, entertainment) with us if you haven't yet</li>
           <li>Grip socks required for kids and adults — we have them at the door if anyone forgets</li>
         </ul>
