@@ -161,7 +161,7 @@ export async function sendPartyTwentyFourHourReminder(party: any) {
         <ul style="line-height: 1.8;">
           <li><strong>Time:</strong> ${party.start_time}</li>
           <li><strong>Headcount:</strong> ${party.headcount} kids</li>
-          <li><strong>Address:</strong> 3830 Nostrand Ave, Brooklyn — free street parking</li>
+          <li><strong>Address:</strong> 3830 Nostrand Ave, Brooklyn</li>
           <li><strong>Grip socks required</strong> — we sell them at the door if you forget</li>
           <li><strong>Arrive ~10 min early</strong> so we can get you set up</li>
         </ul>
