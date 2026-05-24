@@ -2,9 +2,9 @@ import Image from 'next/image';
 import Link from 'next/link';
 
 const MAPS_EMBED_URL =
-  'https://www.google.com/maps?q=3830+Nostrand+Ave,+Brooklyn,+NY+11235&output=embed';
+  'https://www.google.com/maps?q=Wonderland+Playhouse,+3830+Nostrand+Ave,+Brooklyn,+NY+11235&output=embed';
 const MAPS_DIRECTIONS_URL =
-  'https://www.google.com/maps/dir/?api=1&destination=3830+Nostrand+Ave,+Brooklyn,+NY+11235';
+  'https://www.google.com/maps/dir/?api=1&destination=Wonderland+Playhouse,+3830+Nostrand+Ave,+Brooklyn,+NY+11235';
 const INSTAGRAM_URL = 'https://www.instagram.com/wonderlandplayhouseny';
 
 export function Footer() {
