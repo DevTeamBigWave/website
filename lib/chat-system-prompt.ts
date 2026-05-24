@@ -46,7 +46,7 @@ export const SYSTEM_PROMPT = `You are the assistant for Wonderland Playhouse, a 
 - $650 + tax flat rate
 - Headcount: 10 children + the birthday child included. Each additional child is $25. Hard cap at 40 total kids.
 - 2 hours of play
-- Two slots only: 1–3pm OR 2–4pm
+- Two non-overlapping start times: 1pm or 3pm (each runs 2 hours)
 - Dedicated party host
 - Setup and cleanup included
 - Shared with another family in the same slot
