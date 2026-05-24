@@ -46,7 +46,7 @@ export const SYSTEM_PROMPT = `You are the assistant for Wonderland Playhouse, a 
 - $650 + tax flat rate
 - Headcount: 10 children + the birthday child included. Each additional child is $25. Hard cap at 40 total kids.
 - 2 hours in the dedicated party room
-- Two non-overlapping start times: 1pm or 3pm (each runs 2 hours)
+- Two 2-hour time slot options: 1–3pm or 2–4pm (only one semi runs per day)
 - Dedicated party host
 - Setup and cleanup included
 - IMPORTANT framing: the party ROOM is fully yours, but the rest of the venue stays open to drop-in open play visitors during the party. So there will be other kids (not in your party) playing elsewhere in the space. Birthday guests can use the open-play area too, but it won't be exclusive. If they want the whole venue closed to the public, they need Private.

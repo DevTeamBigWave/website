@@ -94,7 +94,7 @@ function Packages() {
               <Bullet>2 hours in the dedicated party room</Bullet>
               <Bullet>Dedicated party host</Bullet>
               <Bullet>Setup &amp; cleanup</Bullet>
-              <Bullet>Start at 1pm or 3pm</Bullet>
+              <Bullet>1–3pm or 2–4pm</Bullet>
               <Bullet>Open play continues in the rest of the venue</Bullet>
             </ul>
 
@@ -190,7 +190,7 @@ function Difference() {
             <tbody className="divide-y divide-slate-100 text-slate-600">
               <CompareRow label="Party room" semi="Yours (dedicated)" priv="Yours (dedicated)" />
               <CompareRow label="Rest of venue" semi="Open play continues" priv="Closed to the public — yours" />
-              <CompareRow label="Start times" semi="1pm or 3pm" priv="10am, 12pm, 2pm, 4pm, 6pm (negotiable)" />
+              <CompareRow label="Time slots" semi="1–3pm or 2–4pm" priv="10am, 12pm, 2pm, 4pm, 6pm (negotiable)" />
               <CompareRow label="Included headcount" semi="10 + birthday child" priv="15 + birthday child" />
               <CompareRow label="Extra child" semi="$25 each" priv="$25 each" />
               <CompareRow label="Max children" semi="40" priv="40" />

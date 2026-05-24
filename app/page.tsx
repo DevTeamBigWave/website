@@ -138,7 +138,7 @@ function Offerings() {
             <ul className="mt-5 flex-1 space-y-1.5 text-sm text-slate-600">
               <li>• 10 kids + birthday child included</li>
               <li>• $25 per extra kid (up to 40 total)</li>
-              <li>• 2 hours, set start times (1pm or 3pm)</li>
+              <li>• 2 hours: 1–3pm or 2–4pm</li>
               <li>• Dedicated party host</li>
               <li>• Setup &amp; cleanup</li>
             </ul>

@@ -62,7 +62,7 @@ export function getExtensionPriceCents(
 // Time slots are different by package:
 // - Private: 2-hour slots starting at 10am, 12pm, 2pm, 4pm, 6pm — standard
 //   defaults, but anything is negotiable (parents should call for off-slot times)
-// - Semi-Private: two non-overlapping 2-hour slots starting at 1pm or 3pm
+// - Semi-Private: two 2-hour slot options — 1–3pm or 2–4pm (only one runs per day)
 export const PRIVATE_PARTY_TIMES = [
   '10:00 AM',
   '12:00 PM',
@@ -70,7 +70,7 @@ export const PRIVATE_PARTY_TIMES = [
   '4:00 PM',
   '6:00 PM',
 ] as const;
-export const SEMI_PARTY_TIMES = ['1:00 PM', '3:00 PM'] as const;
+export const SEMI_PARTY_TIMES = ['1:00 PM', '2:00 PM'] as const;
 
 // Legacy compat — defaults to private slot list
 export const PARTY_TIMES = PRIVATE_PARTY_TIMES;
