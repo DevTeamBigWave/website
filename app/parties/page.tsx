@@ -88,7 +88,8 @@ function Packages() {
             </p>
 
             <ul className="mt-6 flex-1 space-y-2.5 text-sm text-slate-600">
-              <Bullet>Up to 15 children</Bullet>
+              <Bullet>10 children + the birthday child included</Bullet>
+              <Bullet>$25 per extra child (up to 40 total)</Bullet>
               <Bullet>2 hours of play</Bullet>
               <Bullet>Dedicated party host</Bullet>
               <Bullet>Setup &amp; cleanup</Bullet>
@@ -126,7 +127,8 @@ function Packages() {
             </p>
 
             <ul className="mt-6 flex-1 space-y-2.5 text-sm font-semibold text-white/95">
-              <Bullet white>Up to 25 children</Bullet>
+              <Bullet white>15 children + the birthday child included</Bullet>
+              <Bullet white>$25 per extra child (up to 40 total)</Bullet>
               <Bullet white>2 hours, exclusive use of the venue</Bullet>
               <Bullet white>Pick any 2-hour window (first come, first serve)</Bullet>
               <Bullet white>Dedicated host + helper</Bullet>
@@ -187,7 +189,9 @@ function Difference() {
             <tbody className="divide-y divide-slate-100 text-slate-600">
               <CompareRow label="Use of venue" semi="Shared (1-2 other families)" priv="Exclusive — whole venue" />
               <CompareRow label="Time slot" semi="1–3pm or 2–4pm" priv="10–12, 12–2, 2–4, 4–6, 6–8 (any negotiable)" />
-              <CompareRow label="Max children" semi="15" priv="25" />
+              <CompareRow label="Included headcount" semi="10 + birthday child" priv="15 + birthday child" />
+              <CompareRow label="Extra child" semi="$25 each" priv="$25 each" />
+              <CompareRow label="Max children" semi="40" priv="40" />
               <CompareRow label="Party host" semi="✓" priv="✓ + helper" />
               <CompareRow label="Setup &amp; cleanup" semi="✓" priv="✓" />
               <CompareRow label="Closes open play that day" semi="No" priv="Yes" />

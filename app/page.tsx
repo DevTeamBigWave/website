@@ -108,7 +108,8 @@ function Offerings() {
                 you can sip your coffee while the kids play.
               </p>
               <ul className="mt-6 space-y-2 text-sm font-semibold text-white/95">
-                <li>✓ Up to 25 children</li>
+                <li>✓ 15 kids + birthday child included</li>
+                <li>✓ $25 per extra kid (up to 40 total)</li>
                 <li>✓ 2 hours, exclusive use of the venue</li>
                 <li>✓ Dedicated host + helper</li>
                 <li>✓ Setup and cleanup</li>
@@ -134,7 +135,8 @@ function Offerings() {
               Your party, shared with 1–2 other families in the space.
             </p>
             <ul className="mt-5 flex-1 space-y-1.5 text-sm text-slate-600">
-              <li>• Up to 15 children</li>
+              <li>• 10 kids + birthday child included</li>
+              <li>• $25 per extra kid (up to 40 total)</li>
               <li>• 2 hours, set time slots</li>
               <li>• Dedicated party host</li>
               <li>• Setup &amp; cleanup</li>

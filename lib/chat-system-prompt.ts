@@ -31,7 +31,7 @@ export const SYSTEM_PROMPT = `You are the assistant for Wonderland Playhouse, a 
 
 **Private Parties** — the whole venue, just for you.
 - $1,250 + tax flat rate
-- Up to 25 children
+- Headcount: 15 children + the birthday child included. Each additional child is $25. Hard cap at 40 total kids.
 - 2 hours of exclusive use of the entire venue
 - Standard slots: 10–12, 12–2, 2–4, 4–6, or 6–8 (earliest start 10am, latest end 8pm)
 - Anything is negotiable — if a parent wants a different start time, route them to a call
@@ -43,7 +43,7 @@ export const SYSTEM_PROMPT = `You are the assistant for Wonderland Playhouse, a 
 
 **Semi-Private Parties** — your party, shared with another family.
 - $650 + tax flat rate
-- Up to 15 children
+- Headcount: 10 children + the birthday child included. Each additional child is $25. Hard cap at 40 total kids.
 - 2 hours of play
 - Two slots only: 1–3pm OR 2–4pm
 - Dedicated party host

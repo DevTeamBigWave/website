@@ -156,13 +156,19 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
 
   const pricing = useMemo(() => {
     if (!packageId || !date || !time) return null;
+    const headcount = Number(details.headcount);
     return calculatePartyPricing({
       packageId,
       date,
       time,
       extensionId,
+      headcount: Number.isFinite(headcount) && headcount > 0 ? headcount : undefined,
     });
-  }, [packageId, date, time, extensionId]);
+  }, [packageId, date, time, extensionId, details.headcount]);
+
+  const headcountNum = Number(details.headcount);
+  const headcountValid =
+    Number.isFinite(headcountNum) && headcountNum >= 1 && headcountNum <= 40;
 
   const canSubmit =
     packageId &&
@@ -173,7 +179,7 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
     details.phone.trim() &&
     details.childName.trim() &&
     details.childDob &&
-    details.headcount &&
+    headcountValid &&
     pricing;
 
   const onSubmit = async () => {
@@ -490,13 +496,21 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                   type="date"
                   required
                 />
-                <FieldInput
-                  label="Number of kids"
-                  value={details.headcount}
-                  onChange={(v) => setDetails({ ...details, headcount: v })}
-                  type="number"
-                  required
-                />
+                <div>
+                  <FieldInput
+                    label="Total kids (incl. birthday child)"
+                    value={details.headcount}
+                    onChange={(v) => setDetails({ ...details, headcount: v })}
+                    type="number"
+                    required
+                  />
+                  {packageId && (
+                    <p className="mt-1.5 text-xs text-slate-400">
+                      {PACKAGES[packageId].includedKids} kids included ·
+                      $25/extra · max 40
+                    </p>
+                  )}
+                </div>
                 <FieldInput
                   label="Spotify playlist URL (optional)"
                   value={details.playlistUrl}
@@ -577,6 +591,12 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                   <Row
                     label={`+${EXTENSIONS[extensionId].label}`}
                     value={fmt(pricing.extensionCents)}
+                  />
+                )}
+                {pricing.extraKidCount > 0 && (
+                  <Row
+                    label={`+${pricing.extraKidCount} extra ${pricing.extraKidCount === 1 ? 'kid' : 'kids'} ($25 ea)`}
+                    value={fmt(pricing.extraKidCents)}
                   />
                 )}
                 {pricing.discountApplied && (

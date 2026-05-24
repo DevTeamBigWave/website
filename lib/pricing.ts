@@ -9,11 +9,15 @@ export const PACKAGES = {
     id: 'semi',
     name: 'Semi-Private',
     priceCents: 65000,
-    maxKids: 15,
+    // Headcount: 10 kids + the birthday child are included.
+    // Each additional kid is $25. Hard cap at MAX_KIDS_PER_PARTY.
+    includedKids: 11,
+    extraKidPriceCents: 2500,
     durationMinutes: 120,
     description: 'Your party, plus a few other families in the space.',
     includes: [
-      'Up to 15 children',
+      '10 children + the birthday child included',
+      '$25 per extra child (up to 40 total)',
       '2 hours of play',
       'Dedicated party host',
       'Setup & cleanup',
@@ -23,17 +27,22 @@ export const PACKAGES = {
     id: 'private',
     name: 'Private',
     priceCents: 125000,
-    maxKids: 25,
+    includedKids: 16,
+    extraKidPriceCents: 2500,
     durationMinutes: 120,
     description: 'The whole magical venue. Just you. Closes the space.',
     includes: [
-      'Up to 25 children',
+      '15 children + the birthday child included',
+      '$25 per extra child (up to 40 total)',
       '2 hours, exclusive use',
       'Dedicated host + helper',
       'Setup and cleanup',
     ],
   },
 } as const;
+
+// Hard ceiling across all packages
+export const MAX_KIDS_PER_PARTY = 40;
 
 // 1-hour extension is the only option now. Price differs by package:
 // $500 private, $250 semi-private — looked up via getExtensionPriceCents()
@@ -87,11 +96,17 @@ export interface PartyPricingInput {
   date: Date;
   time: string;
   extensionId?: ExtensionId | null;
+  // Total kids (including the birthday child). Defaults to the package's
+  // included headcount if omitted. Each kid above included gets charged
+  // extraKidPriceCents.
+  headcount?: number;
 }
 
 export interface PartyPricing {
   baseCents: number;
   extensionCents: number;
+  extraKidCount: number;
+  extraKidCents: number;
   discountCents: number;
   discountApplied: boolean;
   subtotalCents: number;
@@ -117,7 +132,16 @@ export function calculatePartyPricing(input: PartyPricingInput): PartyPricing {
 
   const baseCents = pkg.priceCents;
   const extensionCents = getExtensionPriceCents(input.packageId, input.extensionId ?? null);
-  const preDiscountCents = baseCents + extensionCents;
+
+  // Extra-kid surcharge — only beyond included headcount, capped at MAX_KIDS_PER_PARTY
+  const requestedHeadcount = Math.min(
+    Math.max(input.headcount ?? pkg.includedKids, 1),
+    MAX_KIDS_PER_PARTY,
+  );
+  const extraKidCount = Math.max(0, requestedHeadcount - pkg.includedKids);
+  const extraKidCents = extraKidCount * pkg.extraKidPriceCents;
+
+  const preDiscountCents = baseCents + extensionCents + extraKidCents;
 
   const discountApplied = isWeekdayAfternoonDiscount(input);
   const discountCents = discountApplied ? Math.round(preDiscountCents * DISCOUNT_RATE) : 0;
@@ -130,6 +154,8 @@ export function calculatePartyPricing(input: PartyPricingInput): PartyPricing {
   return {
     baseCents,
     extensionCents,
+    extraKidCount,
+    extraKidCents,
     discountCents,
     discountApplied,
     subtotalCents,

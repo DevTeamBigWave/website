@@ -21,7 +21,7 @@ const PartyCheckoutSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'childDob must be YYYY-MM-DD')
     .optional(),
   childAge: z.coerce.number().int().min(0).max(18).optional(),
-  headcount: z.coerce.number().int().min(1).max(60),
+  headcount: z.coerce.number().int().min(1).max(40),
   notes: z.string().max(2000).optional(),
 });
 
@@ -57,6 +57,7 @@ export async function POST(request: Request) {
     date,
     time: body.time,
     extensionId: (body.extensionId ?? null) as ExtensionId | null,
+    headcount: body.headcount,
   });
 
   const supabase = supabaseAdmin();
