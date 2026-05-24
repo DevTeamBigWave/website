@@ -101,6 +101,88 @@ export async function sendOpenPlayConfirmation(ticket: any) {
 }
 
 // ---------------------------------------------------------------------------
+// Customer: 7-day-out reminder (sent by cron)
+// ---------------------------------------------------------------------------
+export async function sendPartySevenDayReminder(party: any) {
+  const balance = party.total_cents - party.deposit_cents;
+  const html = `
+    <div style="font-family: Nunito, Helvetica, sans-serif; max-width: 580px; margin: 0 auto; color: #2C4253;">
+      <div style="background: #ff7783; color: white; padding: 32px 24px; border-radius: 16px 16px 0 0;">
+        <h1 style="margin: 0; font-size: 26px;">One week until ${party.child_name}'s party!</h1>
+        <p style="margin: 8px 0 0; opacity: 0.9; font-size: 15px;">${fmtDate(party.date)} at ${party.start_time}</p>
+      </div>
+      <div style="background: #FFFBF5; padding: 32px 24px; border-radius: 0 0 16px 16px;">
+        <p style="line-height: 1.6;">Hi ${party.parent_name.split(' ')[0]},</p>
+        <p style="line-height: 1.6;">Just a heads-up — ${party.child_name}'s ${party.package === 'private' ? 'private' : 'semi-private'} party is exactly one week away.</p>
+
+        ${
+          balance > 0
+            ? `<p style="line-height: 1.6;"><strong>Balance due:</strong> ${fmtMoney(balance)} — we'll send a payment link a few days before, or you can pay at the playhouse.</p>`
+            : ''
+        }
+
+        <p style="line-height: 1.6;"><strong>Before the day:</strong></p>
+        <ul style="line-height: 1.8;">
+          <li>Have all your guests sign the waiver: <a href="${SITE}/waiver" style="color: #ff7783;">Sign here</a></li>
+          <li>Confirm your add-ons (decor, food, entertainment) with us if you haven't yet</li>
+          <li>Grip socks required for kids and adults — we have them at the door if anyone forgets</li>
+        </ul>
+
+        <p style="line-height: 1.6;">Anything we should know? Reply to this email or call (718) 889-1777.</p>
+
+        <hr style="border: none; border-top: 1px solid #2C4253; opacity: 0.1; margin: 24px 0;">
+        <p style="font-size: 12px; opacity: 0.6;">Wonderland Playhouse · 3830 Nostrand Ave, Brooklyn · (718) 889-1777</p>
+      </div>
+    </div>
+  `;
+  return resend().emails.send({
+    from: FROM,
+    to: party.email,
+    subject: `1 week until ${party.child_name}'s party at Wonderland`,
+    html,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Customer: 24-hour-out reminder (sent by cron)
+// ---------------------------------------------------------------------------
+export async function sendPartyTwentyFourHourReminder(party: any) {
+  const html = `
+    <div style="font-family: Nunito, Helvetica, sans-serif; max-width: 580px; margin: 0 auto; color: #2C4253;">
+      <div style="background: #ff7783; color: white; padding: 32px 24px; border-radius: 16px 16px 0 0;">
+        <h1 style="margin: 0; font-size: 26px;">Tomorrow's the day! 🎉</h1>
+        <p style="margin: 8px 0 0; opacity: 0.9; font-size: 15px;">${fmtDate(party.date)} at ${party.start_time}</p>
+      </div>
+      <div style="background: #FFFBF5; padding: 32px 24px; border-radius: 0 0 16px 16px;">
+        <p style="line-height: 1.6;">Hi ${party.parent_name.split(' ')[0]},</p>
+        <p style="line-height: 1.6;">We're set for ${party.child_name}'s party tomorrow. Quick reminders:</p>
+
+        <ul style="line-height: 1.8;">
+          <li><strong>Time:</strong> ${party.start_time}</li>
+          <li><strong>Headcount:</strong> ${party.headcount} kids</li>
+          <li><strong>Address:</strong> 3830 Nostrand Ave, Brooklyn — free street parking</li>
+          <li><strong>Grip socks required</strong> — we sell them at the door if you forget</li>
+          <li><strong>Arrive ~10 min early</strong> so we can get you set up</li>
+        </ul>
+
+        <p style="line-height: 1.6;">If guests haven't signed the waiver yet, share the link: <a href="${SITE}/waiver" style="color: #ff7783;">${SITE}/waiver</a></p>
+
+        <p style="line-height: 1.6;">See you tomorrow!</p>
+
+        <hr style="border: none; border-top: 1px solid #2C4253; opacity: 0.1; margin: 24px 0;">
+        <p style="font-size: 12px; opacity: 0.6;">Wonderland Playhouse · (718) 889-1777</p>
+      </div>
+    </div>
+  `;
+  return resend().emails.send({
+    from: FROM,
+    to: party.email,
+    subject: `🎉 Tomorrow's ${party.child_name}'s party — quick reminders`,
+    html,
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Owner: someone just paid you
 // ---------------------------------------------------------------------------
 export async function sendOwnerNotification({ subject, party }: { subject: string; party: any }) {

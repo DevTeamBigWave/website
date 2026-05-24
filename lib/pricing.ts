@@ -35,12 +35,39 @@ export const PACKAGES = {
   },
 } as const;
 
+// 1-hour extension is the only option now. Price differs by package:
+// $500 private, $250 semi-private — looked up via getExtensionPriceCents()
 export const EXTENSIONS = {
-  '30m': { id: '30m', label: '30 minutes', minutes: 30, priceCents: 15000 },
-  '60m': { id: '60m', label: '1 hour', minutes: 60, priceCents: 27500 },
+  '60m': { id: '60m', label: '1 hour', minutes: 60, priceCents: 50000 },
 } as const;
 
-export const PARTY_TIMES = ['10:00 AM', '12:00 PM', '2:00 PM', '5:00 PM'] as const;
+export function getExtensionPriceCents(
+  packageId: PackageId,
+  extensionId: ExtensionId | null,
+): number {
+  if (!extensionId) return 0;
+  return packageId === 'private' ? 50000 : 25000;
+}
+
+// Time slots are different by package:
+// - Private: any 2-hour window between 10am and 8pm — these are the standard
+//   slots, but anything is negotiable (parents should call for off-slot times)
+// - Semi-Private: only two set slots (1-3pm or 2-4pm)
+export const PRIVATE_PARTY_TIMES = [
+  '10:00 AM',
+  '12:00 PM',
+  '2:00 PM',
+  '4:00 PM',
+  '6:00 PM',
+] as const;
+export const SEMI_PARTY_TIMES = ['1:00 PM', '2:00 PM'] as const;
+
+// Legacy compat — defaults to private slot list
+export const PARTY_TIMES = PRIVATE_PARTY_TIMES;
+
+export function partyTimesFor(packageId: PackageId): readonly string[] {
+  return packageId === 'private' ? PRIVATE_PARTY_TIMES : SEMI_PARTY_TIMES;
+}
 
 // 20% off Mon–Thu afternoons. The two qualifying time slots:
 const DISCOUNT_TIMES = ['12:00 PM', '2:00 PM'] as const;
@@ -87,10 +114,9 @@ export function isWeekdayAfternoonDiscount(input: PartyPricingInput): boolean {
 
 export function calculatePartyPricing(input: PartyPricingInput): PartyPricing {
   const pkg = PACKAGES[input.packageId];
-  const ext = input.extensionId ? EXTENSIONS[input.extensionId] : null;
 
   const baseCents = pkg.priceCents;
-  const extensionCents = ext?.priceCents ?? 0;
+  const extensionCents = getExtensionPriceCents(input.packageId, input.extensionId ?? null);
   const preDiscountCents = baseCents + extensionCents;
 
   const discountApplied = isWeekdayAfternoonDiscount(input);

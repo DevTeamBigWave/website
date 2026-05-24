@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   PACKAGES,
   EXTENSIONS,
-  PARTY_TIMES,
   calculatePartyPricing,
+  partyTimesFor,
+  getExtensionPriceCents,
   fmt,
   type PackageId,
   type ExtensionId,
@@ -17,7 +18,21 @@ type AvailabilityRow = {
   reason: string;
   package?: string;
   startTime?: string;
+  totalMinutes?: number;
 };
+
+function timeStringToMinutes(t: string): number {
+  // Accepts "10:00 AM" or "13:00:00"
+  if (t.includes('AM') || t.includes('PM')) {
+    const [hm, period] = t.split(' ');
+    let [h, m] = hm.split(':').map(Number);
+    if (period === 'PM' && h !== 12) h += 12;
+    if (period === 'AM' && h === 12) h = 0;
+    return h * 60 + m;
+  }
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
 
 export function BookingFlow({ cancelled }: { cancelled: boolean }) {
   // Selection state
@@ -107,11 +122,36 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
     return false;
   };
 
-  const isTimeUnavailable = (t: string): boolean => {
+  // A proposed (start, duration) is "unavailable" if it overlaps an existing
+  // party on that day. Used both to gray out time-slot buttons AND to disable
+  // the 1-hour extension option when it would push into the next booking.
+  const timeOverlapsExisting = (
+    t: string,
+    durationMinutes: number,
+  ): boolean => {
     if (!date || !packageId) return false;
     const key = isoDate(date);
     const rows = blockedByDate.get(key) ?? [];
-    return rows.some((r) => r.startTime === sqlTime(t));
+    const newStart = timeStringToMinutes(t);
+    const newEnd = newStart + durationMinutes;
+    return rows.some((r) => {
+      if (!r.startTime) return false;
+      const eStart = timeStringToMinutes(r.startTime);
+      const eEnd = eStart + (r.totalMinutes ?? 120);
+      return newStart < eEnd && eStart < newEnd;
+    });
+  };
+
+  const isTimeUnavailable = (t: string): boolean =>
+    timeOverlapsExisting(t, PACKAGES[packageId!].durationMinutes);
+
+  // For the extension option — would adding 60 minutes cause an overlap?
+  const wouldExtensionOverlap = (): boolean => {
+    if (!packageId || !date || !time) return false;
+    return timeOverlapsExisting(
+      time,
+      PACKAGES[packageId].durationMinutes + 60,
+    );
   };
 
   const pricing = useMemo(() => {
@@ -310,7 +350,7 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                         Start time
                       </p>
                       <div className="flex flex-wrap gap-2">
-                        {PARTY_TIMES.map((t) => {
+                        {partyTimesFor(packageId!).map((t) => {
                           const blocked = isTimeUnavailable(t);
                           const selected = time === t;
                           const isWeekday = date.getDay() >= 1 && date.getDay() <= 4;
@@ -341,10 +381,19 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                           );
                         })}
                       </div>
+                      {packageId === 'private' && (
+                        <p className="mt-3 text-xs text-slate-400">
+                          Need a different start time? Privates are flexible —{' '}
+                          <a href="tel:+17188891777" className="font-semibold text-coral hover:text-coral-700">
+                            call us
+                          </a>{' '}
+                          and we&rsquo;ll work it out.
+                        </p>
+                      )}
                     </>
                   )}
 
-                  {date && time && packageId === 'private' && (
+                  {date && time && (
                     <>
                       <p className="mt-8 mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">
                         Extra time?
@@ -364,22 +413,38 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                         {(Object.keys(EXTENSIONS) as ExtensionId[]).map((eId) => {
                           const e = EXTENSIONS[eId];
                           const selected = extensionId === eId;
+                          const overlapBlocked = wouldExtensionOverlap();
+                          const extCents = getExtensionPriceCents(packageId!, eId);
                           return (
                             <button
                               key={eId}
                               type="button"
+                              disabled={overlapBlocked && !selected}
                               onClick={() => setExtensionId(eId)}
+                              title={
+                                overlapBlocked
+                                  ? 'Cannot add — would overlap with a back-to-back party'
+                                  : undefined
+                              }
                               className={`rounded-full border px-4 py-2 text-sm transition ${
-                                selected
-                                  ? 'border-slate-700 bg-slate-700 text-white'
-                                  : 'border-slate-200 bg-white hover:border-slate-400'
+                                overlapBlocked && !selected
+                                  ? 'cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300'
+                                  : selected
+                                    ? 'border-slate-700 bg-slate-700 text-white'
+                                    : 'border-slate-200 bg-white hover:border-slate-400'
                               }`}
                             >
-                              +{e.label} · {fmt(e.priceCents)}
+                              +{e.label} · {fmt(extCents)}
                             </button>
                           );
                         })}
                       </div>
+                      {wouldExtensionOverlap() && (
+                        <p className="mt-2 text-xs text-coral-700">
+                          Heads up: a 1-hour extension would overlap a back-to-back
+                          party. Pick a different time slot to enable the extension.
+                        </p>
+                      )}
                     </>
                   )}
                 </>

@@ -26,7 +26,9 @@ export async function GET(request: Request) {
       parties (
         id,
         package,
-        start_time
+        start_time,
+        duration_minutes,
+        extension_minutes
       )
     `)
     .gte('date', from.toISOString().split('T')[0])
@@ -36,13 +38,17 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Normalize for the client
+  // Normalize for the client. totalMinutes = base duration + optional extension —
+  // booking flow uses it to flag back-to-back overlaps when picking an extension.
   const availability = (data ?? []).map((row: any) => ({
     date: row.date,
     blockType: row.block_type, // 'full' | 'partial'
     reason: row.reason,
     package: row.parties?.package,
     startTime: row.parties?.start_time,
+    totalMinutes:
+      (row.parties?.duration_minutes ?? 120) +
+      (row.parties?.extension_minutes ?? 0),
   }));
 
   return NextResponse.json({

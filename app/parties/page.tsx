@@ -92,8 +92,8 @@ function Packages() {
               <Bullet>2 hours of play</Bullet>
               <Bullet>Dedicated party host</Bullet>
               <Bullet>Setup &amp; cleanup</Bullet>
-              <Bullet>Fixed time slots: 10am, 12pm, 2pm, or 5pm</Bullet>
-              <Bullet>Shared with 1–3 or 2–4 other family groups</Bullet>
+              <Bullet>Time slots: 1pm–3pm or 2pm–4pm</Bullet>
+              <Bullet>Shared with other families in the same slot</Bullet>
             </ul>
 
             <Link
@@ -186,7 +186,7 @@ function Difference() {
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-600">
               <CompareRow label="Use of venue" semi="Shared (1-2 other families)" priv="Exclusive — whole venue" />
-              <CompareRow label="Time slot" semi="Fixed (10am, 12pm, 2pm, 5pm)" priv="Any 2-hour window" />
+              <CompareRow label="Time slot" semi="1–3pm or 2–4pm" priv="10–12, 12–2, 2–4, 4–6, 6–8 (any negotiable)" />
               <CompareRow label="Max children" semi="15" priv="25" />
               <CompareRow label="Party host" semi="✓" priv="✓ + helper" />
               <CompareRow label="Setup &amp; cleanup" semi="✓" priv="✓" />

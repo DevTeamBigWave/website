@@ -65,23 +65,40 @@ export async function POST(request: Request) {
   // Race condition guard: even if the UI showed it as available 30 seconds ago, recheck now.
   const { data: existing } = await supabase
     .from('parties')
-    .select('id, package, status, start_time')
+    .select('id, package, status, start_time, duration_minutes, extension_minutes')
     .eq('date', body.date.split('T')[0])
     .in('status', ['confirmed', 'hold']);
 
   if (existing && existing.length > 0) {
-    // Private blocks everything. Semi blocks only same-time slots & other privates.
+    const newStartMin = sqlTimeToMinutes(convertTimeToSql(body.time));
+    const newDuration =
+      PACKAGES[body.packageId as PackageId].durationMinutes +
+      (body.extensionId ? EXTENSIONS[body.extensionId as ExtensionId].minutes : 0);
+    const newEndMin = newStartMin + newDuration;
+
+    // Conflict if either party is private and time ranges overlap,
+    // OR both are semi and same start time (semi slots only allow one party).
+    // Back-to-back overlap (1-hour extension running into next slot) IS a conflict.
     const conflict = existing.find((p: any) => {
-      if (body.packageId === 'private') return true; // Any existing booking blocks private
-      if (p.package === 'private') return true; // Any private blocks any new booking
-      if (p.start_time === convertTimeToSql(body.time)) return true; // Same time slot
-      return false;
+      const pStart = sqlTimeToMinutes(p.start_time);
+      const pTotal = (p.duration_minutes ?? 120) + (p.extension_minutes ?? 0);
+      const pEnd = pStart + pTotal;
+      const overlap = newStartMin < pEnd && pStart < newEndMin;
+
+      if (!overlap) return false;
+      if (body.packageId === 'private' || p.package === 'private') return true;
+      // Two semi parties at the exact same start are allowed up to capacity —
+      // for now, any time overlap is a conflict to keep semantics simple.
+      return true;
     });
 
     if (conflict) {
       return NextResponse.json(
-        { error: 'That date is no longer available. Please pick another.' },
-        { status: 409 }
+        {
+          error:
+            'That time conflicts with another booking on the same day. Please pick another slot, or call us to discuss.',
+        },
+        { status: 409 },
       );
     }
   }
@@ -173,4 +190,10 @@ function convertTimeToSql(displayTime: string): string {
   if (period === 'PM' && h !== 12) h += 12;
   if (period === 'AM' && h === 12) h = 0;
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
+}
+
+// "HH:MM:SS" → minutes since midnight
+function sqlTimeToMinutes(t: string): number {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
 }

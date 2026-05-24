@@ -178,8 +178,10 @@ function buildEventBody(party: PartyForCalendar, siteUrl: string) {
     reminders: {
       useDefault: false,
       overrides: [
-        { method: 'popup', minutes: 60 },
-        { method: 'popup', minutes: 24 * 60 },
+        { method: 'popup', minutes: 24 * 60 }, // 24h before
+        { method: 'email', minutes: 24 * 60 },
+        { method: 'popup', minutes: 7 * 24 * 60 }, // 7 days before
+        { method: 'email', minutes: 7 * 24 * 60 },
       ],
     },
   };
