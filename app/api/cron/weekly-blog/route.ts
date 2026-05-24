@@ -39,7 +39,7 @@ async function handler(request: Request) {
   const count = Math.min(Math.max(1, requested || 3), 10);
 
   try {
-    const saved = await generateAndPublishBatch(count);
+    const { saved, failures } = await generateAndPublishBatch(count);
 
     revalidatePath('/blog');
     revalidatePath('/');
@@ -49,6 +49,7 @@ async function handler(request: Request) {
       ok: true,
       generated: saved.length,
       requested: count,
+      failures,
       posts: saved.map((p) => ({ slug: p.slug, title: p.title, primary_keyword: p.primary_keyword })),
     });
   } catch (err) {

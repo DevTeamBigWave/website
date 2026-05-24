@@ -22,13 +22,15 @@ export async function POST(request: Request) {
   }
 
   try {
-    const saved = await generateAndPublishBatch(body.count);
+    const { saved, failures } = await generateAndPublishBatch(body.count);
     revalidatePath('/blog');
     revalidatePath('/');
     revalidatePath('/sitemap.xml');
     return NextResponse.json({
       ok: true,
       generated: saved.length,
+      requested: body.count,
+      failures,
       posts: saved.map((p) => ({ slug: p.slug, title: p.title })),
     });
   } catch (err) {

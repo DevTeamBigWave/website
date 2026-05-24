@@ -169,40 +169,51 @@ export async function pickFreshTopics(count: number): Promise<Array<{ keyword: s
   return scored.slice(0, count).map((s) => s.topic);
 }
 
-// Generate N posts and persist them as 'published'. Returns the saved rows.
-export async function generateAndPublishBatch(count: number): Promise<BlogPost[]> {
+async function insertWithUniqueSlug(
+  base: Omit<BlogPost, 'id' | 'created_at' | 'updated_at' | 'slug'> & { slug: string },
+): Promise<BlogPost | null> {
+  const db = supabaseAdmin();
+  let slug = base.slug;
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const { data: row, error } = await db
+      .from('blog_posts')
+      .insert({ ...base, slug })
+      .select()
+      .single();
+    if (!error && row) return row as BlogPost;
+    // Unique violation: append/increment suffix and retry
+    if (error?.code === '23505') {
+      slug = attempt === 0 ? `${base.slug}-2` : `${base.slug}-${attempt + 2}`;
+      continue;
+    }
+    console.error('insertWithUniqueSlug failed:', error);
+    return null;
+  }
+  return null;
+}
+
+export type BatchResult = {
+  saved: BlogPost[];
+  failures: Array<{ keyword: string; error: string }>;
+};
+
+// Generate N posts in PARALLEL and persist as 'published'. Returns saved
+// posts plus any per-topic failures so the caller can surface them.
+export async function generateAndPublishBatch(count: number): Promise<BatchResult> {
   const topics = await pickFreshTopics(count);
   const { titles: recentTitles } = await getRecentlyCoveredTopics(90);
-  const db = supabaseAdmin();
 
-  const saved: BlogPost[] = [];
-  for (const topic of topics) {
-    try {
-      const post = await generatePost({
+  // Fire all generations in parallel — Anthropic handles concurrency fine
+  // at this scale and total wall time stays under 30s instead of 180s.
+  const results = await Promise.allSettled(
+    topics.map((topic) =>
+      generatePost({
         keyword: topic.keyword,
         brief: topic.brief,
-        recentTitles: [...recentTitles, ...saved.map((p) => p.title)],
-      });
-
-      // Ensure slug uniqueness — if collision, append a short suffix
-      let slug = post.slug;
-      let suffix = 0;
-      while (true) {
-        const { data: existing } = await db
-          .from('blog_posts')
-          .select('id')
-          .eq('slug', slug)
-          .maybeSingle();
-        if (!existing) break;
-        suffix += 1;
-        slug = `${post.slug}-${suffix}`;
-        if (suffix > 5) break;
-      }
-
-      const { data: row } = await db
-        .from('blog_posts')
-        .insert({
-          slug,
+        recentTitles,
+      }).then(async (post) => {
+        const row = await insertWithUniqueSlug({
+          slug: post.slug,
           title: post.title,
           excerpt: post.excerpt,
           content: post.blocks,
@@ -213,16 +224,24 @@ export async function generateAndPublishBatch(count: number): Promise<BlogPost[]
           published_at: new Date().toISOString(),
           generated_by: 'ai',
           model: MODEL,
-        })
-        .select()
-        .single();
+        });
+        if (!row) throw new Error('Database insert returned no row');
+        return { row, keyword: topic.keyword };
+      }),
+    ),
+  );
 
-      if (row) saved.push(row as BlogPost);
-    } catch (err) {
-      console.error(`Blog generation failed for "${topic.keyword}":`, err);
-      // Keep going — one failure shouldn't kill the whole batch
+  const saved: BlogPost[] = [];
+  const failures: Array<{ keyword: string; error: string }> = [];
+  results.forEach((r, i) => {
+    if (r.status === 'fulfilled') {
+      saved.push(r.value.row);
+    } else {
+      const msg = r.reason instanceof Error ? r.reason.message : String(r.reason);
+      failures.push({ keyword: topics[i].keyword, error: msg });
+      console.error(`Blog generation failed for "${topics[i].keyword}":`, r.reason);
     }
-  }
+  });
 
-  return saved;
+  return { saved, failures };
 }

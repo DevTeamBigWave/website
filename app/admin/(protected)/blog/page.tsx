@@ -33,15 +33,16 @@ export default async function AdminBlogPage() {
       </header>
 
       <div className="rounded-2xl border border-sunshine-200 bg-sunshine-50 p-4 text-sm text-slate-700">
-        <strong>How this works:</strong> the cron at{' '}
+        <strong>How this works:</strong> posts generate in parallel (~20-30s
+        total regardless of count). Set up a weekly Monday hit on cron-job.org
+        targeting{' '}
         <code className="rounded bg-white px-1 py-0.5 text-xs">
           /api/cron/weekly-blog
         </code>{' '}
-        generates 3 SEO posts every time it&rsquo;s called. Set up a weekly
-        Monday hit on cron-job.org with header{' '}
+        with header{' '}
         <code className="rounded bg-white px-1 py-0.5 text-xs">x-cron-secret: $CRON_SECRET</code>.
-        Topics are picked from <code className="rounded bg-white px-1 py-0.5 text-xs">lib/blog.ts</code> and
-        rotate to avoid duplicates from the last 60 days.
+        Topics rotate from <code className="rounded bg-white px-1 py-0.5 text-xs">lib/blog.ts</code> and
+        avoid duplicates from the last 60 days.
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">

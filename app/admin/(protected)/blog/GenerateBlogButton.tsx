@@ -18,11 +18,11 @@ export function GenerateBlogButton({
 
   const onClick = async () => {
     if (busy) return;
-    if (!confirm(`Generate ${defaultCount} blog post${defaultCount === 1 ? '' : 's'} now? This takes ~30-90 seconds.`)) {
+    if (!confirm(`Generate ${defaultCount} blog post${defaultCount === 1 ? '' : 's'} now? Takes ~20-30s (posts run in parallel).`)) {
       return;
     }
     setBusy(true);
-    setStatus('Generating…');
+    setStatus('Generating in parallel…');
     try {
       const res = await fetch('/api/admin/blog/generate', {
         method: 'POST',
@@ -31,13 +31,21 @@ export function GenerateBlogButton({
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {
-        setStatus(`Error: ${data.error ?? 'failed'}`);
+        setStatus(`Error: ${data.error ?? `HTTP ${res.status}`}`);
         setBusy(false);
         return;
       }
-      setStatus(`Published ${data.generated}.`);
+      const failures = data.failures ?? [];
+      if (failures.length > 0) {
+        const first = failures[0];
+        setStatus(
+          `Saved ${data.generated}/${data.requested}. Failed: ${first.keyword} (${first.error.slice(0, 80)})`,
+        );
+      } else {
+        setStatus(`Published ${data.generated} ✓`);
+        setTimeout(() => setStatus(null), 4000);
+      }
       router.refresh();
-      setTimeout(() => setStatus(null), 4000);
     } catch (err) {
       setStatus(err instanceof Error ? err.message : 'Unknown error');
     } finally {
