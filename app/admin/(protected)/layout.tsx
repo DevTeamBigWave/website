@@ -21,7 +21,11 @@ export default async function ProtectedAdminLayout({
   const me = await requireAdmin();
   const nav =
     me.role === 'owner'
-      ? [...baseNav, { href: '/admin/team', label: 'Team' }]
+      ? [
+          ...baseNav,
+          { href: '/admin/integrations/google', label: 'Calendar' },
+          { href: '/admin/team', label: 'Team' },
+        ]
       : baseNav;
 
   return (

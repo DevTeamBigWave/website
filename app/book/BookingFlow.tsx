@@ -83,6 +83,21 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
     return map;
   }, [availability]);
 
+  // Group days by month for header rows
+  const daysByMonth = useMemo(() => {
+    const groups: { label: string; days: Date[] }[] = [];
+    let current: { label: string; days: Date[] } | null = null;
+    for (const d of days) {
+      const label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      if (!current || current.label !== label) {
+        current = { label, days: [] };
+        groups.push(current);
+      }
+      current.days.push(d);
+    }
+    return groups;
+  }, [days]);
+
   const isDayUnavailable = (d: Date): boolean => {
     if (!packageId) return false;
     const key = isoDate(d);
@@ -250,37 +265,43 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                   <p className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">
                     Date
                   </p>
-                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 md:grid-cols-7">
-                    {days.map((d) => {
-                      const selected = date && sameDay(d, date);
-                      const blocked = isDayUnavailable(d);
-                      return (
-                        <button
-                          key={d.toISOString()}
-                          type="button"
-                          disabled={blocked}
-                          onClick={() => {
-                            setDate(d);
-                            setTime(null);
-                          }}
-                          className={`relative rounded-xl border px-2 py-2 text-left transition ${
-                            blocked
-                              ? 'cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300'
-                              : selected
-                                ? 'border-coral bg-coral text-white'
-                                : 'border-slate-200 bg-white hover:border-slate-400'
-                          }`}
-                        >
-                          <p className="text-[10px] uppercase tracking-wider opacity-70">
-                            {d.toLocaleDateString('en-US', { weekday: 'short' })}
-                          </p>
-                          <p className="font-display text-lg">{d.getDate()}</p>
-                          <p className="text-[10px] opacity-70">
-                            {d.toLocaleDateString('en-US', { month: 'short' })}
-                          </p>
-                        </button>
-                      );
-                    })}
+                  <div className="space-y-6">
+                    {daysByMonth.map((group) => (
+                      <div key={group.label}>
+                        <p className="mb-2 font-display text-lg text-slate-700">
+                          {group.label}
+                        </p>
+                        <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 md:grid-cols-7">
+                          {group.days.map((d) => {
+                            const selected = date && sameDay(d, date);
+                            const blocked = isDayUnavailable(d);
+                            return (
+                              <button
+                                key={d.toISOString()}
+                                type="button"
+                                disabled={blocked}
+                                onClick={() => {
+                                  setDate(d);
+                                  setTime(null);
+                                }}
+                                className={`relative rounded-xl border px-2 py-3 text-center transition ${
+                                  blocked
+                                    ? 'cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300'
+                                    : selected
+                                      ? 'border-coral bg-coral text-white'
+                                      : 'border-slate-200 bg-white hover:border-slate-400'
+                                }`}
+                              >
+                                <p className="text-[10px] uppercase tracking-wider opacity-70">
+                                  {d.toLocaleDateString('en-US', { weekday: 'short' })}
+                                </p>
+                                <p className="font-display text-xl">{d.getDate()}</p>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </div>
 
                   {date && (

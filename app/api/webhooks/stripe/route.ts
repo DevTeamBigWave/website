@@ -5,6 +5,7 @@ import Stripe from 'stripe';
 import { stripe } from '@/lib/stripe';
 import { supabaseAdmin } from '@/lib/supabase';
 import { sendPartyConfirmation, sendOpenPlayConfirmation, sendOwnerNotification } from '@/lib/email';
+import { createPartyEvent } from '@/lib/google-calendar';
 
 // Stripe sends raw bodies — App Router gives us req.text() which preserves them
 export async function POST(request: Request) {
@@ -57,14 +58,34 @@ export async function POST(request: Request) {
         revalidatePath('/book');
         revalidatePath('/');
 
-        // Fire emails (non-blocking — don't fail webhook if email fails)
-        await Promise.allSettled([
+        // Fire emails + create Google Calendar event in parallel (non-blocking —
+        // don't fail the webhook if any side-effect fails)
+        const siteUrl =
+          process.env.NEXT_PUBLIC_SITE_URL ??
+          'https://website-production-4594.up.railway.app';
+
+        const [, , calendarResult] = await Promise.allSettled([
           sendPartyConfirmation(party),
           sendOwnerNotification({
             subject: `🎉 New party booked: ${party.child_name}'s ${party.package} party`,
             party,
           }),
+          createPartyEvent(party, siteUrl),
         ]);
+
+        // If calendar event was created, save its ID on the party row so we
+        // can delete it later on cancellation
+        if (
+          calendarResult.status === 'fulfilled' &&
+          calendarResult.value
+        ) {
+          await supabase
+            .from('parties')
+            .update({ google_calendar_event_id: calendarResult.value })
+            .eq('id', party.id);
+        } else if (calendarResult.status === 'rejected') {
+          console.error('Calendar event creation failed:', calendarResult.reason);
+        }
       }
 
       if (type === 'open_play') {
