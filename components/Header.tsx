@@ -15,7 +15,7 @@ export function AnnouncementBar() {
       <div className="mx-auto flex max-w-6xl items-center justify-center gap-2 px-4 py-2.5 text-center text-sm font-semibold">
         <span aria-hidden>🎉</span>
         <span>
-          Limited-time offer: 20% off private parties Mon–Thu, 12pm &amp; 2pm slots
+          Limited-time offer: 20% off private parties Mon–Thu
         </span>
         <Link
           href="/parties"
