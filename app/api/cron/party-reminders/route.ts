@@ -3,22 +3,30 @@ import { supabaseAdmin } from '@/lib/supabase';
 import {
   sendPartySevenDayReminder,
   sendPartyTwentyFourHourReminder,
+  sendBalanceInvoiceReady,
 } from '@/lib/email';
+import { createOrUpdateBalanceInvoice } from '@/lib/party-invoice';
+import { computePartyFinancials } from '@/lib/parties';
 
-// Daily cron — sends reminders for parties:
-// - exactly 7 days out (7-day reminder)
-// - exactly 1 day out (24-hour reminder)
+// Daily cron — runs each of:
+// - Auto-send balance invoice 14 days out (only if not already sent)
+// - 7-day-out reminder email
+// - 24-hour reminder email
 //
-// Idempotent: each party sends at most one of each via the
-// reminder_7d_sent_at / reminder_24h_sent_at columns (added by this route's
-// migration once we set the cron up).
+// All operations are idempotent: each party gets at most one of each via the
+// corresponding *_sent_at column.
 //
-// To schedule on Railway: Settings → Cron → add a cron job with command:
-//   curl -fsS -H "x-cron-secret: $CRON_SECRET" \
-//     https://website-production-4594.up.railway.app/api/cron/party-reminders
-// And schedule: 0 13 * * *  (1pm UTC = 9am Eastern, daily)
+// Schedule on cron-job.org (free):
+//   URL:    https://wonderlandplayhouse.com/api/cron/party-reminders
+//   Method: GET
+//   Header: x-cron-secret: <CRON_SECRET from Railway env>
+//   When:   Every day at 13:00 UTC (= 9am Eastern)
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
+
+// Days before the party that the balance invoice auto-sends
+const INVOICE_LEAD_DAYS = 14;
 
 function isAuthorized(request: Request): boolean {
   const secret = process.env.CRON_SECRET;
@@ -27,7 +35,6 @@ function isAuthorized(request: Request): boolean {
 }
 
 function isoDateNYC(offsetDays: number): string {
-  // Compute target date in America/New_York to align with the party.date column
   const now = new Date();
   const target = new Date(now.getTime() + offsetDays * 24 * 60 * 60 * 1000);
   const fmt = new Intl.DateTimeFormat('en-CA', {
@@ -36,7 +43,7 @@ function isoDateNYC(offsetDays: number): string {
     month: '2-digit',
     day: '2-digit',
   });
-  return fmt.format(target); // YYYY-MM-DD
+  return fmt.format(target);
 }
 
 export async function GET(request: Request) {
@@ -48,14 +55,66 @@ export async function GET(request: Request) {
   const today = isoDateNYC(0);
   const sevenDaysOut = isoDateNYC(7);
   const oneDayOut = isoDateNYC(1);
+  const invoiceLeadDate = isoDateNYC(INVOICE_LEAD_DAYS);
 
   const results = {
+    ran_for_date: today,
+    auto_invoice: { found: 0, sent: 0, skipped: 0, errors: [] as string[] },
     seven_day: { found: 0, sent: 0, skipped: 0, errors: [] as string[] },
     one_day: { found: 0, sent: 0, skipped: 0, errors: [] as string[] },
-    ran_for_date: today,
   };
 
-  // 7-day reminders
+  // 1. Auto-send balance invoice 14 days out
+  const { data: invoiceTargets = [] } = await db
+    .from('parties')
+    .select(
+      'id, parent_name, email, phone, date, start_time, package, child_name, total_cents, deposit_cents, add_ons_total_cents, gift_card_applied_cents, balance_paid_amount_cents, balance_invoice_id, balance_invoice_sent_at',
+    )
+    .eq('status', 'confirmed')
+    .eq('date', invoiceLeadDate)
+    .is('balance_invoice_sent_at', null);
+
+  results.auto_invoice.found = (invoiceTargets ?? []).length;
+  for (const party of invoiceTargets ?? []) {
+    const fin = computePartyFinancials(party as any);
+    if (fin.balance_due_cents < 50) {
+      results.auto_invoice.skipped += 1;
+      continue;
+    }
+    try {
+      const { data: addOns = [] } = await db
+        .from('party_add_ons')
+        .select('id, name, unit_price_cents, qty, notes')
+        .eq('party_id', party.id)
+        .order('created_at', { ascending: true });
+
+      const { hostedUrl, balanceDueCents } = await createOrUpdateBalanceInvoice(
+        party as any,
+        (addOns ?? []) as any,
+      );
+
+      await sendBalanceInvoiceReady({
+        parent_name: party.parent_name,
+        email: party.email,
+        child_name: party.child_name,
+        date: party.date,
+        balance_cents: balanceDueCents,
+        hosted_invoice_url: hostedUrl,
+        add_ons: (addOns ?? []).map((a: any) => ({
+          name: a.name,
+          qty: a.qty,
+          unit_price_cents: a.unit_price_cents,
+        })),
+      }).catch((err) => console.error('Auto-invoice email failed:', err));
+
+      results.auto_invoice.sent += 1;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'unknown';
+      results.auto_invoice.errors.push(`${party.id}: ${msg}`);
+    }
+  }
+
+  // 2. 7-day reminders
   const { data: sevenDay = [] } = await db
     .from('parties')
     .select('*')
@@ -78,7 +137,7 @@ export async function GET(request: Request) {
     }
   }
 
-  // 24-hour reminders
+  // 3. 24-hour reminders
   const { data: oneDay = [] } = await db
     .from('parties')
     .select('*')
