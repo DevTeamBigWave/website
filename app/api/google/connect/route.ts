@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { headers } from 'next/headers';
 import { requireOwner } from '@/lib/admin';
 import { randomBytes } from 'crypto';
 import { cookies } from 'next/headers';
@@ -11,14 +10,14 @@ const SCOPES = [
   'email',
 ];
 
-export async function GET(request: Request) {
-  await requireOwner();
+// Production URL is the source of truth — must match what's registered in
+// Google Cloud Console under Authorized redirect URIs. Hardcoded to remove
+// any chance of header weirdness producing a different value.
+const PRODUCTION_REDIRECT_URI =
+  'https://website-production-4594.up.railway.app/api/google/callback';
 
-  const h = await headers();
-  const host = h.get('host');
-  const proto = h.get('x-forwarded-proto') ?? 'https';
-  const origin = host ? `${proto}://${host}` : process.env.NEXT_PUBLIC_SITE_URL!;
-  const redirectUri = `${origin}/api/google/callback`;
+export async function GET(_request: Request) {
+  await requireOwner();
 
   // CSRF state — store in cookie, verify on callback
   const state = randomBytes(24).toString('hex');
@@ -33,18 +32,16 @@ export async function GET(request: Request) {
 
   const params = new URLSearchParams({
     client_id: process.env.GOOGLE_OAUTH_CLIENT_ID!,
-    redirect_uri: redirectUri,
+    redirect_uri: PRODUCTION_REDIRECT_URI,
     response_type: 'code',
     scope: SCOPES.join(' '),
-    access_type: 'offline', // give us a refresh_token
-    prompt: 'consent', // force refresh_token even if user previously consented
+    access_type: 'offline',
+    prompt: 'consent',
     state,
     include_granted_scopes: 'true',
   });
 
-  // Redirect to Google's consent screen
   return NextResponse.redirect(`${GOOGLE_AUTH_URL}?${params.toString()}`);
 }
 
-// Block POST etc to avoid CSRF
 export const dynamic = 'force-dynamic';

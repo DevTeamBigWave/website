@@ -1,10 +1,16 @@
 import { NextResponse } from 'next/server';
-import { cookies, headers } from 'next/headers';
+import { cookies } from 'next/headers';
 import { requireOwner } from '@/lib/admin';
 import { supabaseAdmin } from '@/lib/supabase';
 import { exchangeCodeForTokens, decodeIdTokenEmail } from '@/lib/google-calendar';
 
 export const dynamic = 'force-dynamic';
+
+// Must exactly match the redirect_uri sent on /connect AND the one
+// registered in Google Cloud → OAuth Client → Authorized redirect URIs.
+const PRODUCTION_REDIRECT_URI =
+  'https://website-production-4594.up.railway.app/api/google/callback';
+const PRODUCTION_BASE_URL = 'https://website-production-4594.up.railway.app';
 
 export async function GET(request: Request) {
   const me = await requireOwner();
@@ -13,7 +19,10 @@ export async function GET(request: Request) {
   const error = url.searchParams.get('error');
   if (error) {
     return NextResponse.redirect(
-      new URL(`/admin/integrations/google?error=${encodeURIComponent(error)}`, request.url),
+      new URL(
+        `/admin/integrations/google?error=${encodeURIComponent(error)}`,
+        PRODUCTION_BASE_URL,
+      ),
     );
   }
 
@@ -26,33 +35,26 @@ export async function GET(request: Request) {
 
   if (!code || !state || !expectedState || state !== expectedState) {
     return NextResponse.redirect(
-      new URL('/admin/integrations/google?error=state_mismatch', request.url),
+      new URL('/admin/integrations/google?error=state_mismatch', PRODUCTION_BASE_URL),
     );
   }
 
-  // Rebuild the same redirect_uri we sent on /connect — Google requires exact match
-  const h = await headers();
-  const host = h.get('host');
-  const proto = h.get('x-forwarded-proto') ?? 'https';
-  const origin = host ? `${proto}://${host}` : process.env.NEXT_PUBLIC_SITE_URL!;
-  const redirectUri = `${origin}/api/google/callback`;
-
   let tokens;
   try {
-    tokens = await exchangeCodeForTokens(code, redirectUri);
+    tokens = await exchangeCodeForTokens(code, PRODUCTION_REDIRECT_URI);
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'unknown';
     return NextResponse.redirect(
-      new URL(`/admin/integrations/google?error=${encodeURIComponent(msg)}`, request.url),
+      new URL(
+        `/admin/integrations/google?error=${encodeURIComponent(msg)}`,
+        PRODUCTION_BASE_URL,
+      ),
     );
   }
 
   if (!tokens.refresh_token) {
-    // Google only returns refresh_token on the FIRST consent. If user
-    // previously authorized without revoking, we won't get a new one.
-    // The prompt=consent flag should force this, but just in case…
     return NextResponse.redirect(
-      new URL('/admin/integrations/google?error=no_refresh_token', request.url),
+      new URL('/admin/integrations/google?error=no_refresh_token', PRODUCTION_BASE_URL),
     );
   }
 
@@ -75,6 +77,6 @@ export async function GET(request: Request) {
   );
 
   return NextResponse.redirect(
-    new URL('/admin/integrations/google?connected=1', request.url),
+    new URL('/admin/integrations/google?connected=1', PRODUCTION_BASE_URL),
   );
 }
