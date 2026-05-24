@@ -8,7 +8,19 @@ type AvailabilityRow = {
   blockType: 'full' | 'partial';
   reason: string;
   package?: string;
+  startTime?: string;
+  totalMinutes?: number;
 };
+
+function sqlTimeToDisplay(sql: string, addMinutes = 0): string {
+  const [h, m] = sql.split(':').map(Number);
+  const total = h * 60 + m + addMinutes;
+  let hh = Math.floor(total / 60) % 24;
+  const mm = total % 60;
+  const period = hh >= 12 ? 'PM' : 'AM';
+  hh = ((hh + 11) % 12) + 1;
+  return `${hh}:${String(mm).padStart(2, '0')} ${period}`;
+}
 
 export function OpenPlayFlow({ cancelled }: { cancelled: boolean }) {
   const [date, setDate] = useState<Date | null>(null);
@@ -72,6 +84,9 @@ export function OpenPlayFlow({ cancelled }: { cancelled: boolean }) {
     return groups;
   }, [days]);
 
+  // Days are fully closed only for 'full' blocks (e.g. holidays staff added manually).
+  // Private parties create 'partial' blocks now — open play is still bookable on those
+  // dates, but we show the closure window to the customer.
   const fullyBlockedByDate = useMemo(() => {
     const set = new Set<string>();
     for (const row of availability) {
@@ -80,7 +95,28 @@ export function OpenPlayFlow({ cancelled }: { cancelled: boolean }) {
     return set;
   }, [availability]);
 
+  const partialBlocksByDate = useMemo(() => {
+    const map = new Map<string, AvailabilityRow[]>();
+    for (const row of availability) {
+      if (row.blockType !== 'partial' || !row.startTime) continue;
+      const arr = map.get(row.date) ?? [];
+      arr.push(row);
+      map.set(row.date, arr);
+    }
+    return map;
+  }, [availability]);
+
   const isDayClosed = (d: Date): boolean => fullyBlockedByDate.has(isoDate(d));
+
+  const closureWindowsFor = (d: Date | null): string[] => {
+    if (!d) return [];
+    const rows = partialBlocksByDate.get(isoDate(d)) ?? [];
+    return rows.map((r) => {
+      const start = sqlTimeToDisplay(r.startTime!);
+      const end = sqlTimeToDisplay(r.startTime!, r.totalMinutes ?? 120);
+      return `${start} – ${end}`;
+    });
+  };
 
   const pricing = useMemo(() => calculateOpenPlayPricing(numChildren), [numChildren]);
 
@@ -218,6 +254,7 @@ export function OpenPlayFlow({ cancelled }: { cancelled: boolean }) {
                         {group.days.map((d) => {
                           const selected = date && sameDay(d, date);
                           const closed = isDayClosed(d);
+                          const partial = partialBlocksByDate.has(isoDate(d));
                           return (
                             <button
                               key={d.toISOString()}
@@ -241,6 +278,12 @@ export function OpenPlayFlow({ cancelled }: { cancelled: boolean }) {
                                   Closed
                                 </p>
                               )}
+                              {partial && !closed && !selected && (
+                                <span
+                                  className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-sunshine"
+                                  aria-label="Partial closure"
+                                />
+                              )}
                             </button>
                           );
                         })}
@@ -249,8 +292,23 @@ export function OpenPlayFlow({ cancelled }: { cancelled: boolean }) {
                   ))}
                 </div>
                 <p className="mt-3 text-xs text-slate-400">
-                  Days marked &ldquo;closed&rdquo; are booked for a private party.
+                  Days marked &ldquo;closed&rdquo; are fully unavailable. A yellow dot
+                  means a private party is booked for part of the day — open play
+                  pauses during that window only.
                 </p>
+
+                {date && closureWindowsFor(date).length > 0 && (
+                  <div className="mt-4 rounded-2xl border-2 border-sunshine-200 bg-sunshine-50 p-4">
+                    <p className="text-xs font-bold uppercase tracking-wider text-coral-700">
+                      Heads up — open play paused
+                    </p>
+                    <p className="mt-1 text-sm text-slate-700">
+                      A private party is booked on this date during:{' '}
+                      <strong>{closureWindowsFor(date).join(' · ')}</strong>. Plan
+                      your visit before or after that window.
+                    </p>
+                  </div>
+                )}
               </>
             )}
           </Section>

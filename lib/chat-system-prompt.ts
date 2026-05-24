@@ -18,7 +18,7 @@ export const SYSTEM_PROMPT = `You are the assistant for Wonderland Playhouse, a 
 - Strict ages 0–8 only
 - Grip socks required for everyone (kids and adults). We sell grip socks at the door if you forget.
 - No reservation required, though pre-paying online lets you skip the front desk
-- Closed to open play on days when a private birthday party is booked
+- On days when a private party is booked, open play pauses ONLY during the party window (2 hours), not the whole day. The booking page at /book/open-play shows the closure time for each affected date.
 
 **Memberships** — for families who visit often.
 - The Wonderland Pass: $150/month, unlimited open play visits
