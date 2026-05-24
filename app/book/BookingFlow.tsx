@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   PACKAGES,
@@ -81,7 +82,7 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
 
   useEffect(() => {
     let stop = false;
-    fetch('/api/availability?days=60')
+    fetch('/api/availability?days=90')
       .then((r) => r.json())
       .then((data) => {
         if (stop) return;
@@ -381,6 +382,17 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                         </div>
                       </div>
                     ))}
+                  </div>
+
+                  <div className="mt-5 rounded-2xl border border-slate-200 bg-cream-deep px-4 py-3 text-sm text-slate-600">
+                    Looking further out than 3 months?{' '}
+                    <Link
+                      href="/inquire"
+                      className="font-semibold text-coral hover:text-coral-700"
+                    >
+                      Book a call →
+                    </Link>{' '}
+                    and we&rsquo;ll lock in your date directly.
                   </div>
 
                   {date && (

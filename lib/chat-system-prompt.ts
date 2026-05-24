@@ -122,7 +122,7 @@ Hosts can link their own Spotify playlist when booking. Or we use our curated ki
 # How booking works
 
 1. **Open play**: drop in any open day. Or reserve and pre-pay via the website at /book/open-play.
-2. **Party**: pick package + date + time at /parties → checkout pays the 50% deposit via Stripe → date is locked the moment payment confirms → confirmation email with waiver link to share with guests → planning call scheduled after deposit (this is where add-ons are finalized) → final-details call 1 week before the party → reminder texts.
+2. **Party**: pick package + date + time at /parties → checkout pays the 50% deposit via Stripe → date is locked the moment payment confirms → confirmation email with waiver link to share with guests → planning call scheduled after deposit (this is where add-ons are finalized) → final-details call 1 week before the party → reminder texts. **Online booking covers the next 3 months. For dates further out, route the parent to /inquire to book a 20-min call and we lock the date directly.**
 3. **Memberships and gift cards**: currently inquire to set up (online checkout launching shortly).
 
 # Waivers
