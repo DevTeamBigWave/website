@@ -303,9 +303,8 @@ function Visit() {
             Come find us on Nostrand Ave.
           </h2>
           <p className="mt-4 max-w-md leading-relaxed text-slate-500">
-            A magical, low-stim venue tucked into Sheepshead Bay. Free street
-            parking, a quick walk from the Q. Designed so adults can rest and
-            kids can roam.
+            A magical, low-stim venue tucked into Sheepshead Bay. A quick walk
+            from the Q. Designed so adults can rest and kids can roam.
           </p>
         </div>
 
