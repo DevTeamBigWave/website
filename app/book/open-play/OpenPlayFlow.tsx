@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { OPEN_PLAY_PRICE_CENTS, calculateOpenPlayPricing, fmt } from '@/lib/pricing';
+import { OPEN_PLAY_HOURS_DISPLAY } from '@/lib/hours';
 
 type AvailabilityRow = {
   date: string;
@@ -226,8 +227,9 @@ export function OpenPlayFlow({ cancelled }: { cancelled: boolean }) {
           Reserve a 2-hour visit.
         </h1>
         <p className="mt-3 text-slate-500">
-          $25 per child + tax. Adults free, under 10 months free. Skip the front
-          desk by pre-paying.
+          <strong className="text-slate-700">Open {OPEN_PLAY_HOURS_DISPLAY}.</strong>{' '}
+          $25 per child + tax. Adults free, under 10 months free. Skip the
+          front desk by pre-paying.
         </p>
         {cancelled && (
           <div className="mt-4 rounded-2xl border border-coral-200 bg-coral-50 px-4 py-3 text-sm text-coral-700">

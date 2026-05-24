@@ -239,3 +239,88 @@ export async function deletePartyEvent(eventId: string): Promise<void> {
 export async function hasCalendarIntegration(): Promise<boolean> {
   return (await getIntegration()) !== null;
 }
+
+// Query freebusy on the owner's calendar between timeMin and timeMax.
+// Returns busy time ranges (ISO strings). Used to filter appointment slots.
+export async function getBusyRanges(
+  timeMinISO: string,
+  timeMaxISO: string,
+): Promise<Array<{ start: string; end: string }>> {
+  const integration = await getIntegration();
+  if (!integration) return [];
+
+  const accessToken = await getValidAccessToken(integration);
+  const res = await fetch(`${CALENDAR_API}/freeBusy`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      timeMin: timeMinISO,
+      timeMax: timeMaxISO,
+      items: [{ id: integration.calendar_id }],
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Calendar freeBusy failed: ${res.status} ${err}`);
+  }
+  const data = (await res.json()) as {
+    calendars: Record<string, { busy: Array<{ start: string; end: string }> }>;
+  };
+  return data.calendars[integration.calendar_id]?.busy ?? [];
+}
+
+// Generic appointment event creator (for tours, inquiry calls, planning calls).
+// Returns the new event ID or null if no integration is connected.
+export async function createAppointmentEvent(input: {
+  title: string;
+  description: string;
+  startISO: string;
+  endISO: string;
+  attendeeEmail?: string;
+  attendeeName?: string;
+}): Promise<string | null> {
+  const integration = await getIntegration();
+  if (!integration) return null;
+  const accessToken = await getValidAccessToken(integration);
+
+  const body: Record<string, unknown> = {
+    summary: input.title,
+    description: input.description,
+    start: { dateTime: input.startISO, timeZone: 'America/New_York' },
+    end: { dateTime: input.endISO, timeZone: 'America/New_York' },
+    reminders: {
+      useDefault: false,
+      overrides: [
+        { method: 'popup', minutes: 60 },
+        { method: 'email', minutes: 24 * 60 },
+      ],
+    },
+  };
+
+  if (input.attendeeEmail) {
+    body.attendees = [
+      { email: input.attendeeEmail, displayName: input.attendeeName ?? '' },
+    ];
+  }
+
+  const res = await fetch(
+    `${CALENDAR_API}/calendars/${encodeURIComponent(integration.calendar_id)}/events?sendUpdates=all`,
+    {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Calendar createAppointmentEvent failed: ${res.status} ${err}`);
+  }
+  const data = (await res.json()) as { id: string };
+  return data.id;
+}
