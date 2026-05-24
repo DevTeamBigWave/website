@@ -9,6 +9,7 @@ export const metadata = {
 
 const baseNav = [
   { href: '/admin', label: 'Dashboard' },
+  { href: '/admin/revenue', label: 'Revenue' },
   { href: '/admin/parties', label: 'Parties' },
   { href: '/admin/customers', label: 'Customers' },
   { href: '/admin/waivers', label: 'Waivers' },
