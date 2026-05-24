@@ -25,7 +25,7 @@ function clientSecret() {
   return process.env.GOOGLE_OAUTH_CLIENT_SECRET!;
 }
 
-async function getIntegration(): Promise<IntegrationRow | null> {
+export async function getIntegration(): Promise<IntegrationRow | null> {
   const db = supabaseAdmin();
   const { data } = await db
     .from('google_integrations')
@@ -37,7 +37,7 @@ async function getIntegration(): Promise<IntegrationRow | null> {
   return (data as IntegrationRow | null) ?? null;
 }
 
-async function getValidAccessToken(integration: IntegrationRow): Promise<string> {
+export async function getValidAccessToken(integration: IntegrationRow): Promise<string> {
   // Refresh if expiring within 60s
   const expiresAt = integration.access_token_expires_at
     ? new Date(integration.access_token_expires_at).getTime()

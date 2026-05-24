@@ -66,9 +66,14 @@ export default async function RevenuePage({
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi label="Gross revenue" value={fmt(summary.gross_cents)} accent />
         <Kpi label="Est. Stripe fees" value={`−${fmt(summary.estimated_stripe_fees_cents)}`} />
-        <Kpi label="Net before labor" value={fmt(summary.net_before_labor_cents)} accent />
-        <Kpi label="Transactions" value={String(summary.txn_count)} />
+        <Kpi label="Labor (Homebase)" value={`−${fmt(summary.labor_cost_cents)}`} />
+        <Kpi label="Net" value={fmt(summary.net_after_labor_cents)} accent />
       </div>
+      <p className="text-xs text-slate-500">
+        {summary.txn_count} transaction{summary.txn_count === 1 ? '' : 's'}
+        {' · '}
+        Labor from {summary.labor_days_with_data} day{summary.labor_days_with_data === 1 ? '' : 's'} of Homebase data
+      </p>
 
       {/* Chart */}
       <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">

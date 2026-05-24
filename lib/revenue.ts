@@ -83,7 +83,11 @@ export type RevenueSummary = {
   gross_cents: number;
   // Estimated processing fees: Stripe 2.9% + 30¢ per transaction
   estimated_stripe_fees_cents: number;
+  // Labor cost from daily_labor (Homebase) in the range
+  labor_cost_cents: number;
+  labor_days_with_data: number;
   net_before_labor_cents: number;
+  net_after_labor_cents: number;
   txn_count: number;
   // Per-day for the chart
   daily: Array<{ date: string; amount_cents: number }>;
@@ -247,12 +251,28 @@ export async function getRevenue(range: DateRange): Promise<RevenueSummary> {
     cursor.setDate(cursor.getDate() + 1);
   }
 
+  // Labor cost — sum daily_labor rows whose labor_date falls within range
+  const fromYmd = ymd(range.from);
+  const toYmd = ymd(range.to);
+  const { data: laborRows = [] } = await db
+    .from('daily_labor')
+    .select('total_cost_cents, labor_date')
+    .gte('labor_date', fromYmd)
+    .lte('labor_date', toYmd);
+  const laborCost = (laborRows ?? []).reduce(
+    (s: number, r: any) => s + (r.total_cost_cents ?? 0),
+    0,
+  );
+
   return {
     range: { fromISO, toISO, label: range.label },
     lines,
     gross_cents: gross,
     estimated_stripe_fees_cents: estimatedStripeFees,
+    labor_cost_cents: laborCost,
+    labor_days_with_data: (laborRows ?? []).length,
     net_before_labor_cents: gross - estimatedStripeFees,
+    net_after_labor_cents: gross - estimatedStripeFees - laborCost,
     txn_count: txnCount,
     daily,
   };
