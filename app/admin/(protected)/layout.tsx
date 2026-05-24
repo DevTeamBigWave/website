@@ -12,6 +12,7 @@ const baseNav = [
   { href: '/admin/parties', label: 'Parties' },
   { href: '/admin/customers', label: 'Customers' },
   { href: '/admin/gift-cards', label: 'Gift Cards' },
+  { href: '/admin/blog', label: 'Blog' },
 ];
 
 export default async function ProtectedAdminLayout({
