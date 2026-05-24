@@ -14,8 +14,8 @@ export function Footer() {
             className="h-14 w-auto opacity-95"
           />
           <p className="mt-4 max-w-sm text-sm leading-relaxed text-cream/80">
-            Brooklyn&rsquo;s private play space for kids 0–8. Birthday parties,
-            open play, and a soft place to land.
+            A magical, low-stim birthday venue and play space in Brooklyn for
+            kids 0–8. Curated, calm, designed for the photos.
           </p>
         </div>
 

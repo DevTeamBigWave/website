@@ -25,7 +25,7 @@ export const PACKAGES = {
     priceCents: 125000,
     maxKids: 25,
     durationMinutes: 120,
-    description: 'The whole 4,000 sq ft. Just you. Closes the space.',
+    description: 'The whole magical venue. Just you. Closes the space.',
     includes: [
       'Up to 25 children',
       '2 hours, exclusive use',

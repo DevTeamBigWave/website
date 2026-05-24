@@ -6,7 +6,7 @@ import { PhotoPlaceholder } from '@/components/PhotoPlaceholder';
 export const metadata = {
   title: 'About',
   description:
-    'Wonderland Playhouse is a 4,000 sq ft indoor playhouse in Brooklyn for kids 0-8. Open play, private birthday parties, memberships.',
+    'Wonderland Playhouse is a magical, low-stim birthday venue and indoor play space in Brooklyn for kids 0-8. Open play, private birthday parties, memberships.',
 };
 
 export default function AboutPage() {
@@ -36,9 +36,8 @@ function Hero() {
           <span className="text-coral">for kids 0–8.</span>
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-slate-500">
-          4,000 square feet on Nostrand Avenue, designed for unhurried,
-          imaginative play. Built by parents who got tired of bouncing between
-          loud, chaotic play spaces.
+          A magical, curated, low-stim play venue on Nostrand Avenue. Built by
+          parents who got tired of bouncing between loud, chaotic play spaces.
         </p>
       </div>
     </section>
@@ -51,19 +50,20 @@ function TheSpace() {
       <div className="mx-auto max-w-6xl px-6">
         <div className="grid gap-12 md:grid-cols-2 md:items-center">
           <div>
-            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-coral">The space</p>
+            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-coral">The venue</p>
             <h2 className="font-display text-4xl text-slate-700 sm:text-5xl">
-              Calm, curated, completely ours.
+              Magical. Curated. Calm by design.
             </h2>
             <p className="mt-4 leading-relaxed text-slate-500">
-              4,000 sq ft of imaginative play, broken into thoughtfully-designed
-              zones — climbing structures, dramatic play, sensory tables, art
-              corner, infant lounge, and a party room that doubles as quiet
-              space when there&rsquo;s no party.
+              A low-stim play venue, thoughtfully arranged into gentle zones —
+              climbing, dramatic play, sensory tables, art corner, infant
+              lounge, and a party room that doubles as quiet space when
+              there&rsquo;s no party.
             </p>
             <p className="mt-4 leading-relaxed text-slate-500">
-              Music kept gentle. Lighting kept warm. The kind of place you
-              actually want to spend two hours in.
+              Music kept gentle. Lighting kept warm. Easy sightlines so adults
+              can actually relax. Aesthetic enough for the photos. Safe enough
+              that you can sit down.
             </p>
           </div>
           <PhotoPlaceholder
@@ -119,7 +119,7 @@ function WhatWeOffer() {
           <Offer
             label="Private Party"
             price="$1,250"
-            note="whole 4,000 sq ft · any 2-hour window"
+            note="whole venue · any 2-hour window"
             blurb="Your child's birthday, the entire space. Decor, host, cleanup — we handle it all."
             href="/parties"
             cta="Book private"

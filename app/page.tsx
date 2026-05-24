@@ -28,12 +28,13 @@ function Hero() {
             Brooklyn · Kids 0–8
           </p>
           <h1 className="font-display text-5xl leading-[1.05] text-slate-700 sm:text-6xl md:text-7xl">
-            Your child&rsquo;s birthday,{' '}
-            <span className="text-coral">the whole 4,000 sq&nbsp;ft.</span>
+            A magical birthday venue,{' '}
+            <span className="text-coral">designed for calm.</span>
           </h1>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-slate-500">
-            Brooklyn&rsquo;s private play space for kids 0–8. We handle setup,
-            host, and cleanup. You bring the cake.
+            Brooklyn&rsquo;s curated, low-stim private play space for kids 0–8.
+            Aesthetic enough for the photos. Safe and easy enough that you can
+            actually sit down.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -102,12 +103,13 @@ function Offerings() {
               </p>
               <h3 className="font-display text-3xl sm:text-4xl">Private Party</h3>
               <p className="mt-3 max-w-md text-white/90">
-                The entire 4,000 sq ft is yours. Pick any 2-hour window —
-                first come, first serve. No other families, no shared play areas.
+                The whole magical venue is yours. Pick any 2-hour window —
+                first come, first serve. Curated, low-stim, easy sightlines so
+                you can sip your coffee while the kids play.
               </p>
               <ul className="mt-6 space-y-2 text-sm font-semibold text-white/95">
                 <li>✓ Up to 25 children</li>
-                <li>✓ 2 hours, exclusive use of the space</li>
+                <li>✓ 2 hours, exclusive use of the venue</li>
                 <li>✓ Dedicated host + helper</li>
                 <li>✓ Setup and cleanup</li>
               </ul>
@@ -298,9 +300,9 @@ function Visit() {
             Come find us on Nostrand Ave.
           </h2>
           <p className="mt-4 max-w-md leading-relaxed text-slate-500">
-            4,000 square feet of unhurried, imaginative play tucked between Avenue X
-            and Avenue Y. Free street parking, and a quick walk from the Q at
-            Sheepshead Bay.
+            A magical, low-stim venue tucked into Sheepshead Bay. Free street
+            parking, a quick walk from the Q. Designed so adults can rest and
+            kids can roam.
           </p>
         </div>
 

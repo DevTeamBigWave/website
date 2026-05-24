@@ -23,14 +23,14 @@ export const metadata: Metadata = {
     template: '%s · Wonderland Playhouse',
   },
   description:
-    "Brooklyn's private 4,000 sq ft indoor playhouse for kids 0–8. Birthday parties, open play, and a soft place to land.",
+    "Brooklyn's magical, low-stim birthday venue and indoor play space for kids 0–8. Private parties, open play, memberships.",
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.wonderlandplayhouse.com'
   ),
   openGraph: {
     title: 'Wonderland Playhouse',
     description:
-      "Brooklyn's private 4,000 sq ft indoor playhouse. Birthday parties + open play for kids 0–8.",
+      "Brooklyn's magical, low-stim birthday venue. Private parties + open play for kids 0–8.",
     url: '/',
     siteName: 'Wonderland Playhouse',
     locale: 'en_US',

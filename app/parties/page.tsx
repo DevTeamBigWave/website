@@ -18,6 +18,8 @@ export default function PartiesPage() {
       <Packages />
       <Difference />
       <OneStopShop />
+      <AddOns />
+      <Entertainment />
       <WeekdayCallout />
       <Faq />
       <FinalCta />
@@ -34,12 +36,13 @@ function Hero() {
           Birthday Parties
         </p>
         <h1 className="font-display text-5xl leading-[1.05] text-slate-700 sm:text-6xl md:text-7xl">
-          The party they&rsquo;ll <span className="text-coral">talk about for weeks.</span>
+          The aesthetic birthday they&rsquo;ll{' '}
+          <span className="text-coral">actually remember.</span>
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-slate-500">
-          Two packages, one promise: you bring the cake, we handle everything else.
-          Decor, host, setup, cleanup, and a 4,000 sq ft play space designed for
-          kids 0–8.
+          A magical, low-stim venue in Brooklyn designed to look beautiful and
+          feel calm. Easy sightlines so you can sit, sip, and watch — not chase.
+          Add the cake, decor, and entertainment you want.
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <Link
@@ -111,8 +114,8 @@ function Packages() {
             </p>
             <h3 className="mt-1 font-display text-3xl">Private</h3>
             <p className="mt-2 text-white/90">
-              The entire 4,000 sq ft is yours. Any 2-hour window you want — first
-              come, first serve.
+              The whole magical venue is yours. Any 2-hour window you want —
+              first come, first serve.
             </p>
 
             <p className="mt-6 font-display text-5xl">
@@ -124,7 +127,7 @@ function Packages() {
 
             <ul className="mt-6 flex-1 space-y-2.5 text-sm font-semibold text-white/95">
               <Bullet white>Up to 25 children</Bullet>
-              <Bullet white>2 hours, exclusive use of the space</Bullet>
+              <Bullet white>2 hours, exclusive use of the venue</Bullet>
               <Bullet white>Pick any 2-hour window (first come, first serve)</Bullet>
               <Bullet white>Dedicated host + helper</Bullet>
               <Bullet white>Setup and cleanup included</Bullet>
@@ -182,7 +185,7 @@ function Difference() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-600">
-              <CompareRow label="Use of space" semi="Shared (1-2 other families)" priv="Exclusive — whole 4,000 sq ft" />
+              <CompareRow label="Use of venue" semi="Shared (1-2 other families)" priv="Exclusive — whole venue" />
               <CompareRow label="Time slot" semi="Fixed (10am, 12pm, 2pm, 5pm)" priv="Any 2-hour window" />
               <CompareRow label="Max children" semi="15" priv="25" />
               <CompareRow label="Party host" semi="✓" priv="✓ + helper" />
@@ -219,12 +222,12 @@ function OneStopShop() {
         <div className="max-w-2xl">
           <SectionEyebrow>One-stop shop</SectionEyebrow>
           <h2 className="font-display text-4xl text-slate-700 sm:text-5xl">
-            We handle everything except the cake.
+            One place. Zero vendor juggling.
           </h2>
           <p className="mt-4 text-slate-500">
-            No vendor juggling, no day-of stress. Host, setup, and cleanup are
-            included. Themed decor, custom desserts, entertainment, and music
-            are available as add-ons — all booked in one place.
+            Host, setup, and cleanup are included with every package. Custom
+            cake, themed decor, food, entertainment, goodie bags — all
+            available as add-ons below, all booked in one place.
           </p>
         </div>
 
@@ -296,6 +299,99 @@ function Service({
       <h3 className="font-display text-xl text-slate-700">{title}</h3>
       <p className="mt-2 text-sm text-slate-600">{blurb}</p>
     </div>
+  );
+}
+
+function AddOns() {
+  const items = [
+    { name: '1-hour extension', price: '$500 private · $250 semi-private' },
+    { name: 'Outside food fee (incl. tableware for adults)', price: '$85' },
+    { name: 'Case of 24 Fiji water bottles', price: '$40' },
+    { name: 'Additional pizza pie', price: '$22' },
+    { name: 'Balloons & theme-based decor', price: 'Starting at $550' },
+    { name: 'Upgraded theme-based goodie bags', price: '$6 per child' },
+    { name: 'French fries', price: '$28' },
+    { name: 'Chicken nuggets', price: '$40' },
+    { name: 'Theme-based cupcakes', price: '$6 each' },
+    { name: 'Custom cake', price: 'Starting at $250' },
+  ];
+
+  return (
+    <section id="add-ons" className="bg-cream py-20">
+      <div className="mx-auto max-w-5xl px-6">
+        <SectionEyebrow>Add-ons</SectionEyebrow>
+        <h2 className="font-display text-4xl text-slate-700 sm:text-5xl">
+          Build out your party.
+        </h2>
+        <p className="mt-4 max-w-2xl text-slate-500">
+          Mix and match. Add what you want, skip what you don&rsquo;t. We&rsquo;ll
+          confirm everything during your planning call.
+        </p>
+
+        <div className="mt-10 grid gap-3 sm:grid-cols-2">
+          {items.map((item) => (
+            <div
+              key={item.name}
+              className="flex items-start justify-between gap-3 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm"
+            >
+              <div className="flex items-start gap-3">
+                <span aria-hidden className="text-xl leading-none">🎈</span>
+                <p className="text-sm font-semibold text-slate-700">
+                  {item.name}
+                </p>
+              </div>
+              <p className="whitespace-nowrap font-display text-sm text-coral">
+                {item.price}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Entertainment() {
+  const acts = [
+    { name: 'Character meet & greet', price: '$150', note: '+$100 if mascot' },
+    { name: 'Face painting', price: '$200' },
+    { name: 'Glitter tattoos', price: '$100' },
+    { name: 'Balloon twisting', price: '$125' },
+    { name: 'Dance party & games', price: '$150' },
+    { name: 'Candy-filled piñata', price: '$100' },
+    { name: 'DIY slime station', price: '$200' },
+    { name: 'DIY bracelet making station', price: '$175' },
+    { name: 'Glam spa day', price: '$175' },
+  ];
+
+  return (
+    <section id="entertainment" className="bg-cream-deep py-20">
+      <div className="mx-auto max-w-5xl px-6">
+        <SectionEyebrow>Entertainment</SectionEyebrow>
+        <h2 className="font-display text-4xl text-slate-700 sm:text-5xl">
+          Make it unforgettable.
+        </h2>
+        <p className="mt-4 max-w-2xl text-slate-500">
+          45-minute activities, run by our entertainers. Prices may vary by
+          party size. <strong className="text-slate-700">Bubble dance party included with every option.</strong>
+        </p>
+
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {acts.map((act) => (
+            <div
+              key={act.name}
+              className="rounded-2xl border-2 border-sky-200 bg-sky-50 p-5"
+            >
+              <p className="font-display text-lg text-slate-700">{act.name}</p>
+              <p className="mt-2 font-display text-2xl text-coral">{act.price}</p>
+              {act.note && (
+                <p className="mt-1 text-xs text-slate-500">{act.note}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
