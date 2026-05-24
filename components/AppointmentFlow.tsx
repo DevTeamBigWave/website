@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 type Slot = { startISO: string; endISO: string };
 type ApiResponse = {
@@ -39,6 +39,16 @@ export function AppointmentFlow({
     endISO: string;
     typeName: string;
   } | null>(null);
+
+  const contactRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!selectedSlot) return;
+    const t = setTimeout(() => {
+      contactRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+    return () => clearTimeout(t);
+  }, [selectedSlot]);
 
   useEffect(() => {
     let stop = false;
@@ -224,7 +234,7 @@ export function AppointmentFlow({
           </Section>
 
           {selectedSlot && (
-            <Section number="02" title="Your contact info">
+            <Section number="02" title="Your contact info" sectionRef={contactRef}>
               <div className="grid gap-4 sm:grid-cols-2">
                 <FieldInput
                   label="Your name"
@@ -309,13 +319,15 @@ function Section({
   number,
   title,
   children,
+  sectionRef,
 }: {
   number: string;
   title: string;
   children: React.ReactNode;
+  sectionRef?: React.RefObject<HTMLElement | null>;
 }) {
   return (
-    <section>
+    <section ref={sectionRef}>
       <div className="mb-5 flex items-center gap-3">
         <span className="font-display text-2xl text-coral-200">{number}</span>
         <h2 className="font-display text-2xl text-slate-700">{title}</h2>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   PACKAGES,
   EXTENSIONS,
@@ -58,6 +58,26 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [giftCard, setGiftCard] = useState<{ code: string; balanceCents: number } | null>(null);
+
+  const dateTimeRef = useRef<HTMLElement>(null);
+  const detailsRef = useRef<HTMLElement>(null);
+
+  // When package is chosen, scroll to date+time. When time is chosen, scroll to details.
+  useEffect(() => {
+    if (!packageId) return;
+    const t = setTimeout(() => {
+      dateTimeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+    return () => clearTimeout(t);
+  }, [packageId]);
+
+  useEffect(() => {
+    if (!time || !packageId || !date) return;
+    const t = setTimeout(() => {
+      detailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+    return () => clearTimeout(t);
+  }, [time, packageId, date]);
 
   useEffect(() => {
     let stop = false;
@@ -306,7 +326,7 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
 
           {/* Step 2 — Date + Time */}
           {packageId && (
-            <Section number="02" title="Pick a date and time">
+            <Section number="02" title="Pick a date and time" sectionRef={dateTimeRef}>
               {loadingAvailability ? (
                 <p className="text-sm text-slate-500">Loading availability…</p>
               ) : (
@@ -463,7 +483,7 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
 
           {/* Step 3 — Details */}
           {packageId && date && time && (
-            <Section number="03" title="Your details">
+            <Section number="03" title="Your details" sectionRef={detailsRef}>
               <div className="grid gap-4 sm:grid-cols-2">
                 <FieldInput
                   label="Your name"
@@ -667,13 +687,15 @@ function Section({
   number,
   title,
   children,
+  sectionRef,
 }: {
   number: string;
   title: string;
   children: React.ReactNode;
+  sectionRef?: React.RefObject<HTMLElement | null>;
 }) {
   return (
-    <section>
+    <section ref={sectionRef}>
       <div className="mb-5 flex items-center gap-3">
         <span className="font-display text-2xl text-coral-200">{number}</span>
         <h2 className="font-display text-2xl text-slate-700">{title}</h2>

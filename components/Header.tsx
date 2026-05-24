@@ -6,6 +6,7 @@ const navItems = [
   { href: '/parties', label: 'Parties' },
   { href: '/memberships', label: 'Memberships' },
   { href: '/gift-cards', label: 'Gift Cards' },
+  { href: '/blog', label: 'Blog' },
   { href: '/about', label: 'About' },
 ];
 

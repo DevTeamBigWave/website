@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { OPEN_PLAY_PRICE_CENTS, calculateOpenPlayPricing, fmt } from '@/lib/pricing';
 import { OPEN_PLAY_HOURS_DISPLAY } from '@/lib/hours';
 import { GiftCardInput } from '@/components/GiftCardInput';
@@ -34,6 +34,17 @@ export function OpenPlayFlow({ cancelled }: { cancelled: boolean }) {
   });
   const [paymentMethod, setPaymentMethod] = useState<'online' | 'at_door'>('online');
   const [giftCard, setGiftCard] = useState<{ code: string; balanceCents: number } | null>(null);
+
+  const headcountRef = useRef<HTMLElement>(null);
+
+  // When date is chosen, scroll to headcount step
+  useEffect(() => {
+    if (!date) return;
+    const t = setTimeout(() => {
+      headcountRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+    return () => clearTimeout(t);
+  }, [date]);
 
   const [availability, setAvailability] = useState<AvailabilityRow[]>([]);
   const [loadingAvailability, setLoadingAvailability] = useState(true);
@@ -320,7 +331,7 @@ export function OpenPlayFlow({ cancelled }: { cancelled: boolean }) {
 
           {/* Step 2 — Headcount */}
           {date && (
-            <Section number="02" title="How many kids?">
+            <Section number="02" title="How many kids?" sectionRef={headcountRef}>
               <div className="flex items-center gap-3">
                 <button
                   type="button"
@@ -546,13 +557,15 @@ function Section({
   number,
   title,
   children,
+  sectionRef,
 }: {
   number: string;
   title: string;
   children: React.ReactNode;
+  sectionRef?: React.RefObject<HTMLElement | null>;
 }) {
   return (
-    <section>
+    <section ref={sectionRef}>
       <div className="mb-5 flex items-center gap-3">
         <span className="font-display text-2xl text-coral-200">{number}</span>
         <h2 className="font-display text-2xl text-slate-700">{title}</h2>
