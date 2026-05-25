@@ -134,7 +134,9 @@ export function ComposeMarketing({ recipientCount }: { recipientCount: number })
         <Field label="Send a test preview to one email">
           <div className="flex gap-2">
             <input
-              type="email"
+              type="text"
+              inputMode="email"
+              autoComplete="email"
               value={previewEmail}
               onChange={(e) => setPreviewEmail(e.target.value)}
               placeholder="you@email.com"

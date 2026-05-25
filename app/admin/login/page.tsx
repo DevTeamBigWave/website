@@ -101,9 +101,9 @@ function PasswordForm({
           Email
         </span>
         <input
-          type="email"
+          type="text"
           name="email"
-          required
+          inputMode="email"
           autoComplete="email"
           className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-700 placeholder:text-slate-300 focus:border-coral focus:outline-none"
         />
