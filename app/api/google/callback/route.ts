@@ -8,9 +8,9 @@ export const dynamic = 'force-dynamic';
 
 // Must exactly match the redirect_uri sent on /connect AND the one
 // registered in Google Cloud → OAuth Client → Authorized redirect URIs.
-const PRODUCTION_REDIRECT_URI =
-  'https://website-production-4594.up.railway.app/api/google/callback';
-const PRODUCTION_BASE_URL = 'https://website-production-4594.up.railway.app';
+const PRODUCTION_BASE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.wonderlandplayhouse.com';
+const PRODUCTION_REDIRECT_URI = `${PRODUCTION_BASE_URL}/api/google/callback`;
 
 export async function GET(request: Request) {
   const me = await requireOwner();

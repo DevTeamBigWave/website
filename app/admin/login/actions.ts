@@ -39,7 +39,7 @@ async function getOrigin(): Promise<string> {
   // Fallback only if request headers somehow missing
   return (
     process.env.NEXT_PUBLIC_SITE_URL ??
-    'https://website-production-4594.up.railway.app'
+    'https://www.wonderlandplayhouse.com'
   );
 }
 

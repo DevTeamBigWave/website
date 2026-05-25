@@ -3,7 +3,7 @@ import QRCode from 'qrcode';
 
 export const dynamic = 'force-dynamic';
 
-const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://website-production-4594.up.railway.app';
+const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.wonderlandplayhouse.com';
 
 const KIOSK_URL = `${SITE}/waiver?kiosk=1`;
 

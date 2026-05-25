@@ -11,11 +11,11 @@ const SCOPES = [
   'email',
 ];
 
-// Production URL is the source of truth — must match what's registered in
-// Google Cloud Console under Authorized redirect URIs. Hardcoded to remove
-// any chance of header weirdness producing a different value.
+// Production URL — must match what's registered in Google Cloud Console under
+// Authorized redirect URIs. Reads from env, falls back to live custom domain.
 const PRODUCTION_REDIRECT_URI =
-  'https://website-production-4594.up.railway.app/api/google/callback';
+  (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.wonderlandplayhouse.com') +
+  '/api/google/callback';
 
 export async function GET(_request: Request) {
   await requireOwner();

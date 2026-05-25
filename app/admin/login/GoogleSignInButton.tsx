@@ -12,7 +12,7 @@ import { createBrowserClient } from '@supabase/ssr';
 //
 // Setup required in Google Cloud Console:
 //   Authorized JavaScript origins for this OAuth Client must include
-//   https://website-production-4594.up.railway.app
+//   the production site URL (e.g. https://www.wonderlandplayhouse.com)
 
 const GOOGLE_CLIENT_ID =
   '782668080864-7k411vdrqicqirju0vr8phkou4l44a8l.apps.googleusercontent.com';
