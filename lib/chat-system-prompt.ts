@@ -72,7 +72,7 @@ What's included with every party: host, setup, cleanup, the venue itself, and a 
 - Additional pizza pie: $22
 - Balloons & theme-based decor: starting at $550
 - Upgraded theme-based goodie bags: $6 per child
-- French fries: $28
+- French fries: $30
 - Chicken nuggets: $40
 - Theme-based cupcakes: $6 each
 - Custom cake: starting at $250

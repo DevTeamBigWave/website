@@ -315,7 +315,7 @@ function AddOns() {
     { name: 'Additional pizza pie', price: '$22' },
     { name: 'Balloons & theme-based decor', price: 'Starting at $550' },
     { name: 'Upgraded theme-based goodie bags', price: '$6 per child' },
-    { name: 'French fries', price: '$28' },
+    { name: 'French fries', price: '$30' },
     { name: 'Chicken nuggets', price: '$40' },
     { name: 'Theme-based cupcakes', price: '$6 each' },
     { name: 'Custom cake', price: 'Starting at $250' },
