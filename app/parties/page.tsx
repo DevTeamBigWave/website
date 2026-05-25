@@ -365,7 +365,7 @@ function Entertainment() {
     { name: 'Face painting', price: '$200' },
     { name: 'Glitter tattoos', price: '$100' },
     { name: 'Balloon twisting', price: '$125' },
-    { name: 'Dance party & games', price: '$150' },
+    { name: 'Dance party & games', price: '$200' },
     { name: 'Candy-filled piñata', price: '$100' },
     { name: 'DIY slime station', price: '$200' },
     { name: 'DIY bracelet making station', price: '$175' },

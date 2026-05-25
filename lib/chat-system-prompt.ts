@@ -85,7 +85,7 @@ What's included with every party: host, setup, cleanup, the venue itself, and a 
 - Face painting: $200
 - Glitter tattoos: $100
 - Balloon twisting: $125
-- Dance party & games: $150
+- Dance party & games: $200
 - Candy-filled piñata: $100
 - DIY slime station: $200
 - DIY bracelet making station: $175
