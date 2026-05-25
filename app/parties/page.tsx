@@ -199,8 +199,8 @@ function Difference() {
               <CompareRow label="Mon-Thu 20% discount" semi="—" priv="Yes — all slots" />
               <tr>
                 <td className="px-6 py-4 font-bold text-slate-700">Price</td>
-                <td className="px-6 py-4 text-center font-display text-xl text-slate-700">$650</td>
-                <td className="px-6 py-4 text-center font-display text-xl text-coral">$1,250</td>
+                <td className="px-6 py-4 text-center font-display text-xl text-slate-700">$650<span className="ml-1 text-xs font-normal text-slate-400">+ tax</span></td>
+                <td className="px-6 py-4 text-center font-display text-xl text-coral">$1,250<span className="ml-1 text-xs font-normal text-coral-700/70">+ tax</span></td>
               </tr>
             </tbody>
           </table>
