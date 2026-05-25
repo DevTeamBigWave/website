@@ -6,6 +6,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 import {
   sendGiftCardToRecipient,
   sendGiftCardPurchaserReceipt,
+  sendOwnerSaleNotification,
 } from '@/lib/email';
 import { finalizeParty, finalizeOpenPlay } from '@/lib/finalize-booking';
 
@@ -74,6 +75,17 @@ export async function POST(request: Request) {
         const emailResults = await Promise.allSettled([
           sendGiftCardToRecipient(card),
           sendGiftCardPurchaserReceipt(card),
+          sendOwnerSaleNotification({
+            subject: `🎁 Gift card sold · $${(card.amount_cents / 100).toFixed(0)} from ${card.purchaser_name}`,
+            bullets: [
+              ['Amount', `$${(card.amount_cents / 100).toFixed(2)}`],
+              ['From', `${card.purchaser_name} · ${card.purchaser_email}`],
+              ['To', `${card.recipient_name} · ${card.recipient_email}`],
+              ['Code', card.code],
+              ...(card.message ? ([['Message', String(card.message)]] as Array<[string, string]>) : []),
+            ],
+            adminLink: '/admin/gift-cards',
+          }),
         ]);
 
         if (emailResults[0].status === 'fulfilled') {

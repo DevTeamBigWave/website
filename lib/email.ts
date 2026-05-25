@@ -566,3 +566,25 @@ export async function sendOwnerNotification({ subject, party }: { subject: strin
 
   return resend().emails.send({ from: FROM, to: OWNER, subject, html });
 }
+
+// ---------------------------------------------------------------------------
+// Owner: gift card / open play / generic sale notification
+// ---------------------------------------------------------------------------
+export async function sendOwnerSaleNotification(args: {
+  subject: string;
+  bullets: Array<[label: string, value: string]>;
+  adminLink?: string;
+}) {
+  const html = `
+    <div style="font-family: Helvetica, sans-serif; font-size: 14px;">
+      <h2 style="margin-top: 0;">${args.subject}</h2>
+      <ul style="line-height: 1.8;">
+        ${args.bullets
+          .map(([k, v]) => `<li><strong>${k}:</strong> ${v}</li>`)
+          .join('')}
+      </ul>
+      ${args.adminLink ? `<p><a href="${SITE}${args.adminLink}">View in admin</a></p>` : ''}
+    </div>
+  `;
+  return resend().emails.send({ from: FROM, to: OWNER, subject: args.subject, html });
+}
