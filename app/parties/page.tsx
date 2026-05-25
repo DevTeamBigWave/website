@@ -360,16 +360,17 @@ function AddOns() {
 }
 
 function Entertainment() {
+  // OpenMoji codepoints — illustrated SVGs that render identically across devices
   const acts = [
-    { name: 'Character meet & greet', price: '$150', note: '+$150 if mascot', emoji: '🧚' },
-    { name: 'Face painting', price: '$200', emoji: '🎨' },
-    { name: 'Glitter tattoos', price: '$100', emoji: '✨' },
-    { name: 'Balloon twisting', price: '$125', emoji: '🎈' },
-    { name: 'Dance party & games', price: '$200', emoji: '💃' },
-    { name: 'Candy-filled piñata', price: '$100', emoji: '🪅' },
-    { name: 'DIY slime station', price: '$200', emoji: '🧪' },
-    { name: 'DIY bracelet making station', price: '$200', emoji: '💎' },
-    { name: 'Glam spa day', price: '$200', emoji: '💅' },
+    { name: 'Character meet & greet', price: '$150', note: '+$150 if mascot', icon: '1F9DA' /* fairy */ },
+    { name: 'Face painting', price: '$200', icon: '1F3A8' /* palette */ },
+    { name: 'Glitter tattoos', price: '$100', icon: '2728' /* sparkles */ },
+    { name: 'Balloon twisting', price: '$125', icon: '1F388' /* balloon */ },
+    { name: 'Dance party & games', price: '$200', icon: '1F483' /* dancing */ },
+    { name: 'Candy-filled piñata', price: '$100', icon: '1FA85' /* piñata */ },
+    { name: 'DIY slime station', price: '$200', icon: '1F9EA' /* test tube */ },
+    { name: 'DIY bracelet making station', price: '$200', icon: '1F48E' /* gem */ },
+    { name: 'Glam spa day', price: '$200', icon: '1F485' /* nail polish */ },
   ];
 
   return (
@@ -390,7 +391,16 @@ function Entertainment() {
               key={act.name}
               className="rounded-2xl border-2 border-sky-200 bg-sky-50 p-5"
             >
-              <div className="text-4xl leading-none" aria-hidden>{act.emoji}</div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`https://cdn.jsdelivr.net/npm/openmoji@15.1.0/color/svg/${act.icon}.svg`}
+                alt=""
+                aria-hidden
+                width={56}
+                height={56}
+                className="h-14 w-14"
+                loading="lazy"
+              />
               <p className="mt-3 font-display text-lg text-slate-700">{act.name}</p>
               <p className="mt-2 font-display text-2xl text-coral">{act.price}</p>
               {act.note && (
