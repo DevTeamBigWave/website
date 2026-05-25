@@ -57,30 +57,47 @@ export async function POST(request: Request) {
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://wonderlandplayhouse.com';
 
-  const session = await stripe.checkout.sessions.create({
-    mode: 'payment',
-    payment_method_types: ['card'],
-    customer_email: body.purchaserEmail,
-    line_items: [
-      {
-        quantity: 1,
-        price_data: {
-          currency: 'usd',
-          unit_amount: body.amountCents,
-          product_data: {
-            name: `Gift card for ${body.recipientName}`,
-            description: `$${(body.amountCents / 100).toFixed(0)} Wonderland Playhouse gift card`,
+  let session;
+  try {
+    session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      payment_method_types: ['card'],
+      customer_email: body.purchaserEmail.trim().toLowerCase(),
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: 'usd',
+            unit_amount: body.amountCents,
+            product_data: {
+              name: `Gift card for ${body.recipientName}`.slice(0, 250),
+              description: `$${(body.amountCents / 100).toFixed(0)} Wonderland Playhouse gift card`,
+            },
           },
         },
+      ],
+      metadata: {
+        type: 'gift_card',
+        gift_card_id: card.id,
       },
-    ],
-    metadata: {
-      type: 'gift_card',
-      gift_card_id: card.id,
-    },
-    success_url: `${siteUrl}/gift-cards/sent?id=${card.id}`,
-    cancel_url: `${siteUrl}/gift-cards/buy?cancelled=true`,
-  });
+      success_url: `${siteUrl}/gift-cards/sent?id=${card.id}`,
+      cancel_url: `${siteUrl}/gift-cards/buy?cancelled=true`,
+    });
+  } catch (err: any) {
+    console.error('Stripe checkout session creation failed:', err);
+    // Roll back the pending gift card row so a retry creates a fresh code
+    await db.from('gift_cards').delete().eq('id', card.id);
+    return NextResponse.json(
+      {
+        error:
+          err?.raw?.message ??
+          err?.message ??
+          'Could not start checkout. Try again or email info@wonderlandplayhouse.com.',
+        code: err?.code,
+      },
+      { status: 500 },
+    );
+  }
 
   await db
     .from('gift_cards')
