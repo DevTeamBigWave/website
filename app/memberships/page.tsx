@@ -120,7 +120,7 @@ function HowItWorks() {
           <Step
             n="02"
             title="Walk in"
-            blurb="Any open day, any time during open hours. Just show your membership at the front desk."
+            blurb="Any open day, any time during open hours, unless we're closed for a private party or special event. Just show your membership at the front desk."
           />
           <Step
             n="03"
