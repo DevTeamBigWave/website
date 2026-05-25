@@ -361,7 +361,7 @@ function AddOns() {
 
 function Entertainment() {
   const acts = [
-    { name: 'Character meet & greet', price: '$150', note: '+$100 if mascot' },
+    { name: 'Character meet & greet', price: '$150', note: '+$150 if mascot' },
     { name: 'Face painting', price: '$200' },
     { name: 'Glitter tattoos', price: '$100' },
     { name: 'Balloon twisting', price: '$125' },

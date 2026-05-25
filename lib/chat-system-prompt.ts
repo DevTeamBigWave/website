@@ -81,7 +81,7 @@ What's included with every party: host, setup, cleanup, the venue itself, and a 
 
 45-minute activities run by our entertainers. Prices may vary by party size. Bubble Dance Party is included free with every entertainment option.
 
-- Character meet & greet: $150 (+$100 if mascot)
+- Character meet & greet: $150 (+$150 if mascot)
 - Face painting: $200
 - Glitter tattoos: $100
 - Balloon twisting: $125
