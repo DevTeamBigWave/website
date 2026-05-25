@@ -14,7 +14,7 @@ export type AddOnCatalogItem = {
 
 export const ADD_ON_CATALOG: AddOnCatalogItem[] = [
   // Food
-  { id: 'pizza_pie', name: 'Additional pizza pie', category: 'food', price_cents: 2200 },
+  { id: 'pizza_pie', name: 'Additional pizza pie', category: 'food', price_cents: 2500, hint: 'Kosher available upon request' },
   { id: 'french_fries', name: 'French fries', category: 'food', price_cents: 3000 },
   { id: 'chicken_nuggets', name: 'Chicken nuggets', category: 'food', price_cents: 4000 },
   { id: 'themed_cupcakes', name: 'Theme-based cupcakes', category: 'food', price_cents: 600, hint: 'Per cupcake — adjust qty' },

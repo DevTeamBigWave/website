@@ -69,7 +69,7 @@ What's included with every party: host, setup, cleanup, the venue itself, and a 
 - 1-hour extension: $500 for private parties, $250 for semi-private
 - Outside food fee (includes tableware for adults): $85
 - Case of 24 Fiji water bottles: $40
-- Additional pizza pie: $22
+- Additional pizza pie: $25 (kosher available upon request)
 - Balloons & theme-based decor: starting at $550
 - Upgraded theme-based goodie bags: $8 each
 - French fries: $30

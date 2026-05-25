@@ -312,7 +312,7 @@ function AddOns() {
     { name: '1-hour extension', price: '$500 private · $250 semi-private' },
     { name: 'Outside food fee (incl. tableware for adults)', price: '$85' },
     { name: 'Case of 24 Fiji water bottles', price: '$40' },
-    { name: 'Additional pizza pie', price: '$22' },
+    { name: 'Additional pizza pie', price: '$25', note: 'kosher available upon request' },
     { name: 'Balloons & theme-based decor', price: 'Starting at $550' },
     { name: 'Upgraded theme-based goodie bags', price: '$8 each' },
     { name: 'French fries', price: '$30' },
@@ -341,9 +341,12 @@ function AddOns() {
             >
               <div className="flex items-start gap-3">
                 <span aria-hidden className="text-xl leading-none">🎈</span>
-                <p className="text-sm font-semibold text-slate-700">
-                  {item.name}
-                </p>
+                <div>
+                  <p className="text-sm font-semibold text-slate-700">{item.name}</p>
+                  {('note' in item && item.note) && (
+                    <p className="mt-0.5 text-xs italic text-slate-500">{item.note as string}</p>
+                  )}
+                </div>
               </div>
               <p className="whitespace-nowrap font-display text-sm text-coral">
                 {item.price}
