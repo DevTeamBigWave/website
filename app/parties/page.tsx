@@ -316,7 +316,7 @@ function AddOns() {
     { name: 'Balloons & theme-based decor', price: 'Starting at $550' },
     { name: 'Upgraded theme-based goodie bags', price: '$8 each' },
     { name: 'French fries', price: '$30' },
-    { name: 'Chicken nuggets', price: '$40' },
+    { name: 'Chicken nuggets', price: '$50' },
     { name: 'Theme-based cupcakes', price: '$6 each' },
     { name: 'Custom cake', price: 'Starting at $250' },
   ];

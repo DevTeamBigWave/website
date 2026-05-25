@@ -73,7 +73,7 @@ What's included with every party: host, setup, cleanup, the venue itself, and a 
 - Balloons & theme-based decor: starting at $550
 - Upgraded theme-based goodie bags: $8 each
 - French fries: $30
-- Chicken nuggets: $40
+- Chicken nuggets: $50
 - Theme-based cupcakes: $6 each
 - Custom cake: starting at $250
 
