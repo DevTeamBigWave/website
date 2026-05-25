@@ -22,7 +22,7 @@ export const ADD_ON_CATALOG: AddOnCatalogItem[] = [
 
   // Decor
   { id: 'themed_decor', name: 'Balloons & theme-based decor', category: 'decor', price_cents: 55000, hint: 'Starting at $550 — adjust for the actual quote' },
-  { id: 'goodie_bags', name: 'Upgraded theme-based goodie bags', category: 'decor', price_cents: 600, hint: 'Per child — adjust qty' },
+  { id: 'goodie_bags', name: 'Upgraded theme-based goodie bags', category: 'decor', price_cents: 800, hint: 'Each — adjust qty' },
 
   // Entertainment (45-min activities)
   { id: 'character_meet_greet', name: 'Character meet & greet', category: 'entertainment', price_cents: 15000, hint: '+$100 for mascot — bump price' },

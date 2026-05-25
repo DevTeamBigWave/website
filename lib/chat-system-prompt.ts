@@ -71,7 +71,7 @@ What's included with every party: host, setup, cleanup, the venue itself, and a 
 - Case of 24 Fiji water bottles: $40
 - Additional pizza pie: $22
 - Balloons & theme-based decor: starting at $550
-- Upgraded theme-based goodie bags: $6 per child
+- Upgraded theme-based goodie bags: $8 each
 - French fries: $30
 - Chicken nuggets: $40
 - Theme-based cupcakes: $6 each

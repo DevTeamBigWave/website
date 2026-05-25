@@ -314,7 +314,7 @@ function AddOns() {
     { name: 'Case of 24 Fiji water bottles', price: '$40' },
     { name: 'Additional pizza pie', price: '$22' },
     { name: 'Balloons & theme-based decor', price: 'Starting at $550' },
-    { name: 'Upgraded theme-based goodie bags', price: '$6 per child' },
+    { name: 'Upgraded theme-based goodie bags', price: '$8 each' },
     { name: 'French fries', price: '$30' },
     { name: 'Chicken nuggets', price: '$40' },
     { name: 'Theme-based cupcakes', price: '$6 each' },
