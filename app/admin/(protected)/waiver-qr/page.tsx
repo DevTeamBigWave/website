@@ -8,13 +8,16 @@ const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://website-production-459
 const KIOSK_URL = `${SITE}/waiver?kiosk=1`;
 
 export default async function WaiverKioskPage() {
-  const qrSvg = await QRCode.toString(KIOSK_URL, {
+  const qrSvgRaw = await QRCode.toString(KIOSK_URL, {
     type: 'svg',
-    width: 400,
     margin: 1,
     color: { dark: '#2C4253', light: '#FFFBF5' },
     errorCorrectionLevel: 'H',
   });
+  // Make the SVG fully responsive — strip fixed width/height
+  const qrSvg = qrSvgRaw
+    .replace(/\swidth="[^"]+"/, ' width="100%"')
+    .replace(/\sheight="[^"]+"/, ' height="100%"');
 
   return (
     <div className="space-y-6">
@@ -39,7 +42,7 @@ export default async function WaiverKioskPage() {
         </p>
 
         <div
-          className="mx-auto mt-6 w-full"
+          className="mx-auto mt-6 aspect-square w-full max-w-sm"
           dangerouslySetInnerHTML={{ __html: qrSvg }}
         />
 
