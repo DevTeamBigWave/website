@@ -32,7 +32,7 @@ export const ADD_ON_CATALOG: AddOnCatalogItem[] = [
   { id: 'dance_games', name: 'Dance party & games', category: 'entertainment', price_cents: 20000 },
   { id: 'pinata', name: 'Candy-filled piñata', category: 'entertainment', price_cents: 10000 },
   { id: 'diy_slime', name: 'DIY slime station', category: 'entertainment', price_cents: 20000 },
-  { id: 'diy_bracelet', name: 'DIY bracelet making station', category: 'entertainment', price_cents: 17500 },
+  { id: 'diy_bracelet', name: 'DIY bracelet making station', category: 'entertainment', price_cents: 20000 },
   { id: 'glam_spa', name: 'Glam spa day', category: 'entertainment', price_cents: 20000 },
 ];
 
