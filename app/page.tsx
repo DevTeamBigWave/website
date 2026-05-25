@@ -333,9 +333,9 @@ function Visit() {
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[110px_1fr] items-baseline gap-4 border-b border-slate-100 pb-4 last:border-b-0 last:pb-0">
+    <div className="flex flex-col gap-1.5 border-b border-slate-100 pb-4 last:border-b-0 last:pb-0 sm:grid sm:grid-cols-[110px_1fr] sm:items-baseline sm:gap-4">
       <dt className="text-xs font-bold uppercase tracking-wider text-coral">{label}</dt>
-      <dd className="text-base text-slate-600">{children}</dd>
+      <dd className="text-base text-slate-600 break-words">{children}</dd>
     </div>
   );
 }
