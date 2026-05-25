@@ -235,6 +235,15 @@ function Field({
   type?: string;
   required?: boolean;
 }) {
+  // Map "email"/"tel" types to text inputs with inputMode hints so iOS shows
+  // the right keyboard but doesn't fire its overzealous pattern validator on
+  // autofilled / whitespace-padded values. We validate server-side anyway.
+  const isEmail = type === 'email';
+  const isTel = type === 'tel';
+  const inputType = isEmail || isTel ? 'text' : type;
+  const inputMode = isEmail ? 'email' : isTel ? 'tel' : undefined;
+  const autoComplete = isEmail ? 'email' : isTel ? 'tel' : undefined;
+
   return (
     <label className="block">
       <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
@@ -242,10 +251,11 @@ function Field({
         {required && <span className="text-coral">*</span>}
       </span>
       <input
-        type={type}
+        type={inputType}
+        inputMode={inputMode as any}
+        autoComplete={autoComplete}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        required={required}
         className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:border-coral focus:outline-none"
       />
     </label>

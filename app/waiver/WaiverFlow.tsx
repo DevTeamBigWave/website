@@ -211,7 +211,9 @@ export function WaiverFlow({ prefillEmail, kiosk }: { prefillEmail: string; kios
               Your email
             </span>
             <input
-              type="email"
+              type="text"
+              inputMode="email"
+              autoComplete="email"
               autoFocus
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -355,7 +357,9 @@ export function WaiverFlow({ prefillEmail, kiosk }: { prefillEmail: string; kios
           </Field>
           <Field label="Your phone *">
             <input
-              type="tel"
+              type="text"
+              inputMode="tel"
+              autoComplete="tel"
               value={parentPhone}
               onChange={(e) => setParentPhone(e.target.value)}
               className={inputCls}
@@ -371,7 +375,9 @@ export function WaiverFlow({ prefillEmail, kiosk }: { prefillEmail: string; kios
           </Field>
           <Field label="Emergency contact phone">
             <input
-              type="tel"
+              type="text"
+              inputMode="tel"
+              autoComplete="tel"
               value={emergencyPhone}
               onChange={(e) => setEmergencyPhone(e.target.value)}
               className={inputCls}

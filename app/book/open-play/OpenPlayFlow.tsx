@@ -598,6 +598,11 @@ function FieldInput({
   required?: boolean;
   full?: boolean;
 }) {
+  const isEmail = type === 'email';
+  const isTel = type === 'tel';
+  const inputType = isEmail || isTel ? 'text' : type;
+  const inputMode = isEmail ? 'email' : isTel ? 'tel' : undefined;
+  const autoComplete = isEmail ? 'email' : isTel ? 'tel' : undefined;
   return (
     <label className={`block ${full ? 'sm:col-span-2' : ''}`}>
       <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
@@ -605,10 +610,11 @@ function FieldInput({
         {required && <span className="text-coral">*</span>}
       </span>
       <input
-        type={type}
+        type={inputType}
+        inputMode={inputMode as any}
+        autoComplete={autoComplete}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        required={required}
         className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:border-coral focus:outline-none"
       />
     </label>
