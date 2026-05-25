@@ -40,7 +40,8 @@ export function Header() {
             width={566}
             height={395}
             priority
-            className="h-12 w-auto md:h-14"
+            className="h-16 w-auto md:h-24"
+            style={{ mixBlendMode: 'multiply' }}
           />
         </Link>
 
