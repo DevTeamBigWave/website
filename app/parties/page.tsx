@@ -369,7 +369,7 @@ function Entertainment() {
     { name: 'Candy-filled piñata', price: '$100' },
     { name: 'DIY slime station', price: '$200' },
     { name: 'DIY bracelet making station', price: '$175' },
-    { name: 'Glam spa day', price: '$175' },
+    { name: 'Glam spa day', price: '$200' },
   ];
 
   return (

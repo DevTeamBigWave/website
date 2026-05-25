@@ -89,7 +89,7 @@ What's included with every party: host, setup, cleanup, the venue itself, and a 
 - Candy-filled piñata: $100
 - DIY slime station: $200
 - DIY bracelet making station: $175
-- Glam spa day: $175
+- Glam spa day: $200
 
 # One-stop shop / vendor handling
 
