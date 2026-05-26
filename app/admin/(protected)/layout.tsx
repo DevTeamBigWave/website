@@ -79,7 +79,15 @@ export default async function ProtectedAdminLayout({
             </form>
           </div>
         </div>
-        <nav className="flex gap-1 overflow-x-auto border-t border-slate-100 px-4 py-2 xl:hidden">
+        <nav
+          className="flex gap-1 overflow-x-auto border-t border-slate-100 px-4 py-2 xl:hidden"
+          style={{
+            maskImage:
+              'linear-gradient(to right, black 0, black calc(100% - 28px), transparent 100%)',
+            WebkitMaskImage:
+              'linear-gradient(to right, black 0, black calc(100% - 28px), transparent 100%)',
+          }}
+        >
           {nav.map((item) => (
             <Link
               key={item.href}
