@@ -419,22 +419,24 @@ export function CreatePartyForm() {
                       return (
                         <label
                           key={c.id}
-                          className={`flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg px-2 py-1.5 transition sm:flex-nowrap ${
-                            r.checked ? 'bg-coral-50' : 'hover:bg-slate-50'
+                          className={`flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border px-3 py-3 transition sm:flex-nowrap ${
+                            r.checked
+                              ? 'border-coral bg-coral-50'
+                              : 'border-transparent hover:border-slate-200 hover:bg-slate-50'
                           }`}
                         >
                           <input
                             type="checkbox"
                             checked={r.checked}
                             onChange={() => toggleAddOn(c.id)}
-                            className="h-4 w-4 flex-none accent-coral"
+                            className="h-5 w-5 flex-none accent-coral"
                           />
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold text-slate-700">{c.name}</p>
-                            {c.hint && <p className="truncate text-[11px] text-slate-400">{c.hint}</p>}
+                            <p className="truncate text-base font-semibold text-slate-700">{c.name}</p>
+                            {c.hint && <p className="truncate text-xs text-slate-400">{c.hint}</p>}
                           </div>
-                          <div className="flex flex-none items-center gap-1">
-                            <span className="text-[11px] text-slate-400">$</span>
+                          <div className="flex flex-none items-center gap-1.5">
+                            <span className="text-sm text-slate-400">$</span>
                             <input
                               type="number"
                               step="0.01"
@@ -442,16 +444,16 @@ export function CreatePartyForm() {
                               value={r.priceDollars}
                               onChange={(e) => setAddOnField(c.id, 'priceDollars', e.target.value)}
                               onClick={(e) => e.stopPropagation()}
-                              className="w-16 min-w-0 rounded-md border border-slate-200 bg-white px-2 py-1 text-right text-xs font-semibold text-slate-700 focus:border-coral focus:outline-none"
+                              className="w-20 min-w-0 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-right text-sm font-semibold text-slate-700 focus:border-coral focus:outline-none"
                             />
-                            <span className="ml-1 text-[11px] text-slate-400">×</span>
+                            <span className="ml-1 text-sm text-slate-400">×</span>
                             <input
                               type="number"
                               min="1"
                               value={r.qty}
                               onChange={(e) => setAddOnField(c.id, 'qty', e.target.value)}
                               onClick={(e) => e.stopPropagation()}
-                              className="w-10 min-w-0 rounded-md border border-slate-200 bg-white px-2 py-1 text-right text-xs font-semibold text-slate-700 focus:border-coral focus:outline-none"
+                              className="w-14 min-w-0 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-right text-sm font-semibold text-slate-700 focus:border-coral focus:outline-none"
                             />
                           </div>
                         </label>
