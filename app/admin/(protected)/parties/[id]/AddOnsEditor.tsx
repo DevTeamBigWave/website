@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ADD_ON_CATALOG, CATEGORY_LABEL, findCatalogItem } from '@/lib/add-ons';
+import { ADD_ON_CATALOG, CATEGORY_LABEL, type AddOnCatalogItem } from '@/lib/add-ons';
 
 type AddOnRow = {
   id: string;
@@ -24,78 +24,142 @@ export function AddOnsEditor({
 }) {
   const router = useRouter();
   const [items, setItems] = useState<AddOnRow[]>(initial);
-  const [adding, setAdding] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Add-form state
-  const [catalogId, setCatalogId] = useState<string>('');
-  const [name, setName] = useState('');
-  const [priceDollars, setPriceDollars] = useState('');
-  const [qty, setQty] = useState('1');
-  const [notes, setNotes] = useState('');
+  // Per-catalog-id row state (checked + qty + price override)
+  type RowState = { checked: boolean; qty: string; priceDollars: string };
+  const [rows, setRows] = useState<Record<string, RowState>>(() =>
+    ADD_ON_CATALOG.reduce<Record<string, RowState>>((acc, c) => {
+      acc[c.id] = {
+        checked: false,
+        qty: String(c.default_qty ?? 1),
+        priceDollars: (c.price_cents / 100).toFixed(2),
+      };
+      return acc;
+    }, {}),
+  );
 
-  const grouped = ADD_ON_CATALOG.reduce<Record<string, typeof ADD_ON_CATALOG>>((acc, c) => {
-    (acc[c.category] = acc[c.category] || []).push(c);
-    return acc;
-  }, {});
+  const grouped = useMemo(() => {
+    return ADD_ON_CATALOG.reduce<Record<string, AddOnCatalogItem[]>>((acc, c) => {
+      (acc[c.category] = acc[c.category] || []).push(c);
+      return acc;
+    }, {});
+  }, []);
 
-  const onCatalogChange = (id: string) => {
-    setCatalogId(id);
-    if (id === '') {
-      setName('');
-      setPriceDollars('');
-      setQty('1');
-      return;
-    }
-    const item = findCatalogItem(id);
-    if (item) {
-      setName(item.name);
-      setPriceDollars((item.price_cents / 100).toFixed(2));
-      setQty(String(item.default_qty ?? 1));
+  const selected = useMemo(
+    () => ADD_ON_CATALOG.filter((c) => rows[c.id]?.checked),
+    [rows],
+  );
+
+  const selectedTotalCents = useMemo(
+    () =>
+      selected.reduce((sum, c) => {
+        const r = rows[c.id];
+        const cents = Math.round(parseFloat(r.priceDollars || '0') * 100) || 0;
+        const qty = parseInt(r.qty || '1', 10) || 1;
+        return sum + cents * qty;
+      }, 0),
+    [selected, rows],
+  );
+
+  // Custom-item form state
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customName, setCustomName] = useState('');
+  const [customPrice, setCustomPrice] = useState('');
+  const [customQty, setCustomQty] = useState('1');
+  const [customNotes, setCustomNotes] = useState('');
+  const [customBusy, setCustomBusy] = useState(false);
+
+  const toggleRow = (id: string) => {
+    setRows((r) => ({ ...r, [id]: { ...r[id], checked: !r[id].checked } }));
+  };
+  const setRowField = (id: string, field: 'qty' | 'priceDollars', value: string) => {
+    setRows((r) => ({ ...r, [id]: { ...r[id], [field]: value } }));
+  };
+
+  const addOne = async (payload: {
+    catalog_id?: string;
+    name: string;
+    unit_price_cents: number;
+    qty: number;
+    notes?: string;
+  }) => {
+    const res = await fetch(`/api/admin/parties/${partyId}/add-ons`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? 'Could not add');
+    return data.addOn as AddOnRow;
+  };
+
+  const submitSelected = async () => {
+    if (selected.length === 0) return;
+    setBulkBusy(true);
+    setError(null);
+    try {
+      const created: AddOnRow[] = [];
+      for (const c of selected) {
+        const r = rows[c.id];
+        const cents = Math.round(parseFloat(r.priceDollars || '0') * 100);
+        if (Number.isNaN(cents) || cents < 0) {
+          throw new Error(`Invalid price for ${c.name}`);
+        }
+        const qty = parseInt(r.qty || '1', 10) || 1;
+        const added = await addOne({
+          catalog_id: c.id,
+          name: c.name,
+          unit_price_cents: cents,
+          qty,
+        });
+        created.push(added);
+      }
+      setItems((prev) => [...prev, ...created]);
+      // Reset selections (keep custom price/qty edits in place for repeat-use)
+      setRows((r) => {
+        const next: Record<string, RowState> = {};
+        for (const id of Object.keys(r)) next[id] = { ...r[id], checked: false };
+        return next;
+      });
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add items');
+    } finally {
+      setBulkBusy(false);
     }
   };
 
-  const submit = async () => {
-    if (!name.trim() || !priceDollars) {
-      setError('Name and price are required.');
+  const submitCustom = async () => {
+    if (!customName.trim() || !customPrice) {
+      setError('Custom name and price are required.');
       return;
     }
-    const cents = Math.round(parseFloat(priceDollars) * 100);
+    const cents = Math.round(parseFloat(customPrice) * 100);
     if (Number.isNaN(cents) || cents < 0) {
-      setError('Price is invalid.');
+      setError('Custom price is invalid.');
       return;
     }
-    setAdding(true);
+    setCustomBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/parties/${partyId}/add-ons`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          catalog_id: catalogId || undefined,
-          name: name.trim(),
-          unit_price_cents: cents,
-          qty: parseInt(qty, 10) || 1,
-          notes: notes.trim() || undefined,
-        }),
+      const added = await addOne({
+        name: customName.trim(),
+        unit_price_cents: cents,
+        qty: parseInt(customQty, 10) || 1,
+        notes: customNotes.trim() || undefined,
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? 'Could not add.');
-        setAdding(false);
-        return;
-      }
-      setItems((prev) => [...prev, data.addOn]);
-      setCatalogId('');
-      setName('');
-      setPriceDollars('');
-      setQty('1');
-      setNotes('');
+      setItems((prev) => [...prev, added]);
+      setCustomName('');
+      setCustomPrice('');
+      setCustomQty('1');
+      setCustomNotes('');
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed');
     } finally {
-      setAdding(false);
+      setCustomBusy(false);
     }
   };
 
@@ -111,12 +175,14 @@ export function AddOnsEditor({
   };
 
   const subtotal = items.reduce((s, i) => s + i.unit_price_cents * i.qty, 0);
+  // Don't show the catalog row for an item already added (deduplicates the UI)
+  const addedCatalogIds = new Set(items.map((i) => i.catalog_id).filter(Boolean) as string[]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Existing list */}
       {items.length > 0 ? (
-        <div className="rounded-xl border border-slate-100 divide-y divide-slate-100">
+        <div className="divide-y divide-slate-100 rounded-xl border border-slate-100">
           {items.map((i) => (
             <div key={i.id} className="flex items-start justify-between gap-3 px-4 py-3">
               <div className="flex-1">
@@ -139,45 +205,119 @@ export function AddOnsEditor({
             </div>
           ))}
           <div className="flex items-center justify-between gap-3 bg-slate-50 px-4 py-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Subtotal</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Add-ons subtotal</span>
             <span className="font-display text-sm text-slate-700">{fmt(subtotal)}</span>
           </div>
         </div>
       ) : (
-        <p className="text-sm text-slate-500">No add-ons yet.</p>
+        <p className="text-sm text-slate-500">No add-ons yet — tick the ones you want below.</p>
       )}
 
-      {/* Add form */}
-      <details className="rounded-xl border border-slate-200">
-        <summary className="cursor-pointer px-4 py-3 text-sm font-bold text-slate-700">
-          + Add an item
-        </summary>
-        <div className="border-t border-slate-100 px-4 py-4 space-y-3">
-          <Field label="Pick from catalog (or leave blank for custom)">
-            <select
-              value={catalogId}
-              onChange={(e) => onCatalogChange(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
-            >
-              <option value="">— Custom item —</option>
-              {Object.entries(grouped).map(([cat, list]) => (
-                <optgroup key={cat} label={CATEGORY_LABEL[cat as keyof typeof CATEGORY_LABEL] ?? cat}>
-                  {list.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} — {fmt(c.price_cents)}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          </Field>
+      {/* Catalog checkbox grid */}
+      <div className="rounded-xl border border-slate-200 bg-white">
+        <div className="border-b border-slate-100 px-4 py-3">
+          <p className="text-sm font-bold text-slate-700">Quick add from catalog</p>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Tick everything that applies, tweak qty/price, then add them all in one shot.
+          </p>
+        </div>
 
+        <div className="divide-y divide-slate-100">
+          {Object.entries(grouped).map(([category, list]) => (
+            <div key={category} className="px-4 py-3">
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                {CATEGORY_LABEL[category as keyof typeof CATEGORY_LABEL] ?? category}
+              </p>
+              <div className="space-y-1.5">
+                {list.map((c) => {
+                  const r = rows[c.id];
+                  const alreadyAdded = addedCatalogIds.has(c.id);
+                  return (
+                    <label
+                      key={c.id}
+                      className={`flex items-center gap-3 rounded-lg px-2 py-1.5 transition ${
+                        r.checked ? 'bg-coral-50' : 'hover:bg-slate-50'
+                      } ${alreadyAdded ? 'opacity-60' : ''}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={r.checked}
+                        onChange={() => toggleRow(c.id)}
+                        className="h-4 w-4 flex-none accent-coral"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-slate-700">
+                          {c.name}
+                          {alreadyAdded && (
+                            <span className="ml-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                              · already added
+                            </span>
+                          )}
+                        </p>
+                        {c.hint && <p className="truncate text-[11px] text-slate-400">{c.hint}</p>}
+                      </div>
+                      <div className="flex flex-none items-center gap-1">
+                        <span className="text-[11px] text-slate-400">$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={r.priceDollars}
+                          onChange={(e) => setRowField(c.id, 'priceDollars', e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-20 rounded-md border border-slate-200 bg-white px-2 py-1 text-right text-xs font-semibold text-slate-700 focus:border-coral focus:outline-none"
+                        />
+                        <span className="ml-1 text-[11px] text-slate-400">×</span>
+                        <input
+                          type="number"
+                          min="1"
+                          value={r.qty}
+                          onChange={(e) => setRowField(c.id, 'qty', e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-12 rounded-md border border-slate-200 bg-white px-2 py-1 text-right text-xs font-semibold text-slate-700 focus:border-coral focus:outline-none"
+                        />
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 px-4 py-3">
+          <p className="text-xs text-slate-500">
+            {selected.length === 0
+              ? 'Nothing selected'
+              : `${selected.length} item${selected.length === 1 ? '' : 's'} · ${fmt(selectedTotalCents)}`}
+          </p>
+          <button
+            type="button"
+            onClick={submitSelected}
+            disabled={selected.length === 0 || bulkBusy}
+            className="rounded-full bg-coral px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-playful transition hover:bg-coral-600 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {bulkBusy ? 'Adding…' : `Add ${selected.length || ''} to party →`.trim()}
+          </button>
+        </div>
+      </div>
+
+      {/* Custom item */}
+      <details
+        open={customOpen}
+        onToggle={(e) => setCustomOpen((e.currentTarget as HTMLDetailsElement).open)}
+        className="rounded-xl border border-slate-200 bg-white"
+      >
+        <summary className="cursor-pointer px-4 py-3 text-sm font-bold text-slate-700">
+          + Custom item (not in catalog)
+        </summary>
+        <div className="space-y-3 border-t border-slate-100 px-4 py-4">
           <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
             <Field label="Name on invoice">
               <input
                 type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                value={customName}
+                onChange={(e) => setCustomName(e.target.value)}
                 className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
               />
             </Field>
@@ -186,8 +326,8 @@ export function AddOnsEditor({
                 type="number"
                 step="0.01"
                 min="0"
-                value={priceDollars}
-                onChange={(e) => setPriceDollars(e.target.value)}
+                value={customPrice}
+                onChange={(e) => setCustomPrice(e.target.value)}
                 className="mt-1 w-24 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
               />
             </Field>
@@ -195,34 +335,33 @@ export function AddOnsEditor({
               <input
                 type="number"
                 min="1"
-                value={qty}
-                onChange={(e) => setQty(e.target.value)}
+                value={customQty}
+                onChange={(e) => setCustomQty(e.target.value)}
                 className="mt-1 w-20 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
               />
             </Field>
           </div>
-
           <Field label="Notes (optional)">
             <input
               type="text"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g. Frozen theme, lactose-free"
+              value={customNotes}
+              onChange={(e) => setCustomNotes(e.target.value)}
+              placeholder="e.g. Lactose-free, specific flavor"
               className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
             />
           </Field>
-
-          {error && <p className="text-xs text-coral-700">{error}</p>}
           <button
             type="button"
-            onClick={submit}
-            disabled={adding}
-            className="rounded-full bg-coral px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-playful hover:bg-coral-600 disabled:opacity-50"
+            onClick={submitCustom}
+            disabled={customBusy}
+            className="rounded-full bg-slate-700 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-slate-600 disabled:opacity-50"
           >
-            {adding ? 'Adding…' : 'Add to party'}
+            {customBusy ? 'Adding…' : 'Add custom item'}
           </button>
         </div>
       </details>
+
+      {error && <p className="text-xs text-coral-700">{error}</p>}
     </div>
   );
 }
