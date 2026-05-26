@@ -83,14 +83,14 @@ export default async function PartyDetailPage({
         {me.role === 'owner' && <DeletePartyButton partyId={party.id} />}
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         {/* Main column */}
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           {/* Contact card */}
           <Card title="Contact">
             <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
               <Row label="Parent" value={party.parent_name} />
-              <Row label="Email" value={<a href={`mailto:${party.email}`} className="text-coral hover:text-coral-700">{party.email}</a>} />
+              <Row label="Email" value={<a href={`mailto:${party.email}`} className="break-all text-coral hover:text-coral-700">{party.email}</a>} />
               <Row label="Phone" value={<a href={`tel:${party.phone}`} className="text-coral hover:text-coral-700">{party.phone}</a>} />
               <Row label="Headcount" value={`${party.headcount} kids`} />
             </dl>
@@ -236,9 +236,15 @@ function Row({
   accent?: boolean;
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-3">
-      <dt className="text-slate-500">{label}</dt>
-      <dd className={accent ? 'font-semibold text-coral' : 'text-slate-700'}>{value}</dd>
+    <div className="flex min-w-0 items-baseline justify-between gap-3">
+      <dt className="flex-none text-slate-500">{label}</dt>
+      <dd
+        className={`min-w-0 break-words text-right ${
+          accent ? 'font-semibold text-coral' : 'text-slate-700'
+        }`}
+      >
+        {value}
+      </dd>
     </div>
   );
 }
