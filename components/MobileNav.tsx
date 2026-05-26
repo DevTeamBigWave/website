@@ -8,7 +8,7 @@ type NavItem = { href: string; label: string };
 
 const BOOK_ACTIONS: Array<{ href: string; label: string; sub: string; emoji: string }> = [
   { href: '/book', label: 'Book a Party', sub: 'Semi-private or private', emoji: '🎉' },
-  { href: '/book/open-play', label: 'Book Open Play', sub: '$25/kid · 12–7pm daily', emoji: '🎈' },
+  { href: '/book/open-play', label: 'Book Open Play', sub: '$25/kid · 12–7:30pm daily', emoji: '🎈' },
   { href: '/tour', label: 'Free Tour', sub: '30-min in-person walkthrough', emoji: '👀' },
   { href: '/inquire', label: 'Book a Call', sub: '20-min, talk it through', emoji: '📞' },
   { href: '/waiver', label: 'Sign Waiver', sub: 'Once a year covers every visit', emoji: '📝' },

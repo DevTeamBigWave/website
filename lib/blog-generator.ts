@@ -23,7 +23,7 @@ WONDERLAND PLAYHOUSE — brand context for every post:
 - For kids 0–8. Under 10 months is free.
 - We sell two party packages: Semi-Private ($650, dedicated party room while open play continues elsewhere in the venue) and Private ($1,250, the whole venue closed to the public — this is what we want most parents to pick).
 - Mon–Thu private parties are 20% off (limited-time offer).
-- Open play: $25/kid, 12pm–7pm daily. Memberships $150/month unlimited (2h/day cap).
+- Open play: $25/kid, 12pm–7:30pm daily (with partial closures during private parties). Memberships $150/month unlimited (2h/day cap).
 - We are NOT a chaotic warehouse with ball pits and arcade games. The decor is custom and intentional. The space is calm. Photos look beautiful, not loud. Sensory-friendly without making a clinical thing of it.
 - Tone: warm, honest, parent-to-parent. Slight wit. No corporate marketing-speak. No exclamation marks every sentence. No "magical experiences await!" cliches. Treat the reader like an adult planning something for someone they love.
 - Always 0–8 years old. Never "all ages" — that's a different business.

@@ -11,7 +11,7 @@ export const SYSTEM_PROMPT = `You are the assistant for Wonderland Playhouse, a 
 # What we offer
 
 **Open Play** — drop-in visits.
-- **Hours: 12pm–7pm every day.**
+- **Hours: 12pm–7:30pm every day, except when closed for a private party (parents are notified on the booking page if a date is partially closed).**
 - $25 per child + tax
 - 2-hour pass per visit (arrive any time during open hours)
 - Adults play free (no charge to parents/guardians)
