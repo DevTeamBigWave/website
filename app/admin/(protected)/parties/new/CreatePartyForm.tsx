@@ -225,6 +225,16 @@ export function CreatePartyForm() {
                 onChange={(e) => setHeadcount(e.target.value)}
                 className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
               />
+              <p className="mt-1 text-[11px] text-slate-400">
+                {pkg === 'private'
+                  ? '15 kids + birthday child included (16 total). Each extra kid +$25.'
+                  : '10 kids + birthday child included (11 total). Each extra kid +$25.'}
+                {pricing && pricing.extraKidCount > 0 && (
+                  <span className="ml-1 font-semibold text-coral">
+                    · +{pricing.extraKidCount} extra ({fmt(pricing.extraKidCents)})
+                  </span>
+                )}
+              </p>
             </Field>
 
             <Field label="Date">
