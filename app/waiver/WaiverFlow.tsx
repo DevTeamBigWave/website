@@ -301,18 +301,24 @@ export function WaiverFlow({ prefillEmail, kiosk }: { prefillEmail: string; kios
     }
 
     // No active waiver, or version changed — go to the form
-    return <FormStep />;
+    return buildFormStep();
   }
 
   // ─── Step: FORM ──────────────────────────────────────────────────────────
   if (step === 'form') {
-    return <FormStep />;
+    return buildFormStep();
   }
 
   return null;
 
   // ─── Inline form component (closes over state) ───────────────────────────
-  function FormStep() {
+  // Returns the form JSX directly — NOT rendered as `<FormStep />`. Using
+  // `<FormStep />` would make React see a brand-new component identity each
+  // render (because the function is redefined every parent render) and
+  // remount the whole tree, losing input focus mid-typing. Calling the
+  // function returns JSX whose root element type stays stable across renders,
+  // so React preserves input identity.
+  function buildFormStep() {
     return (
       <div className="mx-auto max-w-3xl px-6 py-10 md:py-14">
         <p className="text-xs font-bold uppercase tracking-wider text-coral">Waiver</p>

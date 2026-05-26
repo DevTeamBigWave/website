@@ -60,37 +60,28 @@ export function MobileNav({ items: _items }: { items: NavItem[] }) {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-[60] lg:hidden">
-          <button
-            type="button"
-            aria-label="Close menu"
-            onClick={() => setOpen(false)}
-            className="absolute inset-0 bg-slate-900/60"
-          />
-
-          <div
-            className="absolute inset-x-0 top-0 flex flex-col rounded-b-3xl bg-cream shadow-card"
-            style={{ maxHeight: '100dvh' }}
-          >
-            <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-none rounded-b-none border-b border-slate-100 bg-cream px-6 pt-6 pb-3">
-              <p className="font-display text-lg text-slate-700">Menu</p>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                aria-label="Close menu"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-coral hover:text-coral"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-
-            <div
-              className="flex-1 overflow-y-auto px-6 pt-4 pb-6"
-              style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
+        <div className="fixed inset-0 z-[60] flex flex-col bg-cream lg:hidden">
+          {/* Fixed header — never scrolls */}
+          <div className="flex flex-shrink-0 items-center justify-between border-b border-slate-100 bg-cream px-6 pt-5 pb-3">
+            <p className="font-display text-lg text-slate-700">Menu</p>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              aria-label="Close menu"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-coral hover:text-coral"
             >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Scrollable content — fills remaining space */}
+          <div
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pt-4"
+            style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))' }}
+          >
 
             <p className="mb-2 text-xs font-bold uppercase tracking-wider text-coral">Book</p>
             <div className="grid grid-cols-2 gap-2">
@@ -145,7 +136,6 @@ export function MobileNav({ items: _items }: { items: NavItem[] }) {
                 </svg>
                 @wonderlandplayhouseny
               </a>
-            </div>
             </div>
           </div>
         </div>

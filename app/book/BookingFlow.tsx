@@ -546,7 +546,7 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                     label="Total kids (incl. birthday child)"
                     value={details.headcount}
                     onChange={(v) => setDetails({ ...details, headcount: v })}
-                    type="number"
+                    type="numeric"
                     required
                   />
                   {packageId && (
@@ -746,8 +746,15 @@ function FieldInput({
 }) {
   const isEmail = type === 'email';
   const isTel = type === 'tel';
-  const inputType = isEmail || isTel ? 'text' : type;
-  const inputMode = isEmail ? 'email' : isTel ? 'tel' : undefined;
+  const isNumeric = type === 'numeric' || type === 'number';
+  const inputType = isEmail || isTel || isNumeric ? 'text' : type;
+  const inputMode = isEmail
+    ? 'email'
+    : isTel
+      ? 'tel'
+      : isNumeric
+        ? 'numeric'
+        : undefined;
   const autoComplete = isEmail ? 'email' : isTel ? 'tel' : undefined;
   return (
     <label className={`block ${full ? 'sm:col-span-2' : ''}`}>

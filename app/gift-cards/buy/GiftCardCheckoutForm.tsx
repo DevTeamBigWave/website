@@ -104,12 +104,14 @@ export function GiftCardCheckoutForm({ presetAmount }: { presetAmount: number | 
               <div className="mt-2 flex items-center gap-2">
                 <span className="font-display text-2xl text-slate-700">$</span>
                 <input
-                  type="number"
-                  min={25}
-                  max={500}
-                  step={5}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  name="customAmount"
                   value={customAmount}
-                  onChange={(e) => setCustomAmount(e.target.value)}
+                  onChange={(e) =>
+                    setCustomAmount(e.target.value.replace(/[^0-9]/g, ''))
+                  }
                   className="w-32 rounded-xl border border-slate-200 bg-white px-4 py-3 text-lg font-bold focus:border-coral focus:outline-none"
                   placeholder="75"
                 />
@@ -124,12 +126,16 @@ export function GiftCardCheckoutForm({ presetAmount }: { presetAmount: number | 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
             label="Recipient name"
+            name="recipientName"
+            autoComplete="off"
             value={recipientName}
             onChange={setRecipientName}
             required
           />
           <Field
             label="Recipient email"
+            name="recipientEmail"
+            autoComplete="off"
             value={recipientEmail}
             onChange={setRecipientEmail}
             type="email"
@@ -141,6 +147,7 @@ export function GiftCardCheckoutForm({ presetAmount }: { presetAmount: number | 
                 Personal message (optional)
               </span>
               <textarea
+                name="giftMessage"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 rows={3}
@@ -157,12 +164,16 @@ export function GiftCardCheckoutForm({ presetAmount }: { presetAmount: number | 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
             label="Your name"
+            name="purchaserName"
+            autoComplete="name"
             value={purchaserName}
             onChange={setPurchaserName}
             required
           />
           <Field
             label="Your email"
+            name="purchaserEmail"
+            autoComplete="email"
             value={purchaserEmail}
             onChange={setPurchaserEmail}
             type="email"
@@ -228,12 +239,16 @@ function Field({
   onChange,
   type = 'text',
   required,
+  name,
+  autoComplete: autoCompleteProp,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   type?: string;
   required?: boolean;
+  name?: string;
+  autoComplete?: string;
 }) {
   // Map "email"/"tel" types to text inputs with inputMode hints so iOS shows
   // the right keyboard but doesn't fire its overzealous pattern validator on
@@ -242,7 +257,11 @@ function Field({
   const isTel = type === 'tel';
   const inputType = isEmail || isTel ? 'text' : type;
   const inputMode = isEmail ? 'email' : isTel ? 'tel' : undefined;
-  const autoComplete = isEmail ? 'email' : isTel ? 'tel' : undefined;
+  // Explicit name + autoComplete from props takes priority — critical when a
+  // form has multiple name/email pairs (e.g. recipient vs purchaser) so iOS
+  // autofill doesn't bounce the same value into every field.
+  const autoComplete =
+    autoCompleteProp ?? (isEmail ? 'email' : isTel ? 'tel' : undefined);
 
   return (
     <label className="block">
@@ -253,6 +272,7 @@ function Field({
       <input
         type={inputType}
         inputMode={inputMode as any}
+        name={name}
         autoComplete={autoComplete}
         value={value}
         onChange={(e) => onChange(e.target.value)}

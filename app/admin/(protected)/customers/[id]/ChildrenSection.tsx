@@ -139,7 +139,6 @@ function AddChildForm({
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          required
           autoFocus
           className="input"
         />
@@ -205,6 +204,7 @@ function EditChildForm({
 
   const onSave = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name.trim()) return;
     startTransition(async () => {
       await updateChild(child.id, child.customer_id, {
         name,
@@ -231,7 +231,6 @@ function EditChildForm({
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            required
             className="input"
           />
         </Field>

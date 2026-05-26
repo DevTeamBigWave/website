@@ -238,22 +238,26 @@ export function AppointmentFlow({
               <div className="grid gap-4 sm:grid-cols-2">
                 <FieldInput
                   label="Your name"
+                  name="parentName"
+                  autoComplete="name"
                   value={details.parentName}
-                  onChange={(v) => setDetails({ ...details, parentName: v })}
+                  onChange={(v) => setDetails((d) => ({ ...d, parentName: v }))}
                   required
                   full
                 />
                 <FieldInput
                   label="Email"
+                  name="email"
                   value={details.email}
-                  onChange={(v) => setDetails({ ...details, email: v })}
+                  onChange={(v) => setDetails((d) => ({ ...d, email: v }))}
                   required
                   type="email"
                 />
                 <FieldInput
                   label="Phone (optional)"
+                  name="phone"
                   value={details.phone}
-                  onChange={(v) => setDetails({ ...details, phone: v })}
+                  onChange={(v) => setDetails((d) => ({ ...d, phone: v }))}
                   type="tel"
                 />
                 <div className="sm:col-span-2">
@@ -262,9 +266,10 @@ export function AppointmentFlow({
                       Anything we should know? (optional)
                     </span>
                     <textarea
+                      name="notes"
                       value={details.notes}
                       onChange={(e) =>
-                        setDetails({ ...details, notes: e.target.value })
+                        setDetails((d) => ({ ...d, notes: e.target.value }))
                       }
                       rows={3}
                       className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:border-coral focus:outline-none"
@@ -344,6 +349,8 @@ function FieldInput({
   type = 'text',
   required,
   full,
+  name,
+  autoComplete: autoCompleteProp,
 }: {
   label: string;
   value: string;
@@ -351,12 +358,15 @@ function FieldInput({
   type?: string;
   required?: boolean;
   full?: boolean;
+  name?: string;
+  autoComplete?: string;
 }) {
   const isEmail = type === 'email';
   const isTel = type === 'tel';
   const inputType = isEmail || isTel ? 'text' : type;
   const inputMode = isEmail ? 'email' : isTel ? 'tel' : undefined;
-  const autoComplete = isEmail ? 'email' : isTel ? 'tel' : undefined;
+  const autoComplete =
+    autoCompleteProp ?? (isEmail ? 'email' : isTel ? 'tel' : undefined);
   return (
     <label className={`block ${full ? 'sm:col-span-2' : ''}`}>
       <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
@@ -366,6 +376,7 @@ function FieldInput({
       <input
         type={inputType}
         inputMode={inputMode as any}
+        name={name}
         autoComplete={autoComplete}
         value={value}
         onChange={(e) => onChange(e.target.value)}
