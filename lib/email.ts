@@ -688,3 +688,52 @@ export async function sendOwnerSaleNotification(args: {
   );
   return resend().emails.send({ from: FROM, to: OWNER, subject: args.subject, html });
 }
+
+// ---------------------------------------------------------------------------
+// Admin invite — sent when an owner adds a new admin
+// ---------------------------------------------------------------------------
+export async function sendAdminInvite(args: {
+  invitee_email: string;
+  invitee_display_name: string | null;
+  role: 'owner' | 'staff' | 'readonly';
+  invited_by_name: string;
+}) {
+  const firstName = (args.invitee_display_name ?? args.invitee_email.split('@')[0]).split(' ')[0];
+  const roleCopy = {
+    owner: "You're an <strong>owner</strong> — full access to bookings, customers, billing, and team.",
+    staff: "You're <strong>staff</strong> — manage bookings, customers, gift cards, and waivers.",
+    readonly: "You have <strong>read-only access</strong> — view everything, change nothing.",
+  }[args.role];
+
+  const body = `
+    <p style="margin:0 0 16px; line-height:1.65;">Hi ${escapeHtml(firstName)},</p>
+    <p style="margin:0 0 16px; line-height:1.65;"><strong>${escapeHtml(args.invited_by_name)}</strong> added you to the Wonderland Playhouse admin dashboard.</p>
+
+    <p style="margin:0 0 16px; line-height:1.65;">${roleCopy}</p>
+
+    <div style="background:#FFF4F5; border-radius:12px; padding:18px 20px; margin:24px 0;">
+      <p style="margin:0 0 6px; font-size:11px; text-transform:uppercase; letter-spacing:1.5px; color:#ff7783; font-weight:800;">How to sign in</p>
+      <p style="margin:0; line-height:1.65;">Tap the button below → click <strong>"Sign in with Google"</strong> → use this email (<code style="background:#fff; padding:2px 6px; border-radius:4px; font-size:13px;">${escapeHtml(args.invitee_email)}</code>). No password to remember.</p>
+    </div>
+
+    ${ctaButton('Open admin dashboard', `${SITE}/admin/login`)}
+
+    <p style="margin:24px 0 0; line-height:1.65; font-size:14px; color:#6B7C8E;">Questions? Reply to this email or text ${escapeHtml(args.invited_by_name)}.</p>
+  `;
+  const html = brandedShell(
+    {
+      heroEyebrow: "You're in",
+      title: 'Welcome to the team.',
+      subtitle: 'Wonderland Playhouse admin access',
+      heroBg: 'linear-gradient(135deg, #ff7783 0%, #fdda26 100%)',
+    },
+    body,
+  );
+
+  return resend().emails.send({
+    from: FROM,
+    to: args.invitee_email,
+    subject: `${args.invited_by_name} invited you to Wonderland Playhouse admin`,
+    html,
+  });
+}

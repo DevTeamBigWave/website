@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { requireOwner } from '@/lib/admin';
 import { supabaseAdmin } from '@/lib/supabase';
+import { sendAdminInvite } from '@/lib/email';
 
 export type TeamActionState =
   | { status: 'idle' }
@@ -16,7 +17,7 @@ export async function addAdmin(
   _prev: TeamActionState,
   formData: FormData,
 ): Promise<TeamActionState> {
-  await requireOwner();
+  const me = await requireOwner();
 
   const email = String(formData.get('email') ?? '').trim().toLowerCase();
   const displayName = String(formData.get('display_name') ?? '').trim() || null;
@@ -41,8 +42,25 @@ export async function addAdmin(
     return { status: 'error', message: error.message };
   }
 
+  // Send branded invite email — non-blocking so a Resend hiccup doesn't fail the add.
+  try {
+    await sendAdminInvite({
+      invitee_email: email,
+      invitee_display_name: displayName,
+      role,
+      invited_by_name: me.displayName ?? me.email,
+    });
+  } catch (err) {
+    console.error('Admin invite email failed:', err);
+    revalidatePath('/admin/team');
+    return {
+      status: 'success',
+      message: `Added ${email}, but invite email failed to send. Tell them manually.`,
+    };
+  }
+
   revalidatePath('/admin/team');
-  return { status: 'success', message: `Added ${email}.` };
+  return { status: 'success', message: `Added ${email} and sent invite email.` };
 }
 
 export async function toggleActive(adminId: string, makeActive: boolean): Promise<void> {
