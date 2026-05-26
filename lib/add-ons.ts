@@ -34,6 +34,11 @@ export const ADD_ON_CATALOG: AddOnCatalogItem[] = [
   { id: 'diy_slime', name: 'DIY slime station', category: 'entertainment', price_cents: 20000 },
   { id: 'diy_bracelet', name: 'DIY bracelet making station', category: 'entertainment', price_cents: 20000 },
   { id: 'glam_spa', name: 'Glam spa day', category: 'entertainment', price_cents: 20000 },
+
+  // Extras
+  { id: 'outside_food_fee', name: 'Outside food fee', category: 'extras', price_cents: 8500, hint: 'Per the parent bringing in outside catering' },
+  { id: 'extra_kid', name: 'Extra kid over package', category: 'extras', price_cents: 2500, hint: '$25/kid above the package headcount — adjust qty' },
+  { id: 'time_extension', name: 'Time extension (30 min)', category: 'extras', price_cents: 15000, hint: 'Adjust qty for additional 30-min blocks' },
 ];
 
 export const CATEGORY_LABEL: Record<AddOnCatalogItem['category'], string> = {

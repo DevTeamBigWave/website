@@ -489,10 +489,34 @@ export async function sendBalanceInvoiceReady(args: {
       <div style="font-size:38px; font-weight:800; color:#2C4253; margin-top:10px;">${fmtMoney(args.balance_cents)}</div>
     </div>
 
-    ${ctaButton('View & pay invoice', args.hosted_invoice_url)}
+    ${ctaButton('Pay by card now', args.hosted_invoice_url)}
 
-    <p style="margin:24px 0 0; line-height:1.65; font-size:14px; color:#6B7C8E;">Pay securely via Stripe. Card or bank transfer. Due 7 days before the party — pay any time before that.</p>
-    <p style="margin:12px 0 0; line-height:1.65; font-size:14px; color:#6B7C8E;">Questions? Reply or call (718) 889-1777.</p>
+    <div style="background:#FFFBF5; border:1px solid #EDE7DC; border-radius:14px; padding:18px 20px; margin:24px 0;">
+      <p style="margin:0 0 8px; font-size:11px; text-transform:uppercase; letter-spacing:1.8px; color:${theme.accentText}; font-weight:800;">Payment options</p>
+      <p style="margin:0 0 10px; line-height:1.65; font-size:14px; color:#2C4253;">
+        <strong>Card:</strong> Use the button above — secure Stripe checkout. A small credit-card fee applies.
+      </p>
+      <p style="margin:0 0 10px; line-height:1.65; font-size:14px; color:#2C4253;">
+        <strong>Zelle (no fee):</strong> <a href="mailto:info@wonderlandplayhouse.com" style="color:${theme.accentText}; font-weight:700; text-decoration:none;">info@wonderlandplayhouse.com</a> &mdash; please include ${escapeHtml(childName)}'s name in the memo.
+      </p>
+      <p style="margin:0; line-height:1.65; font-size:14px; color:#2C4253;">
+        <strong>Cash:</strong> In person at the Playhouse before or on the party day.
+      </p>
+      <p style="margin:12px 0 0; line-height:1.55; font-size:12px; color:#6B7C8E;">
+        Full payment is required to confirm the party date. Final headcount must be confirmed 3 days before the party. Once paid, no refunds (no exceptions) &mdash; deposits and balances are transferable to a future date up to 14 days before.
+      </p>
+    </div>
+
+    <div style="background:${theme.accentBg}; border-radius:14px; padding:18px 20px; margin:24px 0;">
+      <p style="margin:0 0 10px; font-size:11px; text-transform:uppercase; letter-spacing:1.8px; color:${theme.accentText}; font-weight:800;">Party-day reminders</p>
+      <ul style="margin:0; padding-left:18px; line-height:1.65; font-size:14px; color:#2C4253;">
+        <li>Shoes are not permitted beyond the entrance. Socks are required (kids &amp; adults).</li>
+        <li>Booths are available for both adults and kids; spare socks can be purchased at the front if forgotten.</li>
+        <li>Arrive 10&ndash;15 minutes early so the celebrant can get set up and we can greet your guests.</li>
+      </ul>
+    </div>
+
+    <p style="margin:24px 0 0; line-height:1.65; font-size:14px; color:#6B7C8E;">Questions? Reply to this email or call <a href="tel:+17188891777" style="color:#6B7C8E;">(718) 889-1777</a>.</p>
   `;
   const html = brandedShell(
     {
