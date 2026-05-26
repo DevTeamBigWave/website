@@ -632,24 +632,36 @@ export async function sendMarketingCampaign(args: {
 // Owner: someone just paid you
 // ---------------------------------------------------------------------------
 export async function sendOwnerNotification({ subject, party }: { subject: string; party: any }) {
-  const html = `
-    <div style="font-family: Helvetica, sans-serif; font-size: 14px;">
-      <h2 style="margin-top: 0;">${subject}</h2>
-      <ul style="line-height: 1.8;">
-        <li><strong>Date:</strong> ${fmtDate(party.date)} at ${party.start_time}</li>
-        <li><strong>Package:</strong> ${party.package} · ${fmtMoney(party.total_cents)} total</li>
-        <li><strong>Deposit paid:</strong> ${fmtMoney(party.deposit_cents)}</li>
-        <li><strong>Balance due:</strong> ${fmtMoney(party.total_cents - party.deposit_cents)}</li>
-        <li><strong>Birthday child:</strong> ${party.child_name}, age ${party.child_age}</li>
-        <li><strong>Headcount:</strong> ${party.headcount} kids</li>
-        <li><strong>Parent:</strong> ${party.parent_name} · ${party.email} · ${party.phone}</li>
-        ${party.weekday_discount_applied ? `<li><strong>Weekday discount:</strong> applied (-${fmtMoney(party.discount_cents)})</li>` : ''}
-        ${party.notes ? `<li><strong>Notes:</strong> ${party.notes}</li>` : ''}
-      </ul>
-      <p><a href="${SITE}/admin/parties/${party.id}">View in admin</a></p>
-    </div>
-  `;
+  const balanceDue = party.total_cents - party.deposit_cents;
+  const rows: Array<[string, string]> = [
+    ['Date', `${fmtDate(party.date)} at ${party.start_time}`],
+    ['Package', `${party.package === 'private' ? 'Private' : 'Semi-Private'} · ${fmtMoney(party.total_cents)} total`],
+    ['Deposit paid', `<span style="color:#7C8E5C;">${fmtMoney(party.deposit_cents)} ✓</span>`],
+    ['Balance due', `<strong>${fmtMoney(balanceDue)}</strong>`],
+    ['Birthday child', `${escapeHtml(party.child_name ?? '—')}${party.child_age != null ? `, age ${party.child_age}` : ''}`],
+    ['Headcount', `${party.headcount} kids`],
+    ['Parent', `${escapeHtml(party.parent_name)} · <a href="mailto:${escapeHtml(party.email)}" style="color:#ff7783;">${escapeHtml(party.email)}</a> · ${escapeHtml(party.phone)}`],
+  ];
+  if (party.weekday_discount_applied) {
+    rows.push(['Weekday discount', `applied (-${fmtMoney(party.discount_cents)})`]);
+  }
+  if (party.notes) {
+    rows.push(['Notes', escapeHtml(party.notes)]);
+  }
 
+  const body = `
+    <p style="margin:0 0 16px; line-height:1.65;">Heads up — a new party booking just came in.</p>
+    ${kvpTable(rows)}
+    ${ctaButton('View in admin', `${SITE}/admin/parties/${party.id}`)}
+  `;
+  const html = brandedShell(
+    {
+      heroEyebrow: 'New booking',
+      title: subject,
+      heroBg: 'linear-gradient(135deg, #ff7783 0%, #fdda26 100%)',
+    },
+    body,
+  );
   return resend().emails.send({ from: FROM, to: OWNER, subject, html });
 }
 
@@ -661,16 +673,18 @@ export async function sendOwnerSaleNotification(args: {
   bullets: Array<[label: string, value: string]>;
   adminLink?: string;
 }) {
-  const html = `
-    <div style="font-family: Helvetica, sans-serif; font-size: 14px;">
-      <h2 style="margin-top: 0;">${args.subject}</h2>
-      <ul style="line-height: 1.8;">
-        ${args.bullets
-          .map(([k, v]) => `<li><strong>${k}:</strong> ${v}</li>`)
-          .join('')}
-      </ul>
-      ${args.adminLink ? `<p><a href="${SITE}${args.adminLink}">View in admin</a></p>` : ''}
-    </div>
+  const body = `
+    <p style="margin:0 0 16px; line-height:1.65;">Heads up — a new sale just came in.</p>
+    ${kvpTable(args.bullets)}
+    ${args.adminLink ? ctaButton('View in admin', `${SITE}${args.adminLink}`) : ''}
   `;
+  const html = brandedShell(
+    {
+      heroEyebrow: 'New activity',
+      title: args.subject,
+      heroBg: 'linear-gradient(135deg, #50758f 0%, #2C4253 100%)',
+    },
+    body,
+  );
   return resend().emails.send({ from: FROM, to: OWNER, subject: args.subject, html });
 }
