@@ -4,6 +4,8 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { computePartyFinancials } from '@/lib/parties';
 import { PartyActions } from './PartyActions';
 import { AddOnsEditor } from './AddOnsEditor';
+import { InvoiceThemePicker } from './InvoiceThemePicker';
+import type { InvoiceThemeSlug } from '@/lib/invoice-themes';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,7 +37,7 @@ export default async function PartyDetailPage({
   const { data: party } = await db
     .from('parties')
     .select(
-      'id, date, start_time, package, status, child_name, child_age, parent_name, email, phone, headcount, notes, total_cents, subtotal_cents, discount_cents, tax_cents, deposit_cents, deposit_paid_at, add_ons_total_cents, gift_card_applied_cents, balance_invoice_id, balance_invoice_hosted_url, balance_invoice_sent_at, balance_paid_at, balance_paid_amount_cents, planning_call_email_sent_at, extension_minutes, weekday_discount_applied, created_at',
+      'id, date, start_time, package, status, child_name, child_age, parent_name, email, phone, headcount, notes, total_cents, subtotal_cents, discount_cents, tax_cents, deposit_cents, deposit_paid_at, add_ons_total_cents, gift_card_applied_cents, balance_invoice_id, balance_invoice_hosted_url, balance_invoice_sent_at, balance_paid_at, balance_paid_amount_cents, planning_call_email_sent_at, extension_minutes, weekday_discount_applied, invoice_theme, created_at',
     )
     .eq('id', id)
     .maybeSingle();
@@ -96,6 +98,15 @@ export default async function PartyDetailPage({
           {/* Add-ons */}
           <Card title="Add-ons" subtitle="Cake, entertainment, decor, extras — they show up on the balance invoice.">
             <AddOnsEditor partyId={party.id} initial={(addOns ?? []) as any} />
+          </Card>
+
+          {/* Invoice theme */}
+          <Card title="Invoice theme" subtitle="Pick the look for the balance-invoice email. Defaults to neutral Wonderland.">
+            <InvoiceThemePicker
+              partyId={party.id}
+              initial={((party as any).invoice_theme ?? 'wonderland') as InvoiceThemeSlug}
+              locked={false}
+            />
           </Card>
 
           {/* Actions */}

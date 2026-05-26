@@ -16,7 +16,7 @@ export async function POST(
   const db = supabaseAdmin();
   const { data: party, error: pErr } = await db
     .from('parties')
-    .select('id, parent_name, email, phone, date, start_time, package, child_name, total_cents, deposit_cents, add_ons_total_cents, gift_card_applied_cents, balance_paid_amount_cents, balance_invoice_id')
+    .select('id, parent_name, email, phone, date, start_time, package, child_name, total_cents, deposit_cents, add_ons_total_cents, gift_card_applied_cents, balance_paid_amount_cents, balance_invoice_id, invoice_theme')
     .eq('id', partyId)
     .maybeSingle();
   if (pErr || !party) {
@@ -48,6 +48,7 @@ export async function POST(
         qty: a.qty,
         unit_price_cents: a.unit_price_cents,
       })),
+      theme: (party as any).invoice_theme ?? null,
     }).catch((err) => {
       console.error('Branded invoice email failed (Stripe email still sent):', err);
     });

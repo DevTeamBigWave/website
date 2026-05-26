@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
 import { unsubscribeUrl } from '@/lib/marketing';
+import { getInvoiceTheme } from '@/lib/invoice-themes';
 
 let _resend: Resend | null = null;
 function resend(): Resend {
@@ -38,6 +39,7 @@ type BrandedOpts = {
   subtitle?: string;
   heroBg?: string;       // any CSS color/gradient
   heroEyebrow?: string;  // small uppercase label above title
+  heroPrefixHtml?: string; // optional raw HTML rendered at top of hero (e.g. themed emoji)
   unsubscribeUrl?: string;
 };
 
@@ -62,6 +64,7 @@ function brandedShell(opts: BrandedOpts, bodyHtml: string): string {
 
     <!-- Hero -->
     <div style="background:${hero}; color:white; padding:36px 28px; border-radius:20px 20px 0 0;">
+      ${opts.heroPrefixHtml ?? ''}
       ${opts.heroEyebrow ? `<p style="margin:0 0 8px; font-size:12px; text-transform:uppercase; letter-spacing:2.5px; opacity:0.92; font-weight:700;">${escapeHtml(opts.heroEyebrow)}</p>` : ''}
       <h1 style="margin:0; font-size:28px; line-height:1.2; font-weight:800;">${escapeHtml(opts.title)}</h1>
       ${opts.subtitle ? `<p style="margin:10px 0 0; opacity:0.95; font-size:15px; line-height:1.4;">${opts.subtitle}</p>` : ''}
@@ -452,8 +455,11 @@ export async function sendBalanceInvoiceReady(args: {
   balance_cents: number;
   hosted_invoice_url: string;
   add_ons: Array<{ name: string; qty: number; unit_price_cents: number }>;
+  theme?: string | null;
 }) {
+  const theme = getInvoiceTheme(args.theme);
   const firstName = args.parent_name.split(' ')[0] || args.parent_name;
+  const childName = args.child_name ?? 'Birthday';
   const addOnsHtml = args.add_ons.length
     ? `
         <table style="width:100%; border-collapse:collapse; margin:24px 0; font-size:14px;">
@@ -470,12 +476,16 @@ export async function sendBalanceInvoiceReady(args: {
         </table>`
     : '';
 
+  const themedHero = `
+    <div style="font-size:40px; line-height:1; margin-bottom:14px;">${theme.heroEmoji}</div>
+  `;
+
   const body = `
     <p style="margin:0 0 16px; line-height:1.65;">Hi ${escapeHtml(firstName)},</p>
-    <p style="margin:0 0 16px; line-height:1.65;">Here's the final invoice with everything we've put together for the party. Your deposit is already credited.</p>
+    <p style="margin:0 0 16px; line-height:1.65;">Here's the final invoice for <strong>${escapeHtml(childName)}'s</strong> party on <strong>${fmtDate(args.date)}</strong>. Your deposit is already credited — everything else is itemized below.</p>
     ${addOnsHtml}
-    <div style="background:#FFF4F5; padding:24px 20px; border-radius:16px; text-align:center; margin:28px 0;">
-      <div style="font-size:11px; text-transform:uppercase; letter-spacing:2.5px; color:#ff7783; font-weight:800;">Balance due</div>
+    <div style="background:${theme.accentBg}; padding:24px 20px; border-radius:16px; text-align:center; margin:28px 0;">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:2.5px; color:${theme.accentText}; font-weight:800;">Balance due</div>
       <div style="font-size:38px; font-weight:800; color:#2C4253; margin-top:10px;">${fmtMoney(args.balance_cents)}</div>
     </div>
 
@@ -486,17 +496,18 @@ export async function sendBalanceInvoiceReady(args: {
   `;
   const html = brandedShell(
     {
-      heroEyebrow: 'Balance ready',
-      title: 'Your final invoice is here.',
-      subtitle: `${escapeHtml(args.child_name ?? 'Birthday')} party · ${fmtDate(args.date)}`,
-      heroBg: 'linear-gradient(135deg, #50758f 0%, #2C4253 100%)',
+      heroEyebrow: theme.heroEyebrow,
+      title: `${childName}'s party invoice`,
+      subtitle: `${fmtDate(args.date)} · balance ${fmtMoney(args.balance_cents)}`,
+      heroBg: theme.heroBg,
+      heroPrefixHtml: themedHero,
     },
     body,
   );
   return resend().emails.send({
     from: FROM,
     to: args.email,
-    subject: `Your party balance is ready — ${fmtMoney(args.balance_cents)} due`,
+    subject: `${childName}'s ${theme.subjectFlavor} — balance ${fmtMoney(args.balance_cents)} due`,
     html,
   });
 }
