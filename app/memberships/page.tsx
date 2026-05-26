@@ -157,14 +157,14 @@ function Compare() {
           Drop-in open play is $25 per child. A membership is $150 per month.
         </p>
 
-        <div className="mt-10 overflow-hidden rounded-3xl bg-white shadow-card">
-          <table className="w-full text-left">
+        <div className="mt-10 overflow-x-auto rounded-3xl bg-white shadow-card">
+          <table className="w-full min-w-[560px] text-left">
             <thead className="bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-400">
               <tr>
-                <th className="px-6 py-4">Visits per month</th>
-                <th className="px-6 py-4 text-center">Drop-in cost</th>
-                <th className="px-6 py-4 text-center">Membership</th>
-                <th className="px-6 py-4 text-center text-coral">You save</th>
+                <th className="px-4 py-4 sm:px-6">Visits / month</th>
+                <th className="px-4 py-4 text-center sm:px-6">Drop-in</th>
+                <th className="px-4 py-4 text-center sm:px-6">Membership</th>
+                <th className="px-4 py-4 text-center text-coral sm:px-6">You save</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-600">
@@ -197,15 +197,15 @@ function CompareRow({
 }) {
   return (
     <tr className={highlight ? 'bg-sunshine-50' : ''}>
-      <td className="px-6 py-4 font-semibold text-slate-700">{visits}</td>
-      <td className="px-6 py-4 text-center text-slate-500">{dropIn}</td>
-      <td className="px-6 py-4 text-center text-slate-500">$150</td>
+      <td className="px-4 py-4 font-semibold text-slate-700 sm:px-6">{visits}</td>
+      <td className="px-4 py-4 text-center text-slate-500 sm:px-6">{dropIn}</td>
+      <td className="px-4 py-4 text-center text-slate-500 sm:px-6">$150</td>
       <td
-        className={`px-6 py-4 text-center font-display text-xl ${
+        className={`px-4 py-4 text-center font-display text-lg sm:px-6 sm:text-xl ${
           save > 0 ? 'text-coral' : save === 0 ? 'text-slate-400' : 'text-slate-300'
         }`}
       >
-        {save > 0 ? `+$${save}` : save === 0 ? 'Even' : `$${save}`}
+        {save > 0 ? `+$${save}` : save === 0 ? 'Even' : `−$${Math.abs(save)}`}
       </td>
     </tr>
   );
