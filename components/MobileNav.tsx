@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 
@@ -28,7 +29,12 @@ const DIRECTIONS_URL =
 
 export function MobileNav({ items: _items }: { items: NavItem[] }) {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     setOpen(false);
@@ -60,8 +66,8 @@ export function MobileNav({ items: _items }: { items: NavItem[] }) {
         Menu
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-[60] flex flex-col bg-cream lg:hidden">
+      {open && mounted && createPortal(
+        <div className="fixed inset-0 z-[100] flex flex-col bg-cream lg:hidden">
           {/* Fixed header — never scrolls */}
           <div className="flex flex-shrink-0 items-center justify-between border-b border-slate-100 bg-cream px-6 pt-5 pb-3">
             <p className="font-display text-lg text-slate-700">Menu</p>
@@ -142,7 +148,8 @@ export function MobileNav({ items: _items }: { items: NavItem[] }) {
               </a>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
