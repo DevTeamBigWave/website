@@ -177,7 +177,7 @@ export function CreatePartyForm() {
           invoice_theme: theme,
           invoice_type: invoiceType,
           manual_discount_percent: manualDiscount,
-          add_ons: invoiceType === 'full' ? selectedAddOns : [],
+          add_ons: selectedAddOns,
         }),
       });
       const data = await res.json();
@@ -401,30 +401,35 @@ export function CreatePartyForm() {
           </div>
         </Card>
 
-        {/* Add-ons grid (only relevant for full invoice) */}
-        {invoiceType === 'full' && (
-          <Card
-            title="Add-ons"
-            subtitle="Tick everything for the full invoice. Adjust price/qty per row."
-          >
-            <div className="divide-y divide-slate-100">
-              {Object.entries(grouped).map(([category, list]) => (
-                <div key={category} className="py-3 first:pt-0 last:pb-0">
-                  <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                    {CATEGORY_LABEL[category as keyof typeof CATEGORY_LABEL] ?? category}
-                  </p>
-                  <div className="space-y-1.5">
-                    {list.map((c) => {
-                      const r = addOnRows[c.id];
-                      return (
-                        <label
-                          key={c.id}
-                          className={`flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border px-3 py-3 transition sm:flex-nowrap ${
-                            r.checked
-                              ? 'border-coral bg-coral-50'
-                              : 'border-transparent hover:border-slate-200 hover:bg-slate-50'
-                          }`}
-                        >
+        {/* Add-ons grid — always shown. For deposit-only the ticked add-ons
+            are persisted on the party but invoiced later with the balance. */}
+        <Card
+          title="Add-ons"
+          subtitle={
+            invoiceType === 'full'
+              ? 'Tick everything for the full invoice. Adjust price/qty per row.'
+              : 'Optional. Saved on the party — invoiced with the balance later, not on this deposit.'
+          }
+        >
+          <div className="divide-y divide-slate-100">
+            {Object.entries(grouped).map(([category, list]) => (
+              <div key={category} className="py-3 first:pt-0 last:pb-0">
+                <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  {CATEGORY_LABEL[category as keyof typeof CATEGORY_LABEL] ?? category}
+                </p>
+                <div className="space-y-1.5">
+                  {list.map((c) => {
+                    const r = addOnRows[c.id];
+                    return (
+                      <label
+                        key={c.id}
+                        className={`flex flex-col gap-2 rounded-xl border px-3 py-3 transition sm:flex-row sm:items-center sm:gap-3 ${
+                          r.checked
+                            ? 'border-coral bg-coral-50'
+                            : 'border-transparent hover:border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex min-w-0 flex-1 items-center gap-3">
                           <input
                             type="checkbox"
                             checked={r.checked}
@@ -432,39 +437,41 @@ export function CreatePartyForm() {
                             className="h-5 w-5 flex-none accent-coral"
                           />
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-base font-semibold text-slate-700">{c.name}</p>
-                            {c.hint && <p className="truncate text-xs text-slate-400">{c.hint}</p>}
+                            <p className="text-base font-semibold text-slate-700">{c.name}</p>
+                            {c.hint && <p className="text-xs text-slate-400">{c.hint}</p>}
                           </div>
-                          <div className="flex flex-none items-center gap-1.5">
-                            <span className="text-sm text-slate-400">$</span>
-                            <input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={r.priceDollars}
-                              onChange={(e) => setAddOnField(c.id, 'priceDollars', e.target.value)}
-                              onClick={(e) => e.stopPropagation()}
-                              className="w-20 min-w-0 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-right text-sm font-semibold text-slate-700 focus:border-coral focus:outline-none"
-                            />
-                            <span className="ml-1 text-sm text-slate-400">×</span>
-                            <input
-                              type="number"
-                              min="1"
-                              value={r.qty}
-                              onChange={(e) => setAddOnField(c.id, 'qty', e.target.value)}
-                              onClick={(e) => e.stopPropagation()}
-                              className="w-14 min-w-0 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-right text-sm font-semibold text-slate-700 focus:border-coral focus:outline-none"
-                            />
-                          </div>
-                        </label>
-                      );
-                    })}
-                  </div>
+                        </div>
+                        <div className="flex flex-none items-center justify-end gap-1.5 pl-8 sm:pl-0">
+                          <span className="text-sm text-slate-400">$</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={r.priceDollars}
+                            onChange={(e) => setAddOnField(c.id, 'priceDollars', e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            style={{ width: 88 }}
+                            className="min-w-0 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-right text-sm font-semibold text-slate-700 focus:border-coral focus:outline-none"
+                          />
+                          <span className="ml-1 text-sm text-slate-400">×</span>
+                          <input
+                            type="number"
+                            min="1"
+                            value={r.qty}
+                            onChange={(e) => setAddOnField(c.id, 'qty', e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            style={{ width: 64 }}
+                            className="min-w-0 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-right text-sm font-semibold text-slate-700 focus:border-coral focus:outline-none"
+                          />
+                        </div>
+                      </label>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
-          </Card>
-        )}
+              </div>
+            ))}
+          </div>
+        </Card>
       </div>
 
       {/* Right column: live totals + submit */}

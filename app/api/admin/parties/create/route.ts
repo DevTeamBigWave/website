@@ -131,9 +131,10 @@ export async function POST(request: Request) {
   }
   const partyId = created.id;
 
-  // Insert add-ons (only meaningful for 'full' invoice; for 'deposit_only' the
-  // owner adds them later before the balance invoice)
-  if (body.invoice_type === 'full' && body.add_ons.length > 0) {
+  // Persist add-ons regardless of invoice_type. For deposit-only the
+  // initial Stripe invoice only bills the deposit; the saved add-ons get
+  // itemized later when the balance invoice goes out.
+  if (body.add_ons.length > 0) {
     const rows = body.add_ons.map((a) => ({
       party_id: partyId,
       catalog_id: a.catalog_id ?? null,
