@@ -489,9 +489,9 @@ function Faq() {
                 </span>
               </summary>
               <div className="mt-3 space-y-3 text-sm leading-relaxed text-slate-600">
-                {f.a.split('\n\n').map((para, i) => (
-                  <p key={i}>{para}</p>
-                ))}
+                {typeof f.a === 'string'
+                  ? f.a.split('\n\n').map((para, i) => <p key={i}>{para}</p>)
+                  : f.a}
               </div>
             </details>
           ))}
