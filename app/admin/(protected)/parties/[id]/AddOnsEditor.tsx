@@ -232,6 +232,10 @@ export function AddOnsEditor({
                 {list.map((c) => {
                   const r = rows[c.id];
                   const alreadyAdded = addedCatalogIds.has(c.id);
+                  // Singletons: lock once added. Non-singletons: stay tickable
+                  // and don't show "already added" since adding more is normal
+                  // (extra pizzas, more cupcakes, more goodie bags).
+                  const lockedSingleton = alreadyAdded && c.singleton === true;
                   return (
                     <label
                       key={c.id}
@@ -239,21 +243,27 @@ export function AddOnsEditor({
                         r.checked
                           ? 'border-coral bg-coral-50'
                           : 'border-transparent hover:border-slate-200 hover:bg-slate-50'
-                      } ${alreadyAdded ? 'opacity-60' : ''}`}
+                      } ${lockedSingleton ? 'cursor-not-allowed opacity-60' : ''}`}
                     >
                       <div className="flex min-w-0 flex-1 items-center gap-3">
                         <input
                           type="checkbox"
                           checked={r.checked}
-                          onChange={() => toggleRow(c.id)}
-                          className="h-5 w-5 flex-none accent-coral"
+                          disabled={lockedSingleton}
+                          onChange={() => !lockedSingleton && toggleRow(c.id)}
+                          className="h-5 w-5 flex-none accent-coral disabled:cursor-not-allowed"
                         />
                         <div className="min-w-0 flex-1">
                           <p className="text-base font-semibold text-slate-700">
                             {c.name}
-                            {alreadyAdded && (
+                            {lockedSingleton && (
                               <span className="ml-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                                · already added
+                                · already on this party
+                              </span>
+                            )}
+                            {alreadyAdded && !c.singleton && (
+                              <span className="ml-2 text-[10px] font-bold uppercase tracking-wider text-coral-700">
+                                + add another
                               </span>
                             )}
                           </p>
