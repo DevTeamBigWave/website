@@ -177,7 +177,7 @@ export function CreatePartyForm() {
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+    <div className="grid gap-6 pb-24 lg:grid-cols-[1fr_360px] lg:pb-0">
       {/* Main column */}
       <div className="space-y-6">
         {/* Party details */}
@@ -472,7 +472,7 @@ export function CreatePartyForm() {
           type="button"
           onClick={submit}
           disabled={submitting || !pricing}
-          className="w-full rounded-full bg-coral px-4 py-3 text-sm font-bold uppercase tracking-wider text-white shadow-playful transition hover:bg-coral-600 disabled:cursor-not-allowed disabled:opacity-50"
+          className="hidden w-full rounded-full bg-coral px-4 py-3 text-sm font-bold uppercase tracking-wider text-white shadow-playful transition hover:bg-coral-600 disabled:cursor-not-allowed disabled:opacity-50 lg:block"
         >
           {submitting
             ? 'Creating…'
@@ -481,6 +481,29 @@ export function CreatePartyForm() {
               : `Send deposit invoice (${fmt(invoiceAmountCents)})`}
         </button>
       </aside>
+
+      {/* Mobile-only sticky submit bar — always reachable */}
+      <div
+        className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-3 border-t border-slate-200 bg-white px-4 py-3 shadow-[0_-6px_18px_rgba(15,23,42,0.06)] lg:hidden"
+        style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
+      >
+        <div className="flex-1 leading-tight">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            {invoiceType === 'full' ? 'Invoice now' : 'Deposit now'}
+          </p>
+          <p className="font-display text-lg text-coral">
+            {pricing ? fmt(invoiceAmountCents) : '—'}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={submit}
+          disabled={submitting || !pricing}
+          className="rounded-full bg-coral px-5 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-playful transition hover:bg-coral-600 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {submitting ? 'Sending…' : invoiceType === 'full' ? 'Send invoice' : 'Send deposit'}
+        </button>
+      </div>
     </div>
   );
 }

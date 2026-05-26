@@ -165,8 +165,11 @@ export async function POST(request: Request) {
     description: isFull
       ? `Full payment for ${body.child_name}'s ${body.package} party on ${formatDateLong(body.date)} at ${formatTime(body.start_time)}.`
       : `Deposit to confirm ${body.child_name}'s ${body.package} party on ${formatDateLong(body.date)} at ${formatTime(body.start_time)}. Balance of ${fmtMoney(pricing.totalCents - pricing.depositCents)} due 7 days before the party.`,
-    footer:
+    footer: [
       'Wonderland Playhouse · 3830 Nostrand Ave, Brooklyn NY 11235 · (718) 889-1777 · info@wonderlandplayhouse.com',
+      '',
+      `Prefer no card fee? Send via Zelle to info@wonderlandplayhouse.com — please reference ${body.child_name}'s name in the memo. Cash also accepted at the Playhouse.`,
+    ].join('\n'),
     metadata: {
       type: isFull ? 'party_full' : 'party_deposit_admin',
       party_id: partyId,

@@ -82,8 +82,11 @@ export async function createOrUpdateBalanceInvoice(
     days_until_due: 7,
     auto_advance: false, // we'll finalize manually so line items attach first
     description: `Balance for ${party.child_name ?? 'birthday'}'s ${party.package} party on ${formatDateLong(party.date)} at ${formatTime(party.start_time)}.`,
-    footer:
+    footer: [
       'Wonderland Playhouse · 3830 Nostrand Ave, Brooklyn NY 11235 · (718) 889-1777 · info@wonderlandplayhouse.com',
+      '',
+      `Prefer no card fee? Send via Zelle to info@wonderlandplayhouse.com — please reference ${party.child_name ?? 'the party'} in the memo. Cash also accepted at the Playhouse.`,
+    ].join('\n'),
     metadata: {
       type: 'party_balance',
       party_id: party.id,
