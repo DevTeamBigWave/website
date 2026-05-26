@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { calculatePartyPricing, PACKAGES, EXTENSIONS, fmt, type PackageId, type ExtensionId } from '@/lib/pricing';
 import { getGiftCardByCode, balanceCents } from '@/lib/gift-cards';
 import { finalizeParty } from '@/lib/finalize-booking';
+import { findCatalogItem } from '@/lib/add-ons';
 
 const PartyCheckoutSchema = z.object({
   packageId: z.enum(['private', 'semi']),
@@ -25,8 +26,26 @@ const PartyCheckoutSchema = z.object({
   childAge: z.coerce.number().int().min(0).max(18).optional(),
   headcount: z.coerce.number().int().min(1).max(40),
   notes: z.string().max(2000).optional(),
+  decorTheme: z.string().max(120).optional(),
+  addOns: z
+    .array(
+      z.object({
+        catalog_id: z.string().min(1).max(80),
+        qty: z.coerce.number().int().min(1).max(40).default(1),
+      }),
+    )
+    .max(20)
+    .optional(),
   giftCardCode: z.string().max(40).optional(),
 });
+
+function composeNotes(notes: string | undefined, decorTheme: string | undefined): string | null {
+  const parts = [
+    decorTheme ? `Decor theme: ${decorTheme.trim()}` : '',
+    notes?.trim() ?? '',
+  ].filter(Boolean);
+  return parts.length ? parts.join('\n\n').slice(0, 2000) : null;
+}
 
 // If a DOB is provided, compute the age the kid is *turning* on the party date.
 // Otherwise fall back to the client-supplied childAge.
@@ -120,7 +139,7 @@ export async function POST(request: Request) {
       child_age: computeAgeTurning(body.childDob, date, body.childAge),
       child_dob: body.childDob ?? null,
       headcount: body.headcount,
-      notes: body.notes,
+      notes: composeNotes(body.notes, body.decorTheme),
       parent_name: body.parentName,
       email: body.email,
       phone: body.phone,
@@ -138,6 +157,31 @@ export async function POST(request: Request) {
 
   if (insertError || !party) {
     return NextResponse.json({ error: 'Could not create booking', detail: insertError?.message }, { status: 500 });
+  }
+
+  // Customer-picked add-ons. Validated against the catalog; price comes from
+  // the catalog (not the client) so a customer can't tamper. NOT charged on
+  // the deposit — they get itemized on the balance invoice the owner sends.
+  if (body.addOns && body.addOns.length > 0) {
+    const rows = body.addOns
+      .map((a) => {
+        const item = findCatalogItem(a.catalog_id);
+        if (!item) return null;
+        return {
+          party_id: party.id,
+          catalog_id: item.id,
+          name: item.name,
+          unit_price_cents: item.price_cents,
+          qty: a.qty,
+        };
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null);
+    if (rows.length > 0) {
+      const { error: addOnErr } = await supabase.from('party_add_ons').insert(rows);
+      if (addOnErr) {
+        console.error('Add-on insert failed (party still created):', addOnErr);
+      }
+    }
   }
 
   // Gift card lookup (if a code was passed) — applied against the deposit.

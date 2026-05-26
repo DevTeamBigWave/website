@@ -13,6 +13,7 @@ import {
   type ExtensionId,
 } from '@/lib/pricing';
 import { GiftCardInput } from '@/components/GiftCardInput';
+import { ADD_ON_CATALOG, CATEGORY_LABEL } from '@/lib/add-ons';
 
 type AvailabilityRow = {
   date: string;
@@ -51,7 +52,9 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
     headcount: '',
     notes: '',
     playlistUrl: '',
+    decorTheme: '',
   });
+  const [selectedAddOns, setSelectedAddOns] = useState<Record<string, number>>({});
 
   // Network state
   const [availability, setAvailability] = useState<AvailabilityRow[]>([]);
@@ -226,6 +229,10 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
           .filter(Boolean)
           .join('\n\n')
           .slice(0, 2000),
+        decorTheme: details.decorTheme.trim() || undefined,
+        addOns: Object.entries(selectedAddOns)
+          .filter(([, qty]) => qty > 0)
+          .map(([catalog_id, qty]) => ({ catalog_id, qty })),
         ...(giftCard ? { giftCardCode: giftCard.code } : {}),
       };
 
@@ -563,10 +570,23 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                   placeholder="https://open.spotify.com/playlist/..."
                   full
                 />
+                <FieldInput
+                  label="Custom decor theme (optional)"
+                  value={details.decorTheme}
+                  onChange={(v) => setDetails({ ...details, decorTheme: v })}
+                  placeholder="e.g. Bluey, Hot Wheels, princess"
+                  full
+                />
+                <div className="sm:col-span-2">
+                  <AddOnsAccordion
+                    selected={selectedAddOns}
+                    onChange={setSelectedAddOns}
+                  />
+                </div>
                 <div className="sm:col-span-2">
                   <label className="block">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                      Anything else? (theme ideas, allergies, etc.)
+                      Anything else? (allergies, special requests, etc.)
                     </span>
                     <textarea
                       value={details.notes}
@@ -811,4 +831,122 @@ function sqlTime(displayTime: string): string {
   if (period === 'PM' && h !== 12) h += 12;
   if (period === 'AM' && h === 12) h = 0;
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
+}
+
+// Collapsible add-ons picker. Customer selections get persisted on the party
+// row (no charge on the deposit) — the owner invoices them on the balance.
+function AddOnsAccordion({
+  selected,
+  onChange,
+}: {
+  selected: Record<string, number>;
+  onChange: (next: Record<string, number>) => void;
+}) {
+  const grouped = ADD_ON_CATALOG.reduce<Record<string, typeof ADD_ON_CATALOG>>((acc, c) => {
+    (acc[c.category] = acc[c.category] || []).push(c);
+    return acc;
+  }, {});
+
+  const selectedCount = Object.values(selected).filter((q) => q > 0).length;
+  const selectedTotal = ADD_ON_CATALOG.reduce(
+    (s, c) => s + (selected[c.id] ?? 0) * c.price_cents,
+    0,
+  );
+
+  return (
+    <details className="rounded-2xl border border-slate-200 bg-white">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4">
+        <div>
+          <p className="text-sm font-bold text-slate-700">
+            Add cake, decor, entertainment <span className="text-slate-400">(optional)</span>
+          </p>
+          <p className="mt-0.5 text-xs text-slate-500">
+            {selectedCount === 0
+              ? "Tick anything you'd like — we'll invoice these with the balance, not now."
+              : `${selectedCount} item${selectedCount === 1 ? '' : 's'} selected · ${fmt(selectedTotal)} (invoiced later)`}
+          </p>
+        </div>
+        <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-coral-100 text-coral transition group-open:rotate-45">
+          +
+        </span>
+      </summary>
+      <div className="space-y-4 border-t border-slate-100 px-5 py-4">
+        {Object.entries(grouped).map(([category, list]) => (
+          <div key={category}>
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              {CATEGORY_LABEL[category as keyof typeof CATEGORY_LABEL] ?? category}
+            </p>
+            <div className="space-y-1.5">
+              {list.map((item) => {
+                const qty = selected[item.id] ?? 0;
+                const checked = qty > 0;
+                return (
+                  <label
+                    key={item.id}
+                    className={`flex flex-col gap-2 rounded-xl border px-3 py-3 transition sm:flex-row sm:items-center sm:gap-3 ${
+                      checked
+                        ? 'border-coral bg-coral-50'
+                        : 'border-transparent hover:border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {
+                          const next = { ...selected };
+                          if (checked) delete next[item.id];
+                          else next[item.id] = item.default_qty ?? 1;
+                          onChange(next);
+                        }}
+                        className="h-5 w-5 flex-none accent-coral"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-slate-700">{item.name}</p>
+                        {item.hint && (
+                          <p className="text-[11px] text-slate-400">{item.hint}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex flex-none items-center gap-2 self-end sm:self-auto">
+                      <span className="font-display text-sm text-coral">
+                        {fmt(item.price_cents)}
+                      </span>
+                      {checked && (
+                        <>
+                          <span className="text-xs text-slate-400">×</span>
+                          <input
+                            type="number"
+                            min={1}
+                            max={40}
+                            value={qty}
+                            onChange={(e) => {
+                              const v = parseInt(e.target.value, 10);
+                              if (Number.isNaN(v) || v < 1) {
+                                const next = { ...selected };
+                                delete next[item.id];
+                                onChange(next);
+                              } else {
+                                onChange({ ...selected, [item.id]: v });
+                              }
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            style={{ width: 56 }}
+                            className="min-w-0 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-right text-sm font-semibold text-slate-700 focus:border-coral focus:outline-none"
+                          />
+                        </>
+                      )}
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+        <p className="text-[11px] text-slate-400">
+          We'll confirm final pricing and bill add-ons closer to the party. Your deposit today just locks the date.
+        </p>
+      </div>
+    </details>
+  );
 }
