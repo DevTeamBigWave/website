@@ -459,10 +459,10 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                         {partyTimesFor(packageId!).map((t) => {
                           const blocked = isTimeUnavailable(t);
                           const selected = time === t;
-                          const isWeekday = date.getDay() >= 1 && date.getDay() <= 4;
-                          const isDiscountSlot = t === '12:00 PM' || t === '2:00 PM';
-                          const willDiscount =
-                            packageId === 'private' && isWeekday && isDiscountSlot;
+                          // Every Mon-Thu private slot is 20% off — no per-slot
+                          // exception. Badge must match the pricing engine in lib/pricing.ts
+                          const isMonThu = date.getDay() >= 1 && date.getDay() <= 4;
+                          const willDiscount = packageId === 'private' && isMonThu;
                           return (
                             <button
                               key={t}
