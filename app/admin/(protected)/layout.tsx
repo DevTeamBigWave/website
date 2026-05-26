@@ -31,6 +31,7 @@ export default async function ProtectedAdminLayout({
       ? [
           ...baseNav,
           { href: '/admin/integrations/google', label: 'Calendar' },
+          { href: '/admin/integrations/gbp', label: 'Google Maps' },
           { href: '/admin/team', label: 'Team' },
         ]
       : baseNav;

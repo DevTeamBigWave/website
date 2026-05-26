@@ -16,6 +16,11 @@ type IntegrationRow = {
   access_token: string | null;
   access_token_expires_at: string | null;
   calendar_id: string;
+  gbp_account_id?: string | null;
+  gbp_location_id?: string | null;
+  gbp_location_title?: string | null;
+  gbp_last_sync_at?: string | null;
+  gbp_last_sync_error?: string | null;
 };
 
 function clientId() {
@@ -29,7 +34,7 @@ export async function getIntegration(): Promise<IntegrationRow | null> {
   const db = supabaseAdmin();
   const { data } = await db
     .from('google_integrations')
-    .select('id, refresh_token, access_token, access_token_expires_at, calendar_id')
+    .select('id, refresh_token, access_token, access_token_expires_at, calendar_id, gbp_account_id, gbp_location_id, gbp_location_title, gbp_last_sync_at, gbp_last_sync_error')
     .eq('scope', 'calendar')
     .order('connected_at', { ascending: false })
     .limit(1)
