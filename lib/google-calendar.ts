@@ -237,6 +237,7 @@ function buildEventBody(
   return {
     summary,
     description: lines.filter((l) => l !== null).join('\n'),
+    location: '3830 Nostrand Ave, Brooklyn, NY 11235',
     start: {
       dateTime: startDate.toISOString(),
       timeZone: 'America/New_York',
@@ -245,6 +246,14 @@ function buildEventBody(
       dateTime: endDate.toISOString(),
       timeZone: 'America/New_York',
     },
+    // Add the parent as an attendee so Google emails them an .ics invite
+    // (with the venue address pre-set). guestsCanModify=false locks the
+    // event to the owner; guestsCanInviteOthers=false stops chain invites.
+    attendees: [
+      { email: party.email, displayName: party.parent_name, responseStatus: 'needsAction' },
+    ],
+    guestsCanModify: false,
+    guestsCanInviteOthers: false,
     reminders: {
       useDefault: false,
       overrides: [
@@ -285,8 +294,10 @@ export async function createPartyEvent(
   const accessToken = await getValidAccessToken(integration);
   const body = buildEventBody(party, addOns, siteUrl);
 
+  // sendUpdates=all tells Google to email the .ics invite to the attendee
+  // (the parent). Without this, the attendee is silently added.
   const res = await fetch(
-    `${CALENDAR_API}/calendars/${encodeURIComponent(integration.calendar_id)}/events`,
+    `${CALENDAR_API}/calendars/${encodeURIComponent(integration.calendar_id)}/events?sendUpdates=all`,
     {
       method: 'POST',
       headers: {
