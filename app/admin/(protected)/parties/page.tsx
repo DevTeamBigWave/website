@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { supabaseAdmin } from '@/lib/supabase';
+import { requireAdmin } from '@/lib/admin';
+import { SeedTestPartyButton } from './SeedTestPartyButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,6 +26,7 @@ export default async function AdminPartiesPage({
 }: {
   searchParams: Promise<{ status?: string }>;
 }) {
+  const me = await requireAdmin();
   const sp = await searchParams;
   const statusFilter = sp.status ?? 'all';
 
@@ -53,7 +56,10 @@ export default async function AdminPartiesPage({
             {statusFilter !== 'all' ? `with status “${statusFilter}”` : ''}
           </p>
         </div>
-        <StatusFilter active={statusFilter} />
+        <div className="flex flex-wrap items-center gap-3">
+          {me.role === 'owner' && <SeedTestPartyButton />}
+          <StatusFilter active={statusFilter} />
+        </div>
       </header>
 
       <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">

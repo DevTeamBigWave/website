@@ -5,6 +5,8 @@ import { computePartyFinancials } from '@/lib/parties';
 import { PartyActions } from './PartyActions';
 import { AddOnsEditor } from './AddOnsEditor';
 import { InvoiceThemePicker } from './InvoiceThemePicker';
+import { DeletePartyButton } from './DeletePartyButton';
+import { requireAdmin } from '@/lib/admin';
 import type { InvoiceThemeSlug } from '@/lib/invoice-themes';
 
 export const dynamic = 'force-dynamic';
@@ -32,6 +34,7 @@ export default async function PartyDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const me = await requireAdmin();
   const db = supabaseAdmin();
 
   const { data: party } = await db
@@ -56,24 +59,27 @@ export default async function PartyDetailPage({
 
   return (
     <div className="space-y-6">
-      <header>
-        <Link
-          href="/admin/parties"
-          className="text-xs font-bold uppercase tracking-wider text-coral hover:text-coral-700"
-        >
-          ← All parties
-        </Link>
-        <h1 className="mt-2 font-display text-3xl text-slate-700">
-          {party.child_name ?? 'Party'}
-          {party.child_age != null && (
-            <span className="ml-2 text-base font-normal text-slate-400">
-              turning {party.child_age}
-            </span>
-          )}
-        </h1>
-        <p className="mt-1 text-sm text-slate-500">
-          {fmtDate(party.date)} at {fmtTime(party.start_time)} · {party.package} party · {party.headcount} kids
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <Link
+            href="/admin/parties"
+            className="text-xs font-bold uppercase tracking-wider text-coral hover:text-coral-700"
+          >
+            ← All parties
+          </Link>
+          <h1 className="mt-2 font-display text-3xl text-slate-700">
+            {party.child_name ?? 'Party'}
+            {party.child_age != null && (
+              <span className="ml-2 text-base font-normal text-slate-400">
+                turning {party.child_age}
+              </span>
+            )}
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            {fmtDate(party.date)} at {fmtTime(party.start_time)} · {party.package} party · {party.headcount} kids
+          </p>
+        </div>
+        {me.role === 'owner' && <DeletePartyButton partyId={party.id} />}
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
