@@ -38,8 +38,11 @@ function timeStringToMinutes(t: string): number {
 }
 
 export function BookingFlow({ cancelled }: { cancelled: boolean }) {
-  // Selection state
-  const [packageId, setPackageId] = useState<PackageId | null>(null);
+  // Selection state — Private is the priority package, so pre-select it.
+  // The auto-scroll-to-date effect is gated on a ref so this default doesn't
+  // jump past the package picker on mount.
+  const [packageId, setPackageId] = useState<PackageId | null>('private');
+  const userPickedPackage = useRef(false);
   const [date, setDate] = useState<Date | null>(null);
   const [time, setTime] = useState<string | null>(null);
   const [extensionId, setExtensionId] = useState<ExtensionId | null>(null);
@@ -69,9 +72,10 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
   const dateTimeRef = useRef<HTMLElement>(null);
   const detailsRef = useRef<HTMLElement>(null);
 
-  // When package is chosen, scroll to date+time. When time is chosen, scroll to details.
+  // When package is chosen by the user (not the mount default), scroll to date+time.
   useEffect(() => {
     if (!packageId) return;
+    if (!userPickedPackage.current) return;
     const t = setTimeout(() => {
       dateTimeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 100);
@@ -310,6 +314,7 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                     key={id}
                     type="button"
                     onClick={() => {
+                      userPickedPackage.current = true;
                       setPackageId(id);
                       setDate(null);
                       setTime(null);
@@ -346,6 +351,33 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                 );
               })}
             </div>
+
+            {/* Semi-Private upsell — gently nudge back to Private */}
+            {packageId === 'semi' && (
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border-2 border-dashed border-coral-200 bg-coral-50 px-5 py-4">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-coral-700">
+                    Want the whole venue to yourself?
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-600">
+                    Private parties get exclusive use, 15 kids included, and
+                    20% off Mon–Thu. Most families book Private.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    userPickedPackage.current = true;
+                    setPackageId('private');
+                    setDate(null);
+                    setTime(null);
+                  }}
+                  className="whitespace-nowrap rounded-full bg-coral px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-playful transition hover:bg-coral-600"
+                >
+                  See Private →
+                </button>
+              </div>
+            )}
           </Section>
 
           {/* Step 2 — Date + Time */}
