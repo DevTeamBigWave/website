@@ -89,21 +89,27 @@ export function PartyActions({
         loading={busy === 'planning'}
       />
       <ActionRow
-        title={`Balance invoice · ${fmt(balanceDueCents)}`}
-        description="Creates a Stripe Invoice with the package + every add-on itemized, deposit credited, and a hosted pay link."
-        actionLabel={invoiceSentAt ? 'Re-issue invoice' : 'Send balance invoice'}
+        title={balanceDueCents > 0 ? `Balance invoice · ${fmt(balanceDueCents)}` : 'Balance invoice'}
+        description={
+          balanceDueCents > 0
+            ? 'Creates a Stripe Invoice for the unpaid balance. Add another add-on after the initial payment? Click again — the math credits everything already paid.'
+            : 'Nothing owed right now. Add an add-on above to create a new balance to invoice.'
+        }
+        actionLabel={invoiceSentAt ? (balancePaidAt && balanceDueCents > 0 ? 'Send additional invoice' : 'Re-issue invoice') : 'Send balance invoice'}
         helper={
-          balancePaidAt
-            ? `Paid ${new Date(balancePaidAt).toLocaleDateString()} ✓`
-            : invoiceSentAt
-              ? `Sent ${new Date(invoiceSentAt).toLocaleDateString()}`
-              : undefined
+          balancePaidAt && balanceDueCents <= 0
+            ? `Paid in full ${new Date(balancePaidAt).toLocaleDateString()} ✓`
+            : balancePaidAt
+              ? `Last paid ${new Date(balancePaidAt).toLocaleDateString()} · new balance owed`
+              : invoiceSentAt
+                ? `Sent ${new Date(invoiceSentAt).toLocaleDateString()}`
+                : undefined
         }
         actionLink={invoiceSentAt && hostedInvoiceUrl ? hostedInvoiceUrl : undefined}
-        actionLinkLabel="View invoice ↗"
+        actionLinkLabel="View last invoice ↗"
         onClick={sendInvoice}
         loading={busy === 'invoice'}
-        disabled={balanceDueCents <= 0 || !!balancePaidAt}
+        disabled={balanceDueCents <= 0}
       />
       {feedback && (
         <p className="text-xs text-slate-600">{feedback}</p>

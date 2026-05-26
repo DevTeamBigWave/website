@@ -155,12 +155,34 @@ export async function POST(request: Request) {
       const invoice = event.data.object as Stripe.Invoice;
       const partyId = invoice.metadata?.party_id;
       const type = invoice.metadata?.type;
+
+      // Owner-created via /admin/parties/new — full payment of the whole party
+      if ((type === 'party_full' || type === 'party_deposit_admin') && partyId) {
+        const updates: Record<string, unknown> = {
+          deposit_paid_at: new Date().toISOString(),
+        };
+        // For party_full the single invoice covers everything, so mirror the
+        // balance-paid timestamp too (lets the admin UI show "paid in full")
+        if (type === 'party_full') {
+          updates.balance_paid_at = new Date().toISOString();
+        }
+        await supabase.from('parties').update(updates).eq('id', partyId);
+      }
+
+      // Balance invoice paid — accumulate so multiple round trips (initial
+      // balance + later add-ons + later add-ons again) all add up correctly
       if (type === 'party_balance' && partyId) {
+        const { data: current } = await supabase
+          .from('parties')
+          .select('balance_paid_amount_cents')
+          .eq('id', partyId)
+          .maybeSingle();
+        const priorPaid = current?.balance_paid_amount_cents ?? 0;
         await supabase
           .from('parties')
           .update({
             balance_paid_at: new Date().toISOString(),
-            balance_paid_amount_cents: invoice.amount_paid,
+            balance_paid_amount_cents: priorPaid + (invoice.amount_paid ?? 0),
           })
           .eq('id', partyId);
       }
