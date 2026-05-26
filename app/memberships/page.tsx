@@ -75,13 +75,15 @@ function Plan() {
               <p className="font-display text-7xl leading-none">$150</p>
               <p className="mt-1 text-sm text-white/85">per month + tax</p>
               <Link
-                href="/inquire?topic=membership"
+                href="/memberships/join"
                 className="mt-7 inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-bold text-coral shadow transition hover:bg-cream"
               >
-                Start a membership →
+                Join now →
               </Link>
               <p className="mt-3 text-xs text-white/70">
-                Online sign-up coming soon — for now reach out and we&rsquo;ll get you set up.
+                <Link href="/memberships/manage" className="underline hover:text-white">
+                  Already a member? Manage your subscription →
+                </Link>
               </p>
             </div>
           </div>
@@ -269,7 +271,7 @@ function FinalCta() {
           $150/month. Unlimited visits. No commitment beyond the next 30 days.
         </p>
         <Link
-          href="/inquire?topic=membership"
+          href="/memberships/join"
           className="mt-8 inline-flex items-center gap-2 rounded-full bg-white px-7 py-4 text-base font-bold text-coral shadow transition hover:bg-cream"
         >
           Get started →

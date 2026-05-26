@@ -12,6 +12,7 @@ const baseNav = [
   { href: '/admin/revenue', label: 'Revenue' },
   { href: '/admin/labor', label: 'Labor' },
   { href: '/admin/parties', label: 'Parties' },
+  { href: '/admin/memberships', label: 'Memberships' },
   { href: '/admin/customers', label: 'Customers' },
   { href: '/admin/waivers', label: 'Waivers' },
   { href: '/admin/waiver-qr', label: 'Waiver QR' },

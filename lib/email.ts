@@ -690,6 +690,62 @@ export async function sendOwnerSaleNotification(args: {
 }
 
 // ---------------------------------------------------------------------------
+// Membership welcome — sent when a new monthly subscription starts
+// ---------------------------------------------------------------------------
+export async function sendMembershipWelcome(args: {
+  parent_name: string;
+  email: string;
+  child_name: string;
+  amount_cents: number;
+  next_billing_date: string | null;
+}) {
+  const firstName = args.parent_name.split(' ')[0] || args.parent_name;
+  const nextBilling = args.next_billing_date
+    ? new Date(args.next_billing_date).toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : null;
+
+  const body = `
+    <p style="margin:0 0 16px; line-height:1.65;">Hi ${escapeHtml(firstName)}, you're in!</p>
+    <p style="margin:0 0 16px; line-height:1.65;">Welcome to the Wonderland Pass — ${escapeHtml(args.child_name)} now has unlimited open play access for the next month, and every month after.</p>
+
+    ${kvpTable([
+      ['Member', escapeHtml(args.child_name)],
+      ['Monthly cost', fmtMoney(args.amount_cents) + ' + tax'],
+      ['Daily limit', 'Up to 2 hours/day, 7 days a week'],
+      ...(nextBilling ? ([['Next renewal', nextBilling]] as Array<[string, string]>) : []),
+    ])}
+
+    <div style="background:#FFF4F5; border-radius:12px; padding:18px 20px; margin:24px 0;">
+      <p style="margin:0 0 6px; font-size:11px; text-transform:uppercase; letter-spacing:1.5px; color:#ff7783; font-weight:800;">How to use it</p>
+      <p style="margin:0 0 8px; line-height:1.65;">Just walk in any open day — show your name at the front desk and we'll look you up.</p>
+      <p style="margin:0; line-height:1.65; font-size:14px; color:#6B7C8E;"><em>Heads up: we close to open play during private parties. Booking page shows partial-closure windows in advance.</em></p>
+    </div>
+
+    ${ctaButton('Plan a visit', `${SITE}/book/open-play`)}
+
+    <p style="margin:24px 0 0; line-height:1.65; font-size:14px;">Need to update your card or cancel? <a href="${SITE}/memberships/manage" style="color:#ff7783; font-weight:600;">Manage your membership →</a> No commitment beyond next month.</p>
+  `;
+  const html = brandedShell(
+    {
+      heroEyebrow: 'Welcome aboard',
+      title: `${escapeHtml(args.child_name)}'s Wonderland Pass is active.`,
+      subtitle: 'Unlimited monthly open play',
+    },
+    body,
+  );
+  return resend().emails.send({
+    from: FROM,
+    to: args.email,
+    subject: `🎉 ${args.child_name}'s Wonderland Pass is active`,
+    html,
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Admin invite — sent when an owner adds a new admin
 // ---------------------------------------------------------------------------
 export async function sendAdminInvite(args: {

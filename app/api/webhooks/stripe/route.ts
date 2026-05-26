@@ -117,6 +117,15 @@ export async function POST(request: Request) {
           stripeSessionId: session.id,
         });
       }
+
+      if (type === 'membership') {
+        // Subscription-mode checkout: record the membership row from the
+        // subscription that was created. We pull the subscription via the
+        // session's subscription_id.
+        const subscriptionId = session.subscription as string | null;
+        if (!subscriptionId) break;
+        await handleMembershipCheckoutCompleted(supabase, session, subscriptionId);
+      }
       break;
     }
 
@@ -155,12 +164,72 @@ export async function POST(request: Request) {
           })
           .eq('id', partyId);
       }
+      // Membership renewals — bump current_period_end on success
+      if (invoice.subscription) {
+        const subId =
+          typeof invoice.subscription === 'string'
+            ? invoice.subscription
+            : invoice.subscription.id;
+        await supabase
+          .from('memberships')
+          .update({
+            status: 'active',
+            current_period_end: invoice.period_end
+              ? new Date(invoice.period_end * 1000).toISOString()
+              : undefined,
+          })
+          .eq('stripe_subscription_id', subId);
+      }
       break;
     }
 
     case 'invoice.payment_failed': {
       const invoice = event.data.object as Stripe.Invoice;
       console.warn('Invoice payment failed:', invoice.id, invoice.metadata);
+      if (invoice.subscription) {
+        const subId =
+          typeof invoice.subscription === 'string'
+            ? invoice.subscription
+            : invoice.subscription.id;
+        await supabase
+          .from('memberships')
+          .update({ status: 'past_due' })
+          .eq('stripe_subscription_id', subId);
+      }
+      break;
+    }
+
+    case 'customer.subscription.updated':
+    case 'customer.subscription.deleted': {
+      const sub = event.data.object as Stripe.Subscription;
+      const statusMap: Record<string, string> = {
+        active: 'active',
+        past_due: 'past_due',
+        unpaid: 'past_due',
+        canceled: 'canceled',
+        incomplete: 'incomplete',
+        incomplete_expired: 'canceled',
+        trialing: 'active',
+        paused: 'paused',
+      };
+      const ourStatus = statusMap[sub.status] ?? 'incomplete';
+      await supabase
+        .from('memberships')
+        .update({
+          status: ourStatus,
+          current_period_start: sub.current_period_start
+            ? new Date(sub.current_period_start * 1000).toISOString()
+            : null,
+          current_period_end: sub.current_period_end
+            ? new Date(sub.current_period_end * 1000).toISOString()
+            : null,
+          cancel_at_period_end: sub.cancel_at_period_end ?? false,
+          canceled_at: sub.canceled_at
+            ? new Date(sub.canceled_at * 1000).toISOString()
+            : null,
+          ended_at: sub.ended_at ? new Date(sub.ended_at * 1000).toISOString() : null,
+        })
+        .eq('stripe_subscription_id', sub.id);
       break;
     }
 
@@ -182,3 +251,119 @@ export async function POST(request: Request) {
 export const config = {
   api: { bodyParser: false },
 };
+
+import { sendMembershipWelcome } from '@/lib/email';
+
+async function handleMembershipCheckoutCompleted(
+  supabase: ReturnType<typeof supabaseAdmin>,
+  session: Stripe.Checkout.Session,
+  subscriptionId: string,
+) {
+  // Pull the freshly created subscription for full details
+  const sub = await stripe.subscriptions.retrieve(subscriptionId);
+  const customerId =
+    typeof sub.customer === 'string' ? sub.customer : sub.customer.id;
+  const customer = await stripe.customers.retrieve(customerId);
+  if (customer.deleted) return;
+
+  const email = (customer.email ?? '').toLowerCase();
+  const parentName =
+    customer.name ??
+    (session.metadata?.parent_name as string) ??
+    email.split('@')[0];
+  const childName =
+    (session.metadata?.child_name as string) ??
+    (sub.metadata?.child_name as string) ??
+    'Child';
+  const childDob = (sub.metadata?.child_dob as string) || null;
+  const phone = customer.phone ?? (sub.metadata?.phone as string) ?? '';
+  const priceId =
+    typeof sub.items.data[0]?.price === 'string'
+      ? (sub.items.data[0].price as unknown as string)
+      : sub.items.data[0]?.price?.id ?? null;
+
+  // Find or create customer + child in CRM
+  let crmCustomerId: string | null = null;
+  const { data: existingCustomer } = await supabase
+    .from('customers')
+    .select('id')
+    .ilike('email', email)
+    .maybeSingle();
+  if (existingCustomer) {
+    crmCustomerId = existingCustomer.id;
+    await supabase
+      .from('customers')
+      .update({ parent_name: parentName, phone })
+      .eq('id', crmCustomerId);
+  } else {
+    const { data: newCust } = await supabase
+      .from('customers')
+      .insert({ email, parent_name: parentName, phone, source: 'organic' })
+      .select('id')
+      .single();
+    crmCustomerId = newCust?.id ?? null;
+  }
+
+  let crmChildId: string | null = null;
+  if (crmCustomerId) {
+    const { data: existingChild } = await supabase
+      .from('children')
+      .select('id')
+      .eq('customer_id', crmCustomerId)
+      .ilike('name', childName)
+      .maybeSingle();
+    if (existingChild) {
+      crmChildId = existingChild.id;
+    } else {
+      const { data: newChild } = await supabase
+        .from('children')
+        .insert({
+          customer_id: crmCustomerId,
+          name: childName,
+          date_of_birth: childDob,
+        })
+        .select('id')
+        .single();
+      crmChildId = newChild?.id ?? null;
+    }
+  }
+
+  await supabase.from('memberships').upsert(
+    {
+      customer_id: crmCustomerId,
+      child_id: crmChildId,
+      parent_name: parentName,
+      email,
+      phone,
+      child_name: childName,
+      child_dob: childDob,
+      stripe_customer_id: customerId,
+      stripe_subscription_id: subscriptionId,
+      stripe_price_id: priceId,
+      status: sub.status === 'active' || sub.status === 'trialing' ? 'active' : 'incomplete',
+      current_period_start: sub.current_period_start
+        ? new Date(sub.current_period_start * 1000).toISOString()
+        : null,
+      current_period_end: sub.current_period_end
+        ? new Date(sub.current_period_end * 1000).toISOString()
+        : null,
+      started_at: new Date().toISOString(),
+      amount_cents: sub.items.data[0]?.price?.unit_amount ?? 15000,
+    },
+    { onConflict: 'stripe_subscription_id' },
+  );
+
+  try {
+    await sendMembershipWelcome({
+      parent_name: parentName,
+      email,
+      child_name: childName,
+      amount_cents: sub.items.data[0]?.price?.unit_amount ?? 15000,
+      next_billing_date: sub.current_period_end
+        ? new Date(sub.current_period_end * 1000).toISOString()
+        : null,
+    });
+  } catch (err) {
+    console.error('Membership welcome email failed:', err);
+  }
+}
