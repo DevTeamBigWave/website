@@ -14,6 +14,7 @@ export const metadata = {
 const fmtDate = (iso: string | null) => {
   if (!iso) return '';
   return new Date(iso).toLocaleDateString('en-US', {
+    timeZone: 'America/New_York',
     month: 'long',
     day: 'numeric',
     year: 'numeric',

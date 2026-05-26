@@ -12,6 +12,7 @@ const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://wonderlandplayhouse.co
 const fmtDate = (iso: string | null) =>
   iso
     ? new Date(iso).toLocaleDateString('en-US', {
+        timeZone: 'America/New_York',
         month: 'long',
         day: 'numeric',
         year: 'numeric',
