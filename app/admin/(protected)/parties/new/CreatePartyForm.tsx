@@ -46,7 +46,7 @@ export function CreatePartyForm() {
   const [extension60, setExtension60] = useState(false);
   const [childName, setChildName] = useState('');
   const [childDob, setChildDob] = useState('');
-  const [headcount, setHeadcount] = useState('11');
+  const [headcount, setHeadcount] = useState(String(PACKAGES.private.includedKids));
   const [parentName, setParentName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
