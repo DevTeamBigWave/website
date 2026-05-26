@@ -64,7 +64,7 @@ async function listPayments(sinceMs: number): Promise<CloverPayment[]> {
     url.searchParams.set('offset', String(offset));
     url.searchParams.set('filter', `modifiedTime>=${sinceMs}`);
     url.searchParams.set('expand', 'order,tender,employee,device,refunds');
-    url.searchParams.set('orderBy', 'modifiedTime+ASC');
+    url.searchParams.set('orderBy', 'modifiedTime');
     const res = await fetch(url.toString(), {
       headers: { authorization: `Bearer ${token()}` },
       cache: 'no-store',
