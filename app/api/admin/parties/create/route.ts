@@ -223,16 +223,39 @@ export async function POST(request: Request) {
       });
     }
   } else {
+    // Deposit-only: itemize the party (so the customer sees what they're
+    // committing to — party + tax + any friends-&-family discount), then
+    // add a "balance — invoiced separately" credit line that pulls the
+    // invoice total down to the deposit amount.
     await stripe.invoiceItems.create({
       customer: customerId,
       invoice: invoice.id,
-      amount: depositAfterDiscount,
+      amount: pricing.totalCents,
       currency: 'usd',
-      description:
-        body.manual_discount_percent > 0
-          ? `Deposit (50% of ${body.manual_discount_percent}%-discounted total) for ${body.package === 'private' ? 'private' : 'semi-private'} party — ${formatDateLong(body.date)}`
-          : `Deposit (50%) for ${body.package === 'private' ? 'private' : 'semi-private'} party — ${formatDateLong(body.date)}`,
+      description: `${body.package === 'private' ? 'Private' : 'Semi-Private'} party (incl. tax) — ${formatDateLong(body.date)}`,
     });
+    if (manualDiscountCents > 0) {
+      await stripe.invoiceItems.create({
+        customer: customerId,
+        invoice: invoice.id,
+        amount: -manualDiscountCents,
+        currency: 'usd',
+        description: `Friends & family discount (${body.manual_discount_percent}% off)`,
+      });
+    }
+    const remaining = pricing.totalCents - manualDiscountCents - depositAfterDiscount;
+    if (remaining > 0) {
+      await stripe.invoiceItems.create({
+        customer: customerId,
+        invoice: invoice.id,
+        amount: -remaining,
+        currency: 'usd',
+        description:
+          body.add_ons.length > 0
+            ? `Balance + add-ons — invoiced separately closer to the party (deposit due now: ${fmtMoney(depositAfterDiscount)})`
+            : `Balance — invoiced separately closer to the party (deposit due now: ${fmtMoney(depositAfterDiscount)})`,
+      });
+    }
   }
 
   const finalized = await stripe.invoices.finalizeInvoice(invoice.id);
