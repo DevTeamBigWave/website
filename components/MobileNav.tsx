@@ -50,13 +50,14 @@ export function MobileNav({ items: _items }: { items: NavItem[] }) {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Open menu"
-        className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:border-coral hover:text-coral lg:hidden"
+        className="inline-flex items-center gap-2 rounded-full border-2 border-coral bg-white px-4 py-2 text-sm font-bold text-coral shadow-sm transition hover:bg-coral hover:text-white lg:hidden"
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <line x1="4" y1="7" x2="20" y2="7" />
           <line x1="4" y1="12" x2="20" y2="12" />
           <line x1="4" y1="17" x2="20" y2="17" />
         </svg>
+        Menu
       </button>
 
       {open && (
@@ -79,21 +80,24 @@ export function MobileNav({ items: _items }: { items: NavItem[] }) {
 
           {/* Scrollable content — fills remaining space */}
           <div
-            className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pt-4"
+            className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-6 pt-4"
             style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))' }}
           >
 
             <p className="mb-2 text-xs font-bold uppercase tracking-wider text-coral">Book</p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col gap-2">
               {BOOK_ACTIONS.map((b) => (
                 <Link
                   key={b.href}
                   href={b.href}
-                  className="flex flex-col rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left transition hover:border-coral hover:shadow-card"
+                  className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-coral hover:shadow-card"
                 >
-                  <span className="text-lg" aria-hidden>{b.emoji}</span>
-                  <span className="mt-1 text-sm font-bold text-slate-700">{b.label}</span>
-                  <span className="text-xs text-slate-400">{b.sub}</span>
+                  <span className="text-2xl" aria-hidden>{b.emoji}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-bold text-slate-700">{b.label}</span>
+                    <span className="block text-xs text-slate-400">{b.sub}</span>
+                  </span>
+                  <span className="text-slate-300" aria-hidden>→</span>
                 </Link>
               ))}
             </div>
