@@ -448,7 +448,7 @@ function Faq() {
     },
     {
       q: 'What if I need to cancel or reschedule?',
-      a: 'Refundable up to 14 days before your party. After that, your deposit is non-refundable but fully transferable to another date.',
+      a: 'Birthday party deposits are non-refundable. The date may be rescheduled — just reach out and we\'ll find a new slot that works.',
     },
     {
       q: 'Can I bring my own food and cake?',

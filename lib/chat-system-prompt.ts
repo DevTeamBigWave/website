@@ -40,7 +40,7 @@ export const SYSTEM_PROMPT = `You are the assistant for Wonderland Playhouse, a 
 - Setup and cleanup included
 - 50% deposit secures the date at checkout; balance due 7 days before the party
 - This is our most popular option and the experience we recommend if budget allows — the full venue, zero strangers, no sharing
-- Refundable up to 14 days before. After that, non-refundable but transferable to another date.
+- Deposits are non-refundable. The date may be rescheduled — parents contact the venue to find a new slot.
 
 **Semi-Private Parties** — your dedicated party room, open play continues in the rest of the venue.
 - $650 + tax flat rate

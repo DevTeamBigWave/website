@@ -703,7 +703,7 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
               <p className="text-xs text-slate-400">
                 {promoCode
                   ? 'No deposit charged — balance is invoiced after the party is confirmed.'
-                  : "You'll be redirected to Stripe to pay. Refundable up to 14 days before."}
+                  : "You'll be redirected to Stripe to pay. Deposits are non-refundable but the date may be rescheduled."}
               </p>
             </div>
           )}

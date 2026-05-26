@@ -157,7 +157,7 @@ export async function sendPartyConfirmation(party: any) {
     ${ctaButton('Sign the waiver', `${SITE}/waiver?email=${encodeURIComponent(party.email)}`)}
 
     <p style="margin:24px 0 0; line-height:1.65; font-size:14px; color:#6B7C8E;">Want to plan details? We'll reach out to schedule your planning call. Or reply to this email anytime.</p>
-    <p style="margin:12px 0 0; line-height:1.55; font-size:12px; color:#94A3B8;">Refundable up to 14 days before your date. After that, deposits are non-refundable but transferable.</p>
+    <p style="margin:12px 0 0; line-height:1.55; font-size:12px; color:#94A3B8;">Deposits are non-refundable. The date may be rescheduled — just reach out and we'll find a new slot that works.</p>
   `;
 
   const html = brandedShell(
@@ -506,7 +506,7 @@ export async function sendBalanceInvoiceReady(args: {
         <strong>Zelle / cash balance:</strong> must be received at least <strong>3 days before the party</strong> so we can confirm before your event. Card can be paid right up to party day.
       </p>
       <p style="margin:8px 0 0; line-height:1.55; font-size:12px; color:#6B7C8E;">
-        Final headcount must be confirmed 3 days before the party. Once paid, no refunds (no exceptions) &mdash; deposits and balances are transferable to a future date up to 14 days before.
+        Final headcount must be confirmed 3 days before the party. Deposits and balances are non-refundable &mdash; the date may be rescheduled if you reach out ahead of time.
       </p>
     </div>
 
@@ -620,8 +620,8 @@ export async function sendCreatedPartyInvoice(args: {
       </p>
       <p style="margin:8px 0 0; line-height:1.55; font-size:12px; color:#6B7C8E;">
         ${isFull
-          ? 'Full payment confirms the date. Final headcount must be confirmed 3 days before the party. Once paid, no refunds (no exceptions) — transferable up to 14 days before.'
-          : 'Deposit confirms the date. Balance is due 7 days before the party. Once paid, no refunds (no exceptions) — transferable up to 14 days before.'}
+          ? "Full payment confirms the date. Final headcount must be confirmed 3 days before the party. Deposits and balances are non-refundable — the date may be rescheduled if you reach out ahead of time."
+          : "Deposit confirms the date. Balance is due 7 days before the party. Deposits are non-refundable — the date may be rescheduled if you reach out ahead of time."}
       </p>
     </div>
 
