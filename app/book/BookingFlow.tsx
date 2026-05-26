@@ -55,6 +55,7 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
     decorTheme: '',
   });
   const [selectedAddOns, setSelectedAddOns] = useState<Record<string, number>>({});
+  const [inspirationUrls, setInspirationUrls] = useState<string[]>([]);
 
   // Network state
   const [availability, setAvailability] = useState<AvailabilityRow[]>([]);
@@ -233,6 +234,7 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
         addOns: Object.entries(selectedAddOns)
           .filter(([, qty]) => qty > 0)
           .map(([catalog_id, qty]) => ({ catalog_id, qty })),
+        inspirationImageUrls: inspirationUrls.slice(0, 3),
         ...(giftCard ? { giftCardCode: giftCard.code } : {}),
       };
 
@@ -578,6 +580,9 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                   full
                 />
                 <div className="sm:col-span-2">
+                  <InspirationUploader urls={inspirationUrls} onChange={setInspirationUrls} />
+                </div>
+                <div className="sm:col-span-2">
                   <AddOnsAccordion
                     selected={selectedAddOns}
                     onChange={setSelectedAddOns}
@@ -831,6 +836,103 @@ function sqlTime(displayTime: string): string {
   if (period === 'PM' && h !== 12) h += 12;
   if (period === 'AM' && h === 12) h = 0;
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
+}
+
+// Up to 3 inspiration photos for custom cake / decor. Uploads happen as the
+// customer picks files (so they're ready by submit time), URLs collected and
+// passed in the checkout body.
+function InspirationUploader({
+  urls,
+  onChange,
+}: {
+  urls: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const [uploading, setUploading] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const remaining = Math.max(0, 3 - urls.length);
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const toUpload = Array.from(files).slice(0, remaining);
+    setError(null);
+    setUploading((n) => n + toUpload.length);
+    try {
+      const results = await Promise.all(
+        toUpload.map(async (file) => {
+          const fd = new FormData();
+          fd.append('file', file);
+          const res = await fetch('/api/upload/party-image', {
+            method: 'POST',
+            body: fd,
+          });
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.error ?? 'Upload failed');
+          }
+          const data = await res.json();
+          return data.url as string;
+        }),
+      );
+      onChange([...urls, ...results].slice(0, 3));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setUploading((n) => Math.max(0, n - toUpload.length));
+    }
+  };
+
+  return (
+    <div>
+      <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+        Inspiration photos <span className="font-normal lowercase text-slate-400">(optional, up to 3 — cake design, decor refs)</span>
+      </p>
+      <div className="mt-2 grid grid-cols-3 gap-3">
+        {urls.map((u) => (
+          <div key={u} className="relative aspect-square overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={u} alt="Inspiration" className="h-full w-full object-cover" />
+            <button
+              type="button"
+              onClick={() => onChange(urls.filter((x) => x !== u))}
+              className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-slate-900/70 text-xs text-white hover:bg-slate-900"
+              aria-label="Remove"
+            >
+              ×
+            </button>
+          </div>
+        ))}
+        {remaining > 0 && (
+          <label
+            className={`flex aspect-square cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-white text-center text-xs text-slate-500 transition hover:border-coral hover:text-coral ${
+              uploading > 0 ? 'opacity-60' : ''
+            }`}
+          >
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+              multiple
+              hidden
+              disabled={uploading > 0}
+              onChange={(e) => {
+                handleFiles(e.target.files);
+                e.currentTarget.value = '';
+              }}
+            />
+            <span className="text-2xl leading-none">+</span>
+            <span className="mt-1 px-2">
+              {uploading > 0
+                ? `Uploading ${uploading}…`
+                : urls.length === 0
+                  ? 'Add photo'
+                  : `Add ${remaining} more`}
+            </span>
+          </label>
+        )}
+      </div>
+      {error && <p className="mt-2 text-xs text-coral-700">{error}</p>}
+    </div>
+  );
 }
 
 // Collapsible add-ons picker. Customer selections get persisted on the party

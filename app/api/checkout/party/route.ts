@@ -36,6 +36,7 @@ const PartyCheckoutSchema = z.object({
     )
     .max(20)
     .optional(),
+  inspirationImageUrls: z.array(z.string().url()).max(3).optional(),
   giftCardCode: z.string().max(40).optional(),
 });
 
@@ -151,6 +152,7 @@ export async function POST(request: Request) {
       status: 'hold',
       hold_expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30min hold for checkout
       weekday_discount_applied: pricing.discountApplied,
+      inspiration_image_urls: body.inspirationImageUrls ?? [],
     })
     .select()
     .single();

@@ -42,7 +42,7 @@ export default async function PartyDetailPage({
   const { data: party } = await db
     .from('parties')
     .select(
-      'id, date, start_time, package, status, child_name, child_age, parent_name, email, phone, headcount, notes, total_cents, subtotal_cents, discount_cents, tax_cents, deposit_cents, deposit_paid_at, deposit_payment_method, add_ons_total_cents, gift_card_applied_cents, balance_invoice_id, balance_invoice_hosted_url, balance_invoice_sent_at, balance_paid_at, balance_paid_amount_cents, balance_payment_method, planning_call_email_sent_at, extension_minutes, weekday_discount_applied, invoice_theme, manual_discount_percent, created_at',
+      'id, date, start_time, package, status, child_name, child_age, parent_name, email, phone, headcount, notes, total_cents, subtotal_cents, discount_cents, tax_cents, deposit_cents, deposit_paid_at, deposit_payment_method, add_ons_total_cents, gift_card_applied_cents, balance_invoice_id, balance_invoice_hosted_url, balance_invoice_sent_at, balance_paid_at, balance_paid_amount_cents, balance_payment_method, planning_call_email_sent_at, extension_minutes, weekday_discount_applied, invoice_theme, manual_discount_percent, inspiration_image_urls, created_at',
     )
     .eq('id', id)
     .maybeSingle();
@@ -102,6 +102,27 @@ export default async function PartyDetailPage({
               </div>
             )}
           </Card>
+
+          {/* Inspiration photos — only render if the customer uploaded any */}
+          {Array.isArray((party as any).inspiration_image_urls) &&
+            ((party as any).inspiration_image_urls as string[]).length > 0 && (
+              <Card title="Inspiration photos" subtitle="Uploaded at booking — custom cake / decor reference.">
+                <div className="grid grid-cols-3 gap-3">
+                  {((party as any).inspiration_image_urls as string[]).map((u) => (
+                    <a
+                      key={u}
+                      href={u}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block aspect-square overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={u} alt="Inspiration" className="h-full w-full object-cover transition hover:scale-105" />
+                    </a>
+                  ))}
+                </div>
+              </Card>
+            )}
 
           {/* Add-ons */}
           <Card title="Add-ons" subtitle="Cake, entertainment, decor, extras — they show up on the balance invoice.">
