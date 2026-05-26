@@ -448,7 +448,7 @@ function Faq() {
     },
     {
       q: 'What if I need to cancel or reschedule?',
-      a: 'Birthday party deposits are non-refundable. The date may be rescheduled — just reach out and we\'ll find a new slot that works.',
+      a: "All birthday party deposits are non-refundable. If you need to cancel your event, your party may be rescheduled to a future available date based on Wonderland Playhouse availability.\n\nPlease note that certain custom add-ons, vendors, décor, entertainment, or specialty items that have already been ordered or booked may not be refundable. We recommend notifying us as soon as possible if you need to reschedule, as some add-ons may only be transferable or refundable when sufficient notice is provided.",
     },
     {
       q: 'Can I bring my own food and cake?',
@@ -488,7 +488,11 @@ function Faq() {
                   +
                 </span>
               </summary>
-              <div className="mt-3 text-sm leading-relaxed text-slate-600">{f.a}</div>
+              <div className="mt-3 space-y-3 text-sm leading-relaxed text-slate-600">
+                {f.a.split('\n\n').map((para, i) => (
+                  <p key={i}>{para}</p>
+                ))}
+              </div>
             </details>
           ))}
         </div>
