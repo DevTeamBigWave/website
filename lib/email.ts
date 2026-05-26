@@ -901,6 +901,57 @@ export async function sendMembershipWelcome(args: {
 }
 
 // ---------------------------------------------------------------------------
+// Customer: payment received confirmation (Zelle / cash / Clover swipe)
+// ---------------------------------------------------------------------------
+export async function sendManualPaymentReceived(args: {
+  parent_name: string;
+  email: string;
+  child_name: string | null;
+  date: string;
+  kind: 'deposit' | 'balance';
+  method: 'zelle' | 'cash' | 'clover';
+  amount_cents: number;
+  remaining_balance_cents: number;
+}) {
+  const firstName = args.parent_name.split(' ')[0] || args.parent_name;
+  const child = args.child_name ?? 'your';
+  const methodLabel =
+    args.method === 'zelle' ? 'Zelle' : args.method === 'cash' ? 'cash' : 'Clover';
+  const kindLabel = args.kind === 'deposit' ? 'deposit' : 'balance';
+  const fullyPaid = args.remaining_balance_cents <= 0;
+
+  const body = `
+    <p style="margin:0 0 16px; line-height:1.65;">Hi ${escapeHtml(firstName)},</p>
+    <p style="margin:0 0 16px; line-height:1.65;">Confirming we received your <strong>${fmtMoney(args.amount_cents)}</strong> ${kindLabel} payment via ${methodLabel} for ${escapeHtml(child)}'s party on <strong>${fmtDate(args.date)}</strong>. Thanks!</p>
+
+    <div style="background:#F0FDF4; padding:20px; border-radius:14px; margin:24px 0; text-align:center;">
+      <p style="margin:0; font-size:11px; text-transform:uppercase; letter-spacing:2px; color:#15803d; font-weight:800;">${args.kind === 'deposit' ? 'Deposit received' : 'Balance received'}</p>
+      <p style="margin:8px 0 0; font-size:32px; font-weight:800; color:#2C4253;">${fmtMoney(args.amount_cents)}</p>
+      ${fullyPaid
+        ? `<p style="margin:10px 0 0; font-size:13px; color:#15803d; font-weight:600;">Paid in full — you're all set ✓</p>`
+        : `<p style="margin:10px 0 0; font-size:13px; color:#6B7C8E;">Remaining balance: <strong>${fmtMoney(args.remaining_balance_cents)}</strong></p>`}
+    </div>
+
+    <p style="margin:24px 0 0; line-height:1.65; font-size:14px; color:#6B7C8E;">Questions? Reply to this email or call <a href="tel:+17188891777" style="color:#6B7C8E;">(718) 889-1777</a>.</p>
+  `;
+  const html = brandedShell(
+    {
+      heroEyebrow: 'Payment received',
+      title: fullyPaid ? `${escapeHtml(child)}'s party is paid in full!` : `Got your ${kindLabel}`,
+      subtitle: `${fmtDate(args.date)} · ${methodLabel} payment of ${fmtMoney(args.amount_cents)}`,
+      heroBg: 'linear-gradient(135deg, #16a34a 0%, #65a30d 100%)',
+    },
+    body,
+  );
+  return resend().emails.send({
+    from: FROM,
+    to: args.email,
+    subject: `Payment received — ${fmtMoney(args.amount_cents)} for ${escapeHtml(child)}'s party`,
+    html,
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Admin invite — sent when an owner adds a new admin
 // ---------------------------------------------------------------------------
 export async function sendAdminInvite(args: {

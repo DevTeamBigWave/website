@@ -10,6 +10,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { stripe } from '@/lib/stripe';
 import { createPartyEvent } from '@/lib/google-calendar';
 import { computePartyFinancials } from '@/lib/parties';
+import { sendManualPaymentReceived } from '@/lib/email';
 
 const Schema = z.object({
   kind: z.enum(['deposit', 'balance']),
@@ -80,16 +81,23 @@ export async function POST(
       .eq('id', partyId);
   }
 
-  // Void any open Stripe invoice so the customer can't accidentally
-  // double-pay by card. Paid / void / closed invoices are skipped.
+  // Close out the open Stripe invoice so the customer sees "PAID" on the
+  // hosted invoice page (not "VOIDED") and can't accidentally double-pay
+  // by card. paid_out_of_band tells Stripe the payment was received
+  // outside Stripe — invoice transitions to status='paid' with the date.
+  let amountClosedCents = 0;
   if (party.balance_invoice_id) {
     try {
       const existing = await stripe.invoices.retrieve(party.balance_invoice_id);
-      if (existing.status === 'open' || existing.status === 'draft') {
+      if (existing.status === 'open') {
+        await stripe.invoices.pay(party.balance_invoice_id, { paid_out_of_band: true });
+        amountClosedCents = existing.amount_due ?? 0;
+      } else if (existing.status === 'draft') {
+        // Drafts can't be paid OOB — void them instead
         await stripe.invoices.voidInvoice(party.balance_invoice_id);
       }
     } catch (err) {
-      console.warn('Stripe invoice void failed (continuing):', err);
+      console.warn('Stripe invoice close failed (continuing):', err);
     }
   }
 
@@ -109,6 +117,36 @@ export async function POST(
     } catch (err) {
       console.error('Calendar event creation failed (payment still recorded):', err);
     }
+  }
+
+  // Confirmation email so the customer has written proof we got their payment
+  try {
+    const fin = computePartyFinancials({
+      ...(party as any),
+      // Re-run with the just-applied payment so the email shows the correct balance
+      deposit_paid_at:
+        body.kind === 'deposit' ? new Date().toISOString() : party.deposit_paid_at,
+      balance_paid_amount_cents:
+        body.kind === 'balance'
+          ? (party.balance_paid_amount_cents ?? 0) +
+            Math.max(0, computePartyFinancials(party as any).balance_due_cents)
+          : party.balance_paid_amount_cents ?? 0,
+    });
+    await sendManualPaymentReceived({
+      parent_name: party.parent_name,
+      email: party.email,
+      child_name: party.child_name,
+      date: party.date,
+      kind: body.kind,
+      method: body.method,
+      amount_cents:
+        body.kind === 'deposit'
+          ? party.deposit_cents
+          : amountClosedCents || computePartyFinancials(party as any).balance_due_cents,
+      remaining_balance_cents: fin.balance_due_cents,
+    });
+  } catch (err) {
+    console.error('Manual-payment confirmation email failed:', err);
   }
 
   return NextResponse.json({ ok: true });
