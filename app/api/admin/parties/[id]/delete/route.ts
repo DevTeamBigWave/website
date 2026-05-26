@@ -1,10 +1,12 @@
-// Owner-only: deletes a party. Voids any open Stripe invoice first so it
-// doesn't sit around in the dashboard. Add-ons cascade via FK.
+// Owner-only: deletes a party. Voids any open Stripe invoice + removes the
+// Google Calendar event (with attendee cancellation email) so nothing
+// orphans. Add-ons cascade via FK.
 
 import { NextResponse } from 'next/server';
 import { requireOwner } from '@/lib/admin';
 import { supabaseAdmin } from '@/lib/supabase';
 import { stripe } from '@/lib/stripe';
+import { deletePartyEvent } from '@/lib/google-calendar';
 
 export async function POST(
   _request: Request,
@@ -16,7 +18,7 @@ export async function POST(
 
   const { data: party } = await db
     .from('parties')
-    .select('id, balance_invoice_id')
+    .select('id, balance_invoice_id, google_calendar_event_id')
     .eq('id', partyId)
     .maybeSingle();
 
@@ -32,6 +34,14 @@ export async function POST(
       }
     } catch (err) {
       console.warn('Stripe invoice void failed (continuing with delete):', err);
+    }
+  }
+
+  if (party.google_calendar_event_id) {
+    try {
+      await deletePartyEvent(party.google_calendar_event_id);
+    } catch (err) {
+      console.warn('Calendar event delete failed (continuing):', err);
     }
   }
 

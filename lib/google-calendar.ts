@@ -319,8 +319,9 @@ export async function deletePartyEvent(eventId: string): Promise<void> {
   const integration = await getIntegration();
   if (!integration) return;
   const accessToken = await getValidAccessToken(integration);
+  // sendUpdates=all so the attendee (parent) gets a cancellation email
   const res = await fetch(
-    `${CALENDAR_API}/calendars/${encodeURIComponent(integration.calendar_id)}/events/${eventId}`,
+    `${CALENDAR_API}/calendars/${encodeURIComponent(integration.calendar_id)}/events/${eventId}?sendUpdates=all`,
     {
       method: 'DELETE',
       headers: { authorization: `Bearer ${accessToken}` },
