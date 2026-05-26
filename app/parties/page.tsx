@@ -452,7 +452,7 @@ function Faq() {
     },
     {
       q: 'Can I bring my own food and cake?',
-      a: 'Yes! Outside cake and food are welcome. Or order our custom desserts when you book.',
+      a: "Yes! You are welcome to bring your own food, desserts, and birthday cake, or you can inquire with us about our catering options, including additional pizza pies for adults, custom cakes, cupcakes, and more.\n\nOutside food is subject to an $85 outside food fee, which includes tableware, utensils, setup, cleanup, and garbage handling — so you don't have to worry about bringing a thing.\n\nIf ordering outside food, we recommend scheduling delivery for approximately 30 minutes before the start of your party. Your designated party host will take it from there and make sure everything is set up and ready for your guests. And don't worry — we'll pack up your leftovers for you too!",
     },
     {
       q: 'How does the planning call work?',
