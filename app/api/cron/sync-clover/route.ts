@@ -30,10 +30,15 @@ export async function GET(req: Request) {
 
   try {
     const result = await syncCloverPayments();
+    console.log('[clover-sync] ok:', result);
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
+    const message = err instanceof Error ? err.message : 'sync failed';
+    const stack = err instanceof Error ? err.stack : undefined;
+    console.error('[clover-sync] failed:', message);
+    if (stack) console.error('[clover-sync] stack:', stack);
     return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : 'sync failed' },
+      { ok: false, error: message, stack: stack?.split('\n').slice(0, 5).join('\n') },
       { status: 500 },
     );
   }
