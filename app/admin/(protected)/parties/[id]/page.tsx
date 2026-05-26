@@ -5,6 +5,7 @@ import { computePartyFinancials } from '@/lib/parties';
 import { PartyActions } from './PartyActions';
 import { AddOnsEditor } from './AddOnsEditor';
 import { InvoiceThemePicker } from './InvoiceThemePicker';
+import { DiscountPicker } from './DiscountPicker';
 import { DeletePartyButton } from './DeletePartyButton';
 import { requireAdmin } from '@/lib/admin';
 import type { InvoiceThemeSlug } from '@/lib/invoice-themes';
@@ -40,7 +41,7 @@ export default async function PartyDetailPage({
   const { data: party } = await db
     .from('parties')
     .select(
-      'id, date, start_time, package, status, child_name, child_age, parent_name, email, phone, headcount, notes, total_cents, subtotal_cents, discount_cents, tax_cents, deposit_cents, deposit_paid_at, add_ons_total_cents, gift_card_applied_cents, balance_invoice_id, balance_invoice_hosted_url, balance_invoice_sent_at, balance_paid_at, balance_paid_amount_cents, planning_call_email_sent_at, extension_minutes, weekday_discount_applied, invoice_theme, created_at',
+      'id, date, start_time, package, status, child_name, child_age, parent_name, email, phone, headcount, notes, total_cents, subtotal_cents, discount_cents, tax_cents, deposit_cents, deposit_paid_at, add_ons_total_cents, gift_card_applied_cents, balance_invoice_id, balance_invoice_hosted_url, balance_invoice_sent_at, balance_paid_at, balance_paid_amount_cents, planning_call_email_sent_at, extension_minutes, weekday_discount_applied, invoice_theme, manual_discount_percent, created_at',
     )
     .eq('id', id)
     .maybeSingle();
@@ -115,6 +116,14 @@ export default async function PartyDetailPage({
             />
           </Card>
 
+          {/* Friends & family discount */}
+          <Card title="Friends & family discount" subtitle="Owner-applied courtesy off the grand total. Applies on the next invoice.">
+            <DiscountPicker
+              partyId={party.id}
+              initial={((party as any).manual_discount_percent ?? 0) as 0 | 10 | 15 | 20}
+            />
+          </Card>
+
           {/* Actions */}
           <Card title="Send to customer">
             <PartyActions
@@ -141,6 +150,13 @@ export default async function PartyDetailPage({
               )}
               <Row label="Party total" value={fmtMoney(financials.base_total_cents)} />
               <Row label="Add-ons" value={fmtMoney(financials.add_ons_total_cents)} />
+              {financials.manual_discount_cents > 0 && (
+                <Row
+                  label={`Friends & family ${financials.manual_discount_percent}% off`}
+                  value={`−${fmtMoney(financials.manual_discount_cents)}`}
+                  accent
+                />
+              )}
               <hr className="border-slate-100" />
               <Row label="Grand total" value={<strong>{fmtMoney(financials.grand_total_cents)}</strong>} />
               <Row label="Deposit paid" value={`−${fmtMoney(financials.deposit_paid_cents)}`} accent />

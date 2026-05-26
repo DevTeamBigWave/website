@@ -25,6 +25,7 @@ type PartyForInvoice = {
   gift_card_applied_cents: number | null;
   balance_paid_amount_cents: number | null;
   balance_invoice_id: string | null;
+  manual_discount_percent: number | null;
 };
 
 type AddOnRow = {
@@ -114,6 +115,17 @@ export async function createOrUpdateBalanceInvoice(
         item.qty > 1
           ? `${item.name} × ${item.qty}${item.notes ? ` — ${item.notes}` : ''}`
           : `${item.name}${item.notes ? ` — ${item.notes}` : ''}`,
+    });
+  }
+
+  // Friends & family discount, applied to (party + add-ons)
+  if (financials.manual_discount_cents > 0) {
+    await stripe.invoiceItems.create({
+      customer: customerId,
+      invoice: invoice.id,
+      amount: -financials.manual_discount_cents,
+      currency: 'usd',
+      description: `Friends & family discount (${financials.manual_discount_percent}% off)`,
     });
   }
 

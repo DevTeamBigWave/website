@@ -42,6 +42,7 @@ const CreateSchema = z.object({
   phone: z.string().min(7).max(40),
   invoice_theme: z.string().refine((v): v is InvoiceThemeSlug => v in INVOICE_THEMES),
   invoice_type: z.enum(['full', 'deposit_only']),
+  manual_discount_percent: z.union([z.literal(0), z.literal(10), z.literal(15), z.literal(20)]).default(0),
   add_ons: z.array(AddOnSchema).max(40).default([]),
 });
 
@@ -80,7 +81,17 @@ export async function POST(request: Request) {
     headcount: body.headcount,
   });
 
-  // Insert the party row
+  // Compute invoice-side amounts up front so deposit_cents on the row matches
+  // what we're actually invoicing the customer (post-discount).
+  const isFullInvoice = body.invoice_type === 'full';
+  const _addOnsTotal = isFullInvoice
+    ? body.add_ons.reduce((s, a) => s + a.unit_price_cents * a.qty, 0)
+    : 0;
+  const _preDiscountFull = pricing.totalCents + _addOnsTotal;
+  const _manualDiscount = Math.round((_preDiscountFull * body.manual_discount_percent) / 100);
+  const _fullAfterDiscount = _preDiscountFull - _manualDiscount;
+  const _depositAfterDiscount = Math.round(_fullAfterDiscount / 2);
+
   const { data: created, error: insertErr } = await db
     .from('parties')
     .insert({
@@ -101,10 +112,13 @@ export async function POST(request: Request) {
       discount_cents: pricing.discountCents,
       tax_cents: pricing.taxCents,
       total_cents: pricing.totalCents,
-      deposit_cents: body.invoice_type === 'deposit_only' ? pricing.depositCents : pricing.totalCents,
+      // For full-pay we already credit the whole thing (deposit = full discounted),
+      // for deposit-only we credit the 50% slice (also post-discount).
+      deposit_cents: isFullInvoice ? _fullAfterDiscount : _depositAfterDiscount,
       status: 'confirmed',
       weekday_discount_applied: pricing.discountApplied,
       invoice_theme: body.invoice_theme,
+      manual_discount_percent: body.manual_discount_percent,
     })
     .select('id')
     .single();
@@ -149,14 +163,12 @@ export async function POST(request: Request) {
     customerId = newCust.id;
   }
 
-  const isFull = body.invoice_type === 'full';
-  const addOnsTotalCents = body.add_ons.reduce(
-    (s, a) => s + a.unit_price_cents * a.qty,
-    0,
-  );
-  const invoiceAmountCents = isFull
-    ? pricing.totalCents + (isFull ? addOnsTotalCents : 0)
-    : pricing.depositCents;
+  const isFull = isFullInvoice;
+  const addOnsTotalCents = _addOnsTotal;
+  const manualDiscountCents = _manualDiscount;
+  const fullAfterDiscount = _fullAfterDiscount;
+  const depositAfterDiscount = _depositAfterDiscount;
+  const invoiceAmountCents = isFull ? fullAfterDiscount : depositAfterDiscount;
 
   const invoice = await stripe.invoices.create({
     customer: customerId,
@@ -177,18 +189,17 @@ export async function POST(request: Request) {
     },
   });
 
-  // Line items
-  await stripe.invoiceItems.create({
-    customer: customerId,
-    invoice: invoice.id,
-    amount: isFull ? pricing.totalCents : pricing.depositCents,
-    currency: 'usd',
-    description: isFull
-      ? `${body.package === 'private' ? 'Private' : 'Semi-Private'} party (incl. tax) — ${formatDateLong(body.date)}`
-      : `Deposit (50%) for ${body.package === 'private' ? 'private' : 'semi-private'} party — ${formatDateLong(body.date)}`,
-  });
-
+  // Line items — for deposit-only, just a single line for the 50% (post-discount).
+  // For full-pay, itemize: party, each add-on, then a negative discount line so the
+  // customer can see the courtesy break out cleanly.
   if (isFull) {
+    await stripe.invoiceItems.create({
+      customer: customerId,
+      invoice: invoice.id,
+      amount: pricing.totalCents,
+      currency: 'usd',
+      description: `${body.package === 'private' ? 'Private' : 'Semi-Private'} party (incl. tax) — ${formatDateLong(body.date)}`,
+    });
     for (const a of body.add_ons) {
       await stripe.invoiceItems.create({
         customer: customerId,
@@ -201,6 +212,26 @@ export async function POST(request: Request) {
             : `${a.name}${a.notes ? ` — ${a.notes}` : ''}`,
       });
     }
+    if (manualDiscountCents > 0) {
+      await stripe.invoiceItems.create({
+        customer: customerId,
+        invoice: invoice.id,
+        amount: -manualDiscountCents,
+        currency: 'usd',
+        description: `Friends & family discount (${body.manual_discount_percent}% off)`,
+      });
+    }
+  } else {
+    await stripe.invoiceItems.create({
+      customer: customerId,
+      invoice: invoice.id,
+      amount: depositAfterDiscount,
+      currency: 'usd',
+      description:
+        body.manual_discount_percent > 0
+          ? `Deposit (50% of ${body.manual_discount_percent}%-discounted total) for ${body.package === 'private' ? 'private' : 'semi-private'} party — ${formatDateLong(body.date)}`
+          : `Deposit (50%) for ${body.package === 'private' ? 'private' : 'semi-private'} party — ${formatDateLong(body.date)}`,
+    });
   }
 
   const finalized = await stripe.invoices.finalizeInvoice(invoice.id);
@@ -226,7 +257,7 @@ export async function POST(request: Request) {
       start_time: body.start_time,
       kind: isFull ? 'full' : 'deposit',
       amount_cents: invoiceAmountCents,
-      balance_after_cents: isFull ? 0 : pricing.totalCents - pricing.depositCents,
+      balance_after_cents: isFull ? 0 : fullAfterDiscount - depositAfterDiscount,
       hosted_invoice_url: finalized.hosted_invoice_url ?? '',
       add_ons: isFull
         ? body.add_ons.map((a) => ({

@@ -55,6 +55,7 @@ export function CreatePartyForm() {
   // Invoice settings
   const [invoiceType, setInvoiceType] = useState<'full' | 'deposit_only'>('deposit_only');
   const [theme, setTheme] = useState<InvoiceThemeSlug>('wonderland');
+  const [manualDiscount, setManualDiscount] = useState<0 | 10 | 15 | 20>(0);
 
   // Add-on grid
   const [addOnRows, setAddOnRows] = useState<Record<string, RowState>>(() =>
@@ -118,10 +119,15 @@ export function CreatePartyForm() {
     }
   }, [pkg, date, startTime, extension60, headcount]);
 
+  // Manual friends-&-family discount = percent of (party total + add-ons)
+  const preDiscountFull = (pricing?.totalCents ?? 0) + addOnsTotalCents;
+  const manualDiscountCents = Math.round((preDiscountFull * manualDiscount) / 100);
+  const fullAfterDiscount = preDiscountFull - manualDiscountCents;
+  // For deposit-only, discount the grand-total then take 50%
+  const depositAfterDiscount = Math.round(fullAfterDiscount / 2);
+
   const invoiceAmountCents =
-    invoiceType === 'full'
-      ? (pricing?.totalCents ?? 0) + addOnsTotalCents
-      : pricing?.depositCents ?? 0;
+    invoiceType === 'full' ? fullAfterDiscount : depositAfterDiscount;
 
   const toggleAddOn = (id: string) => {
     setAddOnRows((r) => ({ ...r, [id]: { ...r[id], checked: !r[id].checked } }));
@@ -170,6 +176,7 @@ export function CreatePartyForm() {
           phone: phone.trim(),
           invoice_theme: theme,
           invoice_type: invoiceType,
+          manual_discount_percent: manualDiscount,
           add_ons: invoiceType === 'full' ? selectedAddOns : [],
         }),
       });
@@ -343,6 +350,35 @@ export function CreatePartyForm() {
           </div>
         </Card>
 
+        {/* Friends & family discount */}
+        <Card
+          title="Friends & family discount"
+          subtitle="Owner-applied courtesy. Comes off the grand total on the invoice."
+        >
+          <div className="grid grid-cols-4 gap-2">
+            {([0, 10, 15, 20] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setManualDiscount(v)}
+                className={`rounded-2xl border-2 px-2 py-3 text-center transition ${
+                  manualDiscount === v
+                    ? 'border-coral bg-coral-50 shadow-card'
+                    : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <p
+                  className={`font-display text-base ${
+                    manualDiscount === v ? 'text-coral' : 'text-slate-700'
+                  }`}
+                >
+                  {v === 0 ? 'None' : `${v}% off`}
+                </p>
+              </button>
+            ))}
+          </div>
+        </Card>
+
         {/* Theme picker */}
         <Card
           title="Invoice theme"
@@ -456,6 +492,13 @@ export function CreatePartyForm() {
               <Row label="Party total" value={<strong>{fmt(pricing.totalCents)}</strong>} />
               {invoiceType === 'full' && addOnsTotalCents > 0 && (
                 <Row label="Add-ons" value={fmt(addOnsTotalCents)} />
+              )}
+              {manualDiscount > 0 && (
+                <Row
+                  label={`Friends & family ${manualDiscount}% off`}
+                  value={`−${fmt(manualDiscountCents)}`}
+                  accent
+                />
               )}
               <hr className="border-slate-100" />
               <div className="flex items-baseline justify-between pt-1">
