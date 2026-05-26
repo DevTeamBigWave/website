@@ -69,50 +69,17 @@ function Packages() {
       <div className="mx-auto max-w-6xl px-6">
         <SectionEyebrow>Choose your package</SectionEyebrow>
         <h2 className="font-display text-4xl text-slate-700 sm:text-5xl">
-          Semi-Private or Private.
+          Private or Semi-Private.
         </h2>
 
         <div className="mt-12 grid gap-6 md:grid-cols-2">
-          {/* Semi-Private */}
-          <div className="flex flex-col rounded-3xl border border-slate-100 bg-white p-8 shadow-card">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Package 01
-            </p>
-            <h3 className="mt-1 font-display text-3xl text-slate-700">Semi-Private</h3>
-            <p className="mt-2 text-slate-500">
-              Your dedicated party room at a set start time. Open play
-              continues in the rest of the venue.
-            </p>
-
-            <p className="mt-6 font-display text-5xl text-slate-700">
-              $650<span className="ml-1 text-base font-normal text-slate-400">+ tax</span>
-            </p>
-
-            <ul className="mt-6 flex-1 space-y-2.5 text-sm text-slate-600">
-              <Bullet>10 children + the birthday child included</Bullet>
-              <Bullet>$25 per extra child (up to 40 total)</Bullet>
-              <Bullet>2 hours in the dedicated party room</Bullet>
-              <Bullet>Dedicated party host</Bullet>
-              <Bullet>Setup &amp; cleanup</Bullet>
-              <Bullet>1–3pm or 2–4pm</Bullet>
-              <Bullet>Open play continues in the rest of the venue</Bullet>
-            </ul>
-
-            <Link
-              href="/book"
-              className="mt-8 inline-flex items-center justify-center rounded-full border-2 border-slate-200 bg-white px-6 py-3 text-sm font-bold text-slate-700 transition hover:border-slate-400"
-            >
-              Book Semi-Private →
-            </Link>
-          </div>
-
-          {/* Private */}
+          {/* Private — primary, highlighted */}
           <div className="relative flex flex-col overflow-hidden rounded-3xl bg-coral p-8 text-white shadow-playful">
             <div className="absolute -right-12 -top-12 h-48 w-48 rounded-full bg-white/10" aria-hidden />
             <div className="absolute -bottom-16 -right-8 h-40 w-40 rounded-full bg-sunshine/30" aria-hidden />
 
             <p className="text-xs font-bold uppercase tracking-wider text-white/80">
-              Package 02 · Most popular
+              Most popular
             </p>
             <h3 className="mt-1 font-display text-3xl">Private</h3>
             <p className="mt-2 text-white/90">
@@ -142,6 +109,39 @@ function Packages() {
               className="mt-8 inline-flex items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-bold text-coral transition hover:bg-cream"
             >
               Book Private →
+            </Link>
+          </div>
+
+          {/* Semi-Private */}
+          <div className="flex flex-col rounded-3xl border border-slate-100 bg-white p-8 shadow-card">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              Also available
+            </p>
+            <h3 className="mt-1 font-display text-3xl text-slate-700">Semi-Private</h3>
+            <p className="mt-2 text-slate-500">
+              Your dedicated party room at a set start time. Open play
+              continues in the rest of the venue.
+            </p>
+
+            <p className="mt-6 font-display text-5xl text-slate-700">
+              $650<span className="ml-1 text-base font-normal text-slate-400">+ tax</span>
+            </p>
+
+            <ul className="mt-6 flex-1 space-y-2.5 text-sm text-slate-600">
+              <Bullet>10 children + the birthday child included</Bullet>
+              <Bullet>$25 per extra child (up to 40 total)</Bullet>
+              <Bullet>2 hours in the dedicated party room</Bullet>
+              <Bullet>Dedicated party host</Bullet>
+              <Bullet>Setup &amp; cleanup</Bullet>
+              <Bullet>1–3pm or 2–4pm</Bullet>
+              <Bullet>Open play continues in the rest of the venue</Bullet>
+            </ul>
+
+            <Link
+              href="/book"
+              className="mt-8 inline-flex items-center justify-center rounded-full border-2 border-slate-200 bg-white px-6 py-3 text-sm font-bold text-slate-700 transition hover:border-slate-400"
+            >
+              Book Semi-Private →
             </Link>
           </div>
         </div>

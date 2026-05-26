@@ -4,7 +4,27 @@
 // Server always re-runs these calcs from raw inputs to prevent client tampering
 // ============================================================================
 
+// Private listed first — it's the priority package (whole-venue exclusive,
+// higher revenue per slot). Render order on /book + /parties follows
+// Object.keys order, which preserves insertion order in JS objects.
 export const PACKAGES = {
+  private: {
+    id: 'private',
+    name: 'Private',
+    priceCents: 125000,
+    includedKids: 16,
+    extraKidPriceCents: 2500,
+    durationMinutes: 120,
+    description: 'The entire venue is yours. We close to the public for your party.',
+    includes: [
+      '15 children + the birthday child included',
+      '$25 per extra child (up to 40 total)',
+      'Entire venue, exclusive use',
+      'We close to the public for your party',
+      'Dedicated host + helper',
+      'Setup and cleanup',
+    ],
+  },
   semi: {
     id: 'semi',
     name: 'Semi-Private',
@@ -21,23 +41,6 @@ export const PACKAGES = {
       '2 hours in the dedicated party room',
       'Dedicated party host',
       'Setup & cleanup',
-    ],
-  },
-  private: {
-    id: 'private',
-    name: 'Private',
-    priceCents: 125000,
-    includedKids: 16,
-    extraKidPriceCents: 2500,
-    durationMinutes: 120,
-    description: 'The entire venue is yours. We close to the public for your party.',
-    includes: [
-      '15 children + the birthday child included',
-      '$25 per extra child (up to 40 total)',
-      'Entire venue, exclusive use',
-      'We close to the public for your party',
-      'Dedicated host + helper',
-      'Setup and cleanup',
     ],
   },
 } as const;
