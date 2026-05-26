@@ -318,14 +318,14 @@ export function CreatePartyForm() {
               onClick={() => setInvoiceType('deposit_only')}
               title="Deposit only (50%)"
               blurb="Lock the date. Add-ons + balance get invoiced later."
-              amount={pricing ? fmt(pricing.depositCents) : '—'}
+              amount={pricing ? fmt(pricing.depositCents) : null}
             />
             <ChoiceCard
               checked={invoiceType === 'full'}
               onClick={() => setInvoiceType('full')}
               title="Full payment"
               blurb="One invoice for the whole thing — party + add-ons + tax."
-              amount={pricing ? fmt(pricing.totalCents + addOnsTotalCents) : '—'}
+              amount={pricing ? fmt(pricing.totalCents + addOnsTotalCents) : null}
             />
           </div>
         </Card>
@@ -488,12 +488,18 @@ export function CreatePartyForm() {
         style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
       >
         <div className="flex-1 leading-tight">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            {invoiceType === 'full' ? 'Invoice now' : 'Deposit now'}
-          </p>
-          <p className="font-display text-lg text-coral">
-            {pricing ? fmt(invoiceAmountCents) : '—'}
-          </p>
+          {pricing ? (
+            <>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                {invoiceType === 'full' ? 'Invoice now' : 'Deposit now'}
+              </p>
+              <p className="font-display text-lg text-coral">{fmt(invoiceAmountCents)}</p>
+            </>
+          ) : (
+            <p className="text-xs font-semibold text-slate-500">
+              Pick a date to see the total
+            </p>
+          )}
         </div>
         <button
           type="button"
@@ -557,7 +563,7 @@ function ChoiceCard({
   onClick: () => void;
   title: string;
   blurb: string;
-  amount: string;
+  amount: string | null;
 }) {
   return (
     <button
@@ -569,7 +575,13 @@ function ChoiceCard({
     >
       <div className="flex items-baseline justify-between gap-2">
         <p className="text-sm font-bold text-slate-700">{title}</p>
-        <p className="font-display text-base text-coral">{amount}</p>
+        {amount ? (
+          <p className="font-display text-base text-coral">{amount}</p>
+        ) : (
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+            Pick a date
+          </p>
+        )}
       </div>
       <p className="mt-1 text-xs text-slate-500">{blurb}</p>
     </button>
