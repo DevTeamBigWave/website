@@ -199,17 +199,23 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
   const headcountValid =
     Number.isFinite(headcountNum) && headcountNum >= 1 && headcountNum <= 40;
 
-  const canSubmit =
-    packageId &&
-    date &&
-    time &&
-    details.parentName.trim() &&
-    details.email.trim() &&
-    details.phone.trim() &&
-    details.childName.trim() &&
-    details.childDob &&
-    headcountValid &&
-    pricing;
+  // Build a list of human-readable missing fields so we can tell the parent
+  // exactly what's blocking the submit instead of silently disabling the button.
+  const missingFields = useMemo(() => {
+    const m: string[] = [];
+    if (!packageId) m.push('package');
+    if (!date) m.push('date');
+    if (!time) m.push('start time');
+    if (!details.parentName.trim()) m.push('your name');
+    if (!details.email.trim()) m.push('email');
+    if (!details.phone.trim()) m.push('phone');
+    if (!details.childName.trim()) m.push("child's name");
+    if (!details.childDob) m.push("child's birthday");
+    if (!headcountValid) m.push('headcount');
+    return m;
+  }, [packageId, date, time, details, headcountValid]);
+
+  const canSubmit = missingFields.length === 0 && pricing;
 
   const onSubmit = async () => {
     if (!canSubmit || !packageId || !date || !time) return;
@@ -700,6 +706,11 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                         })()
                       : 'Complete the form to continue'}
               </button>
+              {missingFields.length > 0 && (
+                <p className="text-xs font-semibold text-coral-700">
+                  Still needed: {missingFields.join(', ')}
+                </p>
+              )}
               <p className="text-xs text-slate-400">
                 {promoCode
                   ? 'No deposit charged — balance is invoiced after the party is confirmed.'
@@ -850,6 +861,7 @@ function FieldInput({
         type={inputType}
         inputMode={inputMode as any}
         autoComplete={autoComplete}
+        aria-required={required || undefined}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
