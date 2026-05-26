@@ -87,7 +87,7 @@ What's included with every party: host, setup, cleanup, the venue itself, and a 
 - Balloon twisting: $125
 - Dance party & games: $200
 - Candy-filled piñata: $150
-- DIY slime station: $200
+- DIY slime station: $250
 - DIY bracelet making station: $200
 - Glam spa day: $200
 

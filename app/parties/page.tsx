@@ -367,7 +367,7 @@ function Entertainment() {
     { name: 'Balloon twisting', price: '$125', icon: '1F388' /* balloon */ },
     { name: 'Dance party & games', price: '$200', icon: '1F483' /* dancing */ },
     { name: 'Candy-filled piñata', price: '$150', icon: '1FA85' /* piñata */ },
-    { name: 'DIY slime station', price: '$200', icon: '1F308' /* rainbow */ },
+    { name: 'DIY slime station', price: '$250', icon: '1F308' /* rainbow */ },
     { name: 'DIY bracelet making station', price: '$200', icon: '1F48E' /* gem */ },
     { name: 'Glam spa day', price: '$200', icon: '1F485' /* nail polish */ },
   ];
