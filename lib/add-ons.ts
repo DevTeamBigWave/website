@@ -42,7 +42,7 @@ export const ADD_ON_CATALOG: AddOnCatalogItem[] = [
   { id: 'glitter_tattoos', name: 'Glitter tattoos', category: 'entertainment', price_cents: 10000, singleton: true },
   { id: 'balloon_twisting', name: 'Balloon twisting', category: 'entertainment', price_cents: 12500, singleton: true },
   { id: 'dance_games', name: 'Dance party & games', category: 'entertainment', price_cents: 20000, singleton: true },
-  { id: 'pinata', name: 'Candy-filled piñata', category: 'entertainment', price_cents: 10000, singleton: true },
+  { id: 'pinata', name: 'Candy-filled piñata', category: 'entertainment', price_cents: 15000, singleton: true },
   { id: 'diy_slime', name: 'DIY slime station', category: 'entertainment', price_cents: 20000, singleton: true },
   { id: 'diy_bracelet', name: 'DIY bracelet making station', category: 'entertainment', price_cents: 20000, singleton: true },
   { id: 'glam_spa', name: 'Glam spa day', category: 'entertainment', price_cents: 20000, singleton: true },
