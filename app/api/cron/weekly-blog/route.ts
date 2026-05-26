@@ -37,7 +37,37 @@ async function handler(request: Request) {
   const { searchParams } = new URL(request.url);
   const requested = parseInt(searchParams.get('count') ?? '3', 10);
   const count = Math.min(Math.max(1, requested || 3), 10);
+  const wait = searchParams.get('wait') === '1';
 
+  // Default: fire-and-forget so cron-job.org doesn't time out waiting on
+  // Claude generation (which can take 30-60s). Pass ?wait=1 to await results
+  // (useful for the admin "Generate now" button).
+  if (!wait) {
+    // Kick off work in background; Node keeps the event loop alive until done
+    generateAndPublishBatch(count)
+      .then((res) => {
+        // Bust caches once the writes are committed
+        revalidatePath('/blog');
+        revalidatePath('/');
+        revalidatePath('/sitemap.xml');
+        console.log('[weekly-blog] background batch done:', {
+          generated: res.saved.length,
+          failures: res.failures.length,
+        });
+      })
+      .catch((err) => {
+        console.error('[weekly-blog] background batch failed:', err);
+      });
+
+    return NextResponse.json({
+      ok: true,
+      mode: 'background',
+      requested: count,
+      message: `Started ${count} post generation(s) in background. Check /admin/blog in ~60s.`,
+    });
+  }
+
+  // Synchronous mode (for admin button / explicit testing)
   try {
     const { saved, failures } = await generateAndPublishBatch(count);
 
@@ -47,6 +77,7 @@ async function handler(request: Request) {
 
     return NextResponse.json({
       ok: true,
+      mode: 'sync',
       generated: saved.length,
       requested: count,
       failures,

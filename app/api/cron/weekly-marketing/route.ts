@@ -35,10 +35,30 @@ export async function GET(req: Request) {
   // Guardrail: only run on Saturdays (in case cron is misconfigured)
   const { searchParams } = new URL(req.url);
   const force = searchParams.get('force') === '1';
+  const wait = searchParams.get('wait') === '1';
   if (!isSaturdayNYC() && !force) {
     return NextResponse.json({ ok: true, skipped: 'not Saturday' });
   }
 
+  // Fire-and-forget so cron-job.org doesn't time out waiting on Claude
+  // generation + parallel email sends (can take 30-90s with many subscribers).
+  // Pass ?wait=1 to await results.
+  if (!wait) {
+    runSaturdayMarketing()
+      .then((r) => console.log('[weekly-marketing] background done:', r))
+      .catch((err) => console.error('[weekly-marketing] background failed:', err));
+    return NextResponse.json({
+      ok: true,
+      mode: 'background',
+      message: 'Saturday marketing kicked off in background. Check /admin/marketing in ~60s.',
+    });
+  }
+
+  const result = await runSaturdayMarketing();
+  return NextResponse.json(result);
+}
+
+async function runSaturdayMarketing() {
   const db = supabaseAdmin();
   const today = todayNYC();
 
@@ -55,7 +75,7 @@ export async function GET(req: Request) {
 
   // Don't double-send
   if (draft.status === 'sent') {
-    return NextResponse.json({ ok: true, skipped: 'already sent', draft_id: draft.id });
+    return { ok: true, skipped: 'already sent', draft_id: draft.id };
   }
 
   // Decide what to send: pre-filled or AI-generated
@@ -79,7 +99,7 @@ export async function GET(req: Request) {
         .from('weekly_marketing_drafts')
         .update({ status: 'failed', error_message: msg })
         .eq('id', draft.id);
-      return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+      return { ok: false, error: msg };
     }
   }
 
@@ -157,7 +177,7 @@ export async function GET(req: Request) {
     })
     .eq('id', draft.id);
 
-  return NextResponse.json({
+  return {
     ok: true,
     target_date: today,
     generated_by_ai: generatedByAi,
@@ -165,5 +185,5 @@ export async function GET(req: Request) {
     sent,
     failed,
     total: recipients.length,
-  });
+  };
 }
