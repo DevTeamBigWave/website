@@ -57,6 +57,7 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
   const [selectedAddOns, setSelectedAddOns] = useState<Record<string, number>>({});
   const [inspirationUrls, setInspirationUrls] = useState<string[]>([]);
   const [promoCode, setPromoCode] = useState<string | null>(null);
+  const [monthIndex, setMonthIndex] = useState(0);
 
   // Network state
   const [availability, setAvailability] = useState<AvailabilityRow[]>([]);
@@ -357,51 +358,71 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                       Fri–Sun
                     </p>
                   </div>
-                  <div className="space-y-6">
-                    {daysByMonth.map((group) => (
-                      <div key={group.label}>
-                        <p className="mb-2 font-display text-lg text-slate-700">
-                          {group.label}
-                        </p>
-                        <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 md:grid-cols-7">
-                          {group.days.map((d) => {
-                            const selected = date && sameDay(d, date);
-                            const blocked = isDayUnavailable(d);
-                            const dow = d.getDay();
-                            const isWeekend = dow === 0 || dow === 5 || dow === 6;
-                            return (
-                              <button
-                                key={d.toISOString()}
-                                type="button"
-                                disabled={blocked}
-                                onClick={() => {
-                                  setDate(d);
-                                  setTime(null);
-                                }}
-                                className={`relative rounded-xl border px-2 py-3 text-center transition ${
-                                  blocked
-                                    ? 'cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300'
-                                    : selected
-                                      ? 'border-coral bg-coral text-white'
-                                      : isWeekend
-                                        ? 'border-sky-200 bg-sky-50 text-slate-700 hover:border-sky-400'
-                                        : 'border-slate-200 bg-white hover:border-slate-400'
-                                }`}
-                              >
-                                <p className="text-[10px] uppercase tracking-wider opacity-70">
-                                  {d.toLocaleDateString('en-US', { weekday: 'short' })}
-                                </p>
-                                <p className="font-display text-xl">{d.getDate()}</p>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
+                  <div className="space-y-3">
+                    {/* Month pager — keeps scrolling sane across the 6-month window */}
+                    <div className="flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setMonthIndex((i) => Math.max(0, i - 1))}
+                        disabled={monthIndex === 0}
+                        className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-coral hover:text-coral disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-label="Previous month"
+                      >
+                        ←
+                      </button>
+                      <p className="font-display text-lg text-slate-700">
+                        {daysByMonth[monthIndex]?.label ?? ''}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setMonthIndex((i) => Math.min(daysByMonth.length - 1, i + 1))
+                        }
+                        disabled={monthIndex >= daysByMonth.length - 1}
+                        className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-coral hover:text-coral disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-label="Next month"
+                      >
+                        →
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 md:grid-cols-7">
+                      {(daysByMonth[monthIndex]?.days ?? []).map((d) => {
+                        const selected = date && sameDay(d, date);
+                        const blocked = isDayUnavailable(d);
+                        const dow = d.getDay();
+                        const isWeekend = dow === 0 || dow === 5 || dow === 6;
+                        return (
+                          <button
+                            key={d.toISOString()}
+                            type="button"
+                            disabled={blocked}
+                            onClick={() => {
+                              setDate(d);
+                              setTime(null);
+                            }}
+                            className={`relative rounded-xl border px-2 py-3 text-center transition ${
+                              blocked
+                                ? 'cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300'
+                                : selected
+                                  ? 'border-coral bg-coral text-white'
+                                  : isWeekend
+                                    ? 'border-sky-200 bg-sky-50 text-slate-700 hover:border-sky-400'
+                                    : 'border-slate-200 bg-white hover:border-slate-400'
+                            }`}
+                          >
+                            <p className="text-[10px] uppercase tracking-wider opacity-70">
+                              {d.toLocaleDateString('en-US', { weekday: 'short' })}
+                            </p>
+                            <p className="font-display text-xl">{d.getDate()}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
                   <div className="mt-5 rounded-2xl border border-slate-200 bg-cream-deep px-4 py-3 text-sm text-slate-600">
-                    Looking further out than 3 months?{' '}
+                    Looking further out than 6 months?{' '}
                     <Link
                       href="/inquire"
                       className="font-semibold text-coral hover:text-coral-700"
@@ -1076,19 +1097,19 @@ function AddOnsAccordion({
   );
 
   return (
-    <details className="rounded-2xl border border-slate-200 bg-white">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4">
+    <details className="group rounded-2xl border-2 border-coral bg-coral-50 transition open:border-coral-300 open:bg-white">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-5">
         <div>
-          <p className="text-sm font-bold text-slate-700">
-            Add cake, decor, entertainment <span className="text-slate-400">(optional)</span>
+          <p className="text-base font-bold text-coral-700">
+            Finalize your party now ✨
           </p>
-          <p className="mt-0.5 text-xs text-slate-500">
+          <p className="mt-1 text-sm text-slate-600">
             {selectedCount === 0
-              ? "Tick anything you'd like — we'll invoice these with the balance, not now."
-              : `${selectedCount} item${selectedCount === 1 ? '' : 's'} selected · ${fmt(selectedTotal)} (invoiced later)`}
+              ? "Pick out cake, decor, entertainment, and food add-ons so we can prep everything ahead. We'll itemize them on your final invoice."
+              : `${selectedCount} item${selectedCount === 1 ? '' : 's'} chosen · ${fmt(selectedTotal)} (invoiced with the balance, not today)`}
           </p>
         </div>
-        <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-coral-100 text-coral transition group-open:rotate-45">
+        <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-coral text-lg font-bold text-white shadow-sm transition group-open:rotate-45">
           +
         </span>
       </summary>
