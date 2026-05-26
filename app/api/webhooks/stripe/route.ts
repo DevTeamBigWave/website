@@ -9,6 +9,7 @@ import {
   sendOwnerSaleNotification,
 } from '@/lib/email';
 import { finalizeParty, finalizeOpenPlay } from '@/lib/finalize-booking';
+import { createPartyEvent } from '@/lib/google-calendar';
 
 // Stripe sends raw bodies — App Router gives us req.text() which preserves them
 export async function POST(request: Request) {
@@ -167,6 +168,29 @@ export async function POST(request: Request) {
           updates.balance_paid_at = new Date().toISOString();
         }
         await supabase.from('parties').update(updates).eq('id', partyId);
+
+        // Create the Google Calendar event now that the deposit's confirmed.
+        // Skip if already created (idempotent across duplicate webhooks).
+        try {
+          const { data: party } = await supabase
+            .from('parties')
+            .select('id, date, start_time, package, child_name, child_age, parent_name, email, phone, headcount, notes, total_cents, duration_minutes, extension_minutes, google_calendar_event_id')
+            .eq('id', partyId)
+            .maybeSingle();
+          if (party && !party.google_calendar_event_id) {
+            const siteUrl =
+              process.env.NEXT_PUBLIC_SITE_URL ?? 'https://wonderlandplayhouse.com';
+            const eventId = await createPartyEvent(party as any, siteUrl);
+            if (eventId) {
+              await supabase
+                .from('parties')
+                .update({ google_calendar_event_id: eventId })
+                .eq('id', partyId);
+            }
+          }
+        } catch (err) {
+          console.error('Calendar event creation failed (party still paid):', err);
+        }
       }
 
       // Balance invoice paid — accumulate so multiple round trips (initial
