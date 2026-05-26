@@ -48,7 +48,7 @@ type CloverPayment = {
   device?: { id?: string };
   tender?: { label?: string; labelKey?: string };
   result?: string;
-  refunds?: Array<{ amount: number }>;
+  refunds?: { elements?: Array<{ amount?: number }> } | Array<{ amount?: number }>;
   voided?: boolean;
 };
 
@@ -127,7 +127,17 @@ export async function syncCloverPayments(daysBack = 7): Promise<SyncResult> {
     let updated = 0;
 
     for (const p of payments) {
-      const refundedTotal = (p.refunds ?? []).reduce((s, r) => s + (r.amount ?? 0), 0);
+      // Clover returns `refunds` as either a plain array OR a wrapped
+      // `{ elements: [...] }` depending on the expand syntax. Normalize.
+      const refundList = Array.isArray(p.refunds)
+        ? p.refunds
+        : Array.isArray(p.refunds?.elements)
+          ? p.refunds.elements
+          : [];
+      const refundedTotal = refundList.reduce(
+        (s: number, r: { amount?: number }) => s + (r.amount ?? 0),
+        0,
+      );
       const status: 'paid' | 'refunded' | 'voided' = p.voided
         ? 'voided'
         : refundedTotal >= p.amount && p.amount > 0
