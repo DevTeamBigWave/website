@@ -130,9 +130,12 @@ export async function createOrUpdateBalanceInvoice(
     });
   }
 
-  // Credits already paid: deposit, gift card, and any prior balance payments
+  // Credits already paid: deposit (only if actually received), gift card,
+  // and any prior balance payments. deposit_paid_at is the source of truth
+  // for whether the customer has actually paid the deposit.
+  const depositActuallyPaid = party.deposit_paid_at ? party.deposit_cents : 0;
   const creditPaid =
-    party.deposit_cents +
+    depositActuallyPaid +
     (party.gift_card_applied_cents ?? 0) +
     (party.balance_paid_amount_cents ?? 0);
   if (creditPaid > 0) {
@@ -142,7 +145,7 @@ export async function createOrUpdateBalanceInvoice(
       amount: -creditPaid,
       currency: 'usd',
       description: buildCreditDescription({
-        deposit: party.deposit_cents,
+        deposit: depositActuallyPaid,
         giftCard: party.gift_card_applied_cents ?? 0,
         priorBalance: party.balance_paid_amount_cents ?? 0,
       }),
