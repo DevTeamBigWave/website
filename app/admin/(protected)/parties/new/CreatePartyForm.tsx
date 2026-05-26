@@ -14,6 +14,16 @@ import { INVOICE_THEME_LIST, type InvoiceThemeSlug } from '@/lib/invoice-themes'
 
 const fmt = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
+// Years between the child's DOB and a given party date (whole years, party-day rule)
+function ageOnDate(dob: string, partyDate: string): number {
+  const b = new Date(`${dob}T00:00:00`);
+  const p = new Date(`${partyDate}T00:00:00`);
+  let age = p.getFullYear() - b.getFullYear();
+  const m = p.getMonth() - b.getMonth();
+  if (m < 0 || (m === 0 && p.getDate() < b.getDate())) age--;
+  return age;
+}
+
 // Convert "10:00 AM" → "10:00" for input value
 function to24h(label: string): string {
   const [hm, period] = label.split(' ');
@@ -35,7 +45,7 @@ export function CreatePartyForm() {
   const [startTime, setStartTime] = useState(to24h(PRIVATE_PARTY_TIMES[1]));
   const [extension60, setExtension60] = useState(false);
   const [childName, setChildName] = useState('');
-  const [childAge, setChildAge] = useState('');
+  const [childDob, setChildDob] = useState('');
   const [headcount, setHeadcount] = useState('11');
   const [parentName, setParentName] = useState('');
   const [email, setEmail] = useState('');
@@ -152,7 +162,7 @@ export function CreatePartyForm() {
           start_time: startTime,
           extension_minutes: extension60 ? 60 : 0,
           child_name: childName.trim(),
-          child_age: childAge ? parseInt(childAge, 10) : undefined,
+          child_dob: childDob || undefined,
           headcount: parseInt(headcount, 10),
           notes: notes.trim() || undefined,
           parent_name: parentName.trim(),
@@ -177,9 +187,9 @@ export function CreatePartyForm() {
   };
 
   return (
-    <div className="grid gap-6 pb-24 lg:grid-cols-[1fr_360px] lg:pb-0">
+    <div className="grid w-full max-w-full gap-6 overflow-x-hidden pb-24 lg:grid-cols-[minmax(0,1fr)_360px] lg:pb-0">
       {/* Main column */}
-      <div className="space-y-6">
+      <div className="min-w-0 space-y-6">
         {/* Party details */}
         <Card title="Party details">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -255,15 +265,18 @@ export function CreatePartyForm() {
                 className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
               />
             </Field>
-            <Field label="Child age (turning)">
+            <Field label="Child date of birth">
               <input
-                type="number"
-                min={0}
-                max={20}
-                value={childAge}
-                onChange={(e) => setChildAge(e.target.value)}
+                type="date"
+                value={childDob}
+                onChange={(e) => setChildDob(e.target.value)}
                 className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
               />
+              {childDob && date && (
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Turning {ageOnDate(childDob, date)} on the party day
+                </p>
+              )}
             </Field>
           </div>
 
@@ -370,7 +383,7 @@ export function CreatePartyForm() {
                       return (
                         <label
                           key={c.id}
-                          className={`flex items-center gap-3 rounded-lg px-2 py-1.5 transition ${
+                          className={`flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg px-2 py-1.5 transition sm:flex-nowrap ${
                             r.checked ? 'bg-coral-50' : 'hover:bg-slate-50'
                           }`}
                         >
@@ -393,7 +406,7 @@ export function CreatePartyForm() {
                               value={r.priceDollars}
                               onChange={(e) => setAddOnField(c.id, 'priceDollars', e.target.value)}
                               onClick={(e) => e.stopPropagation()}
-                              className="w-20 rounded-md border border-slate-200 bg-white px-2 py-1 text-right text-xs font-semibold text-slate-700 focus:border-coral focus:outline-none"
+                              className="w-16 min-w-0 rounded-md border border-slate-200 bg-white px-2 py-1 text-right text-xs font-semibold text-slate-700 focus:border-coral focus:outline-none"
                             />
                             <span className="ml-1 text-[11px] text-slate-400">×</span>
                             <input
@@ -402,7 +415,7 @@ export function CreatePartyForm() {
                               value={r.qty}
                               onChange={(e) => setAddOnField(c.id, 'qty', e.target.value)}
                               onClick={(e) => e.stopPropagation()}
-                              className="w-12 rounded-md border border-slate-200 bg-white px-2 py-1 text-right text-xs font-semibold text-slate-700 focus:border-coral focus:outline-none"
+                              className="w-10 min-w-0 rounded-md border border-slate-200 bg-white px-2 py-1 text-right text-xs font-semibold text-slate-700 focus:border-coral focus:outline-none"
                             />
                           </div>
                         </label>

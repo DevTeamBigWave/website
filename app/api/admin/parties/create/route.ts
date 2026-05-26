@@ -34,7 +34,7 @@ const CreateSchema = z.object({
   start_time: z.string().regex(/^\d{2}:\d{2}$/),
   extension_minutes: z.coerce.number().int().min(0).max(60).default(0),
   child_name: z.string().min(1).max(120),
-  child_age: z.coerce.number().int().min(0).max(20).optional(),
+  child_dob: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   headcount: z.coerce.number().int().min(1).max(40),
   notes: z.string().max(1000).optional(),
   parent_name: z.string().min(1).max(160),
@@ -90,7 +90,8 @@ export async function POST(request: Request) {
       duration_minutes: 120,
       extension_minutes: body.extension_minutes,
       child_name: body.child_name,
-      child_age: body.child_age ?? null,
+      child_age: body.child_dob ? yearsBetween(body.child_dob, body.date) : null,
+      child_dob: body.child_dob ?? null,
       headcount: body.headcount,
       notes: body.notes ?? null,
       parent_name: body.parent_name,
@@ -265,4 +266,12 @@ function formatTime(t: string) {
 }
 function fmtMoney(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
+}
+function yearsBetween(dob: string, partyDate: string): number {
+  const b = new Date(`${dob}T00:00:00`);
+  const p = new Date(`${partyDate}T00:00:00`);
+  let age = p.getFullYear() - b.getFullYear();
+  const m = p.getMonth() - b.getMonth();
+  if (m < 0 || (m === 0 && p.getDate() < b.getDate())) age--;
+  return age;
 }
