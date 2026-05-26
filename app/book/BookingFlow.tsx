@@ -56,6 +56,7 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
   });
   const [selectedAddOns, setSelectedAddOns] = useState<Record<string, number>>({});
   const [inspirationUrls, setInspirationUrls] = useState<string[]>([]);
+  const [promoCode, setPromoCode] = useState<string | null>(null);
 
   // Network state
   const [availability, setAvailability] = useState<AvailabilityRow[]>([]);
@@ -236,6 +237,7 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
           .map(([catalog_id, qty]) => ({ catalog_id, qty })),
         inspirationImageUrls: inspirationUrls.slice(0, 3),
         ...(giftCard ? { giftCardCode: giftCard.code } : {}),
+        ...(promoCode ? { promoCode } : {}),
       };
 
       const res = await fetch('/api/checkout/party', {
@@ -251,6 +253,11 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
         return;
       }
 
+      // Promo-code path skips Stripe entirely — go straight to confirm page
+      if (data.skipDeposit && data.redirectTo) {
+        window.location.href = data.redirectTo;
+        return;
+      }
       if (data.url) {
         window.location.href = data.url;
       } else {
@@ -616,7 +623,7 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
           {/* Submit */}
           {packageId && date && time && (
             <div className="space-y-3">
-              {pricing && (
+              {pricing && !promoCode && (
                 <GiftCardInput
                   appliedCard={giftCard}
                   onApply={setGiftCard}
@@ -624,6 +631,7 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                   maxApplyCents={pricing.depositCents}
                 />
               )}
+              <PromoCodeInput value={promoCode} onApply={setPromoCode} />
               {error && (
                 <p className="rounded-xl bg-coral-50 px-4 py-3 text-sm text-coral-700">
                   {error}
@@ -636,21 +644,27 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                 className="w-full rounded-full bg-coral px-7 py-4 text-base font-bold text-white shadow-playful transition hover:bg-coral-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {submitting
-                  ? 'Starting checkout…'
-                  : pricing
-                    ? (() => {
-                        const credit = giftCard
-                          ? Math.min(giftCard.balanceCents, pricing.depositCents)
-                          : 0;
-                        const owed = pricing.depositCents - credit;
-                        return owed <= 0
-                          ? `Confirm with gift card · lock the date`
-                          : `Pay ${fmt(owed)} deposit & lock the date`;
-                      })()
-                    : 'Complete the form to continue'}
+                  ? promoCode
+                    ? 'Confirming…'
+                    : 'Starting checkout…'
+                  : promoCode
+                    ? 'Confirm booking · lock the date'
+                    : pricing
+                      ? (() => {
+                          const credit = giftCard
+                            ? Math.min(giftCard.balanceCents, pricing.depositCents)
+                            : 0;
+                          const owed = pricing.depositCents - credit;
+                          return owed <= 0
+                            ? `Confirm with gift card · lock the date`
+                            : `Pay ${fmt(owed)} deposit & lock the date`;
+                        })()
+                      : 'Complete the form to continue'}
               </button>
               <p className="text-xs text-slate-400">
-                You&rsquo;ll be redirected to Stripe to pay. Refundable up to 14 days before.
+                {promoCode
+                  ? 'No deposit charged — balance is invoiced after the party is confirmed.'
+                  : "You'll be redirected to Stripe to pay. Refundable up to 14 days before."}
               </p>
             </div>
           )}
@@ -842,6 +856,104 @@ function sqlTime(displayTime: string): string {
   if (period === 'PM' && h !== 12) h += 12;
   if (period === 'AM' && h === 12) h = 0;
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
+}
+
+// Promo-code (skip-deposit) entry. Collapsed by default — most parents won't
+// have one. When applied, the booking submits without going through Stripe.
+function PromoCodeInput({
+  value,
+  onApply,
+}: {
+  value: string | null;
+  onApply: (code: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [input, setInput] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async () => {
+    const code = input.trim().toUpperCase();
+    if (!code) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/promo-code/validate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setError(data.reason ?? 'Code invalid');
+        return;
+      }
+      onApply(code);
+      setInput('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not validate');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (value) {
+    return (
+      <div className="flex items-center justify-between rounded-2xl border-2 border-coral bg-coral-50 px-4 py-3">
+        <div>
+          <p className="text-sm font-bold text-coral-700">Promo applied · no deposit</p>
+          <p className="text-xs text-coral-700/80">{value}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => onApply(null)}
+          className="text-xs font-bold uppercase tracking-wider text-coral-700 underline"
+        >
+          Remove
+        </button>
+      </div>
+    );
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="text-xs font-bold uppercase tracking-wider text-slate-500 underline hover:text-coral"
+      >
+        Have a promo code?
+      </button>
+    );
+  }
+
+  return (
+    <div className="space-y-2 rounded-2xl border border-slate-200 bg-white p-4">
+      <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+        Promo code
+      </p>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="SKIP-XXXX-XXXX"
+          autoCapitalize="characters"
+          autoComplete="off"
+          className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm uppercase tracking-wider focus:border-coral focus:outline-none"
+        />
+        <button
+          type="button"
+          onClick={submit}
+          disabled={busy || !input.trim()}
+          className="rounded-full bg-slate-700 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-slate-600 disabled:opacity-50"
+        >
+          {busy ? 'Checking…' : 'Apply'}
+        </button>
+      </div>
+      {error && <p className="text-xs text-coral-700">{error}</p>}
+    </div>
+  );
 }
 
 // Up to 3 inspiration photos for custom cake / decor. Uploads happen as the

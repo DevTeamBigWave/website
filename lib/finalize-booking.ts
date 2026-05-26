@@ -18,6 +18,11 @@ type FinalizePartyOptions = {
   giftCardId?: string;
   giftCardApplyCents?: number;
   stripeSessionId?: string;
+  // Promo-code path: booking is confirmed but no deposit was actually paid.
+  // Everything else (status, calendar, emails) still fires; balance shows
+  // the full grand-total as owed.
+  skipDeposit?: boolean;
+  promoCodeId?: string;
 };
 
 export async function finalizeParty(partyId: string, opts: FinalizePartyOptions = {}) {
@@ -27,9 +32,12 @@ export async function finalizeParty(partyId: string, opts: FinalizePartyOptions 
   // (e.g. duplicate webhook), the second call is a no-op.
   const updates: Record<string, unknown> = {
     status: 'confirmed',
-    deposit_paid_at: new Date().toISOString(),
     hold_expires_at: null,
   };
+  if (!opts.skipDeposit) {
+    updates.deposit_paid_at = new Date().toISOString();
+  }
+  if (opts.promoCodeId) updates.promo_code_id = opts.promoCodeId;
   if (opts.paymentIntent) updates.stripe_deposit_payment_intent = opts.paymentIntent;
   if (opts.giftCardId) {
     updates.gift_card_id = opts.giftCardId;

@@ -6,6 +6,7 @@ import { calculatePartyPricing, PACKAGES, EXTENSIONS, fmt, type PackageId, type 
 import { getGiftCardByCode, balanceCents } from '@/lib/gift-cards';
 import { finalizeParty } from '@/lib/finalize-booking';
 import { findCatalogItem } from '@/lib/add-ons';
+import { validatePromoCode, recordPromoUse } from '@/lib/promo-codes';
 
 const PartyCheckoutSchema = z.object({
   packageId: z.enum(['private', 'semi']),
@@ -38,6 +39,7 @@ const PartyCheckoutSchema = z.object({
     .optional(),
   inspirationImageUrls: z.array(z.string().url()).max(3).optional(),
   giftCardCode: z.string().max(40).optional(),
+  promoCode: z.string().max(40).optional(),
 });
 
 function composeNotes(notes: string | undefined, decorTheme: string | undefined): string | null {
@@ -183,6 +185,42 @@ export async function POST(request: Request) {
       if (addOnErr) {
         console.error('Add-on insert failed (party still created):', addOnErr);
       }
+    }
+  }
+
+  // Promo code path: skip Stripe entirely. Party gets finalized in-place
+  // (status=confirmed, calendar event fires, emails go out) but the deposit
+  // is NOT recorded as paid — so admin sees the full grand-total as owed.
+  if (body.promoCode) {
+    const v = await validatePromoCode(body.promoCode);
+    if (!v.ok) {
+      // Roll the held party back so the slot reopens
+      await supabase
+        .from('parties')
+        .update({ status: 'cancelled', cancellation_reason: 'invalid promo code' })
+        .eq('id', party.id);
+      return NextResponse.json({ error: v.reason }, { status: 400 });
+    }
+    if (v.kind === 'skip_deposit') {
+      const finalized = await finalizeParty(party.id, {
+        skipDeposit: true,
+        promoCodeId: v.id,
+      });
+      if (!finalized) {
+        return NextResponse.json(
+          { error: 'Could not confirm booking with promo code.' },
+          { status: 500 },
+        );
+      }
+      // Best-effort usage counter
+      void recordPromoUse(v.id);
+      return NextResponse.json({
+        ok: true,
+        partyId: party.id,
+        skipDeposit: true,
+        // No checkout URL — the frontend redirects to the confirm page directly
+        redirectTo: `/book/confirm?id=${party.id}`,
+      });
     }
   }
 
