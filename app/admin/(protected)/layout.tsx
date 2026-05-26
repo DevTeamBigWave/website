@@ -91,7 +91,12 @@ export default async function ProtectedAdminLayout({
           ))}
         </nav>
       </header>
-      <main className="mx-auto max-w-7xl px-4 py-8">{children}</main>
+      <main
+        className="mx-auto max-w-7xl px-4 py-8"
+        style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))' }}
+      >
+        {children}
+      </main>
     </div>
   );
 }

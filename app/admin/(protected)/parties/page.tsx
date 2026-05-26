@@ -57,6 +57,14 @@ export default async function AdminPartiesPage({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          {me.role === 'owner' && (
+            <Link
+              href="/admin/parties/new"
+              className="rounded-full bg-coral px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-white shadow-playful transition hover:bg-coral-600"
+            >
+              + New party
+            </Link>
+          )}
           {me.role === 'owner' && <SeedTestPartyButton />}
           <StatusFilter active={statusFilter} />
         </div>

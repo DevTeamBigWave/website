@@ -537,6 +537,120 @@ export async function sendBalanceInvoiceReady(args: {
 }
 
 // ---------------------------------------------------------------------------
+// Customer: admin-created party (walk-in / phone booking). Variant of the
+// balance-invoice email, but the party itself is brand-new and not yet paid.
+// kind='full' means one invoice for the whole thing; kind='deposit' means
+// this invoice is just the deposit, balance comes later.
+// ---------------------------------------------------------------------------
+export async function sendCreatedPartyInvoice(args: {
+  parent_name: string;
+  email: string;
+  child_name: string;
+  date: string;
+  start_time: string;
+  kind: 'full' | 'deposit';
+  amount_cents: number;
+  balance_after_cents: number;
+  hosted_invoice_url: string;
+  add_ons: Array<{ name: string; qty: number; unit_price_cents: number }>;
+  theme: string;
+}) {
+  const theme = getInvoiceTheme(args.theme);
+  const firstName = args.parent_name.split(' ')[0] || args.parent_name;
+  const child = args.child_name;
+  const isFull = args.kind === 'full';
+
+  const niceTime = (() => {
+    const [h, m] = args.start_time.split(':').map(Number);
+    const period = h >= 12 ? 'PM' : 'AM';
+    const display = ((h + 11) % 12) + 1;
+    return `${display}:${String(m).padStart(2, '0')} ${period}`;
+  })();
+
+  const addOnsHtml = args.add_ons.length
+    ? `
+        <table style="width:100%; border-collapse:collapse; margin:24px 0; font-size:14px;">
+          <tr><th colspan="2" style="text-align:left; padding:10px 0; border-bottom:1px solid #EDE7DC; color:#6B7C8E; font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:1.5px;">Add-ons included</th></tr>
+          ${args.add_ons
+            .map(
+              (a, i, arr) => `
+                <tr>
+                  <td style="padding:10px 0; color:#2C4253; border-bottom:${i === arr.length - 1 ? 'none' : '1px solid #EDE7DC'};">${escapeHtml(a.name)}${a.qty > 1 ? ` × ${a.qty}` : ''}</td>
+                  <td style="padding:10px 0; text-align:right; color:#2C4253; font-weight:600; border-bottom:${i === arr.length - 1 ? 'none' : '1px solid #EDE7DC'};">${fmtMoney(a.unit_price_cents * a.qty)}</td>
+                </tr>`,
+            )
+            .join('')}
+        </table>`
+    : '';
+
+  const themedHero = `<div style="font-size:40px; line-height:1; margin-bottom:14px;">${theme.heroEmoji}</div>`;
+
+  const body = `
+    <p style="margin:0 0 16px; line-height:1.65;">Hi ${escapeHtml(firstName)},</p>
+    <p style="margin:0 0 16px; line-height:1.65;">${
+      isFull
+        ? `Your invoice for <strong>${escapeHtml(child)}'s</strong> party on <strong>${fmtDate(args.date)}</strong> at <strong>${niceTime}</strong> is ready. Everything's itemized below.`
+        : `Here's the deposit invoice to lock in <strong>${escapeHtml(child)}'s</strong> party on <strong>${fmtDate(args.date)}</strong> at <strong>${niceTime}</strong>. Pay this to confirm the date — we'll send the balance invoice closer to the party.`
+    }</p>
+    ${addOnsHtml}
+    <div style="background:${theme.accentBg}; padding:24px 20px; border-radius:16px; text-align:center; margin:28px 0;">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:2.5px; color:${theme.accentText}; font-weight:800;">${isFull ? 'Amount due' : 'Deposit due'}</div>
+      <div style="font-size:38px; font-weight:800; color:#2C4253; margin-top:10px;">${fmtMoney(args.amount_cents)}</div>
+      ${!isFull ? `<div style="margin-top:8px; font-size:13px; color:#6B7C8E;">Balance of <strong>${fmtMoney(args.balance_after_cents)}</strong> due later</div>` : ''}
+    </div>
+
+    ${ctaButton('Pay by card now', args.hosted_invoice_url)}
+
+    <div style="background:#FFFBF5; border:1px solid #EDE7DC; border-radius:14px; padding:18px 20px; margin:24px 0;">
+      <p style="margin:0 0 8px; font-size:11px; text-transform:uppercase; letter-spacing:1.8px; color:${theme.accentText}; font-weight:800;">Payment options</p>
+      <p style="margin:0 0 10px; line-height:1.65; font-size:14px; color:#2C4253;">
+        <strong>Card:</strong> Use the button above — secure Stripe checkout. A small credit-card fee applies.
+      </p>
+      <p style="margin:0 0 10px; line-height:1.65; font-size:14px; color:#2C4253;">
+        <strong>Zelle (no fee):</strong> <a href="mailto:info@wonderlandplayhouse.com" style="color:${theme.accentText}; font-weight:700; text-decoration:none;">info@wonderlandplayhouse.com</a> &mdash; please include ${escapeHtml(child)}'s name in the memo.
+      </p>
+      <p style="margin:0; line-height:1.65; font-size:14px; color:#2C4253;">
+        <strong>Cash:</strong> In person at the Playhouse before or on the party day.
+      </p>
+      <p style="margin:12px 0 0; line-height:1.55; font-size:12px; color:#6B7C8E;">
+        ${isFull
+          ? 'Full payment confirms the date. Final headcount must be confirmed 3 days before the party. Once paid, no refunds (no exceptions) — transferable up to 14 days before.'
+          : 'Deposit confirms the date. Balance is due 7 days before the party. Once paid, no refunds (no exceptions) — transferable up to 14 days before.'}
+      </p>
+    </div>
+
+    <div style="background:${theme.accentBg}; border-radius:14px; padding:18px 20px; margin:24px 0;">
+      <p style="margin:0 0 10px; font-size:11px; text-transform:uppercase; letter-spacing:1.8px; color:${theme.accentText}; font-weight:800;">Party-day reminders</p>
+      <ul style="margin:0; padding-left:18px; line-height:1.65; font-size:14px; color:#2C4253;">
+        <li>Shoes are not permitted beyond the entrance. Socks are required (kids &amp; adults).</li>
+        <li>Booths are available for both adults and kids; spare socks can be purchased at the front if forgotten.</li>
+        <li>Arrive 10&ndash;15 minutes early so the celebrant can get set up and we can greet your guests.</li>
+      </ul>
+    </div>
+
+    <p style="margin:24px 0 0; line-height:1.65; font-size:14px; color:#6B7C8E;">Questions? Reply to this email or call <a href="tel:+17188891777" style="color:#6B7C8E;">(718) 889-1777</a>.</p>
+  `;
+  const html = brandedShell(
+    {
+      heroEyebrow: isFull ? theme.heroEyebrow : 'Deposit · lock the date',
+      title: `${child}'s party is booked!`,
+      subtitle: `${fmtDate(args.date)} at ${niceTime}`,
+      heroBg: theme.heroBg,
+      heroPrefixHtml: themedHero,
+    },
+    body,
+  );
+  return resend().emails.send({
+    from: FROM,
+    to: args.email,
+    subject: isFull
+      ? `${child}'s ${theme.subjectFlavor} — ${fmtMoney(args.amount_cents)} invoice`
+      : `${child}'s ${theme.subjectFlavor} — deposit of ${fmtMoney(args.amount_cents)} to confirm`,
+    html,
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Birthday reminder — 12, 8, or 4 weeks out
 // ---------------------------------------------------------------------------
 type BirthdayTouchpoint = '12w' | '8w' | '4w';
