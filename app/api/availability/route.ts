@@ -7,7 +7,7 @@ export const revalidate = 60;
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const fromParam = searchParams.get('from');
-  const days = Math.min(parseInt(searchParams.get('days') ?? '60'), 90);
+  const days = Math.min(parseInt(searchParams.get('days') ?? '180'), 200);
 
   const from = fromParam ? new Date(fromParam) : new Date();
   from.setHours(0, 0, 0, 0);

@@ -86,7 +86,7 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
 
   useEffect(() => {
     let stop = false;
-    fetch('/api/availability?days=90')
+    fetch('/api/availability?days=180')
       .then((r) => r.json())
       .then((data) => {
         if (stop) return;
@@ -102,12 +102,12 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
     };
   }, []);
 
-  // Build next 45 days
+  // Build next 180 days (≈ 6 months) so parents can lock in early
   const days = useMemo(() => {
     const arr: Date[] = [];
     const start = new Date();
     start.setHours(0, 0, 0, 0);
-    for (let i = 0; i < 45; i++) {
+    for (let i = 0; i < 180; i++) {
       const d = new Date(start);
       d.setDate(start.getDate() + i);
       arr.push(d);
@@ -572,22 +572,28 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                   placeholder="https://open.spotify.com/playlist/..."
                   full
                 />
-                <FieldInput
-                  label="Custom decor theme (optional)"
-                  value={details.decorTheme}
-                  onChange={(v) => setDetails({ ...details, decorTheme: v })}
-                  placeholder="e.g. Bluey, Hot Wheels, princess"
-                  full
-                />
-                <div className="sm:col-span-2">
-                  <InspirationUploader urls={inspirationUrls} onChange={setInspirationUrls} />
-                </div>
                 <div className="sm:col-span-2">
                   <AddOnsAccordion
                     selected={selectedAddOns}
                     onChange={setSelectedAddOns}
                   />
                 </div>
+                {/* Conditional fields — only when the matching catalog item is selected. */}
+                {(selectedAddOns['themed_decor'] ?? 0) > 0 && (
+                  <FieldInput
+                    label="Custom decor theme"
+                    value={details.decorTheme}
+                    onChange={(v) => setDetails({ ...details, decorTheme: v })}
+                    placeholder="e.g. Bluey, Hot Wheels, princess"
+                    full
+                  />
+                )}
+                {((selectedAddOns['themed_decor'] ?? 0) > 0 ||
+                  (selectedAddOns['custom_cake'] ?? 0) > 0) && (
+                  <div className="sm:col-span-2">
+                    <InspirationUploader urls={inspirationUrls} onChange={setInspirationUrls} />
+                  </div>
+                )}
                 <div className="sm:col-span-2">
                   <label className="block">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
@@ -944,7 +950,9 @@ function AddOnsAccordion({
   selected: Record<string, number>;
   onChange: (next: Record<string, number>) => void;
 }) {
-  const grouped = ADD_ON_CATALOG.reduce<Record<string, typeof ADD_ON_CATALOG>>((acc, c) => {
+  const grouped = ADD_ON_CATALOG.filter((c) => !c.customer_hidden).reduce<
+    Record<string, typeof ADD_ON_CATALOG>
+  >((acc, c) => {
     (acc[c.category] = acc[c.category] || []).push(c);
     return acc;
   }, {});
