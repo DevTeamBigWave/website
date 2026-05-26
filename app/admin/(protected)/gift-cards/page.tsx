@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { supabaseAdmin } from '@/lib/supabase';
+import { requireAdmin } from '@/lib/admin';
+import { DeleteRowButton } from '@/components/admin/DeleteRowButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +28,7 @@ export default async function AdminGiftCardsPage({
 }: {
   searchParams: Promise<{ status?: string }>;
 }) {
+  const me = await requireAdmin();
   const sp = await searchParams;
   const statusFilter = sp.status ?? 'all';
 
@@ -94,6 +97,7 @@ export default async function AdminGiftCardsPage({
               <th className="px-4 py-3">Recipient</th>
               <th className="px-4 py-3">From</th>
               <th className="px-4 py-3">Bought</th>
+              {me.role === 'owner' && <th className="px-4 py-3"></th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -120,12 +124,20 @@ export default async function AdminGiftCardsPage({
                   <td className="px-4 py-3 text-xs text-slate-500">
                     {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </td>
+                  {me.role === 'owner' && (
+                    <td className="px-4 py-3 text-right">
+                      <DeleteRowButton
+                        endpoint={`/api/admin/gift-cards/${r.id}/delete`}
+                        confirmMessage={`Delete gift card ${r.code} (${fmt(r.amount_cents)})?${r.redeemed_cents > 0 ? ` It has been partially redeemed (${fmt(r.redeemed_cents)}) — redemption history will be wiped.` : ''} The code becomes invalid immediately. This cannot be undone.`}
+                      />
+                    </td>
+                  )}
                 </tr>
               );
             })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-12 text-center text-slate-400">
+                <td colSpan={me.role === 'owner' ? 8 : 7} className="px-4 py-12 text-center text-slate-400">
                   No gift cards{statusFilter !== 'all' ? ` (${statusFilter})` : ''} yet.
                 </td>
               </tr>

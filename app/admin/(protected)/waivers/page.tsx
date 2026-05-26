@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { supabaseAdmin } from '@/lib/supabase';
+import { requireAdmin } from '@/lib/admin';
+import { DeleteRowButton } from '@/components/admin/DeleteRowButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +27,7 @@ export default async function AdminWaiversPage({
 }: {
   searchParams: Promise<{ status?: string; q?: string }>;
 }) {
+  const me = await requireAdmin();
   const sp = await searchParams;
   const statusFilter = sp.status ?? 'active';
   const q = sp.q ?? '';
@@ -110,6 +113,7 @@ export default async function AdminWaiversPage({
               <th className="px-4 py-3">Signed</th>
               <th className="px-4 py-3">Expires</th>
               <th className="px-4 py-3">Status</th>
+              {me.role === 'owner' && <th className="px-4 py-3"></th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -137,12 +141,20 @@ export default async function AdminWaiversPage({
                       tone={r.revoked_at ? 'red' : expired ? 'gray' : 'sky'}
                     />
                   </td>
+                  {me.role === 'owner' && (
+                    <td className="px-4 py-3 text-right">
+                      <DeleteRowButton
+                        endpoint={`/api/admin/waivers/${r.id}/delete`}
+                        confirmMessage={`Delete ${r.parent_name}'s waiver? This is a legal document — only delete test data or duplicates. Children rows will cascade-delete. This cannot be undone.${isActive ? ' (Note: this waiver is currently active.)' : ''}`}
+                      />
+                    </td>
+                  )}
                 </tr>
               );
             })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-slate-400">
+                <td colSpan={me.role === 'owner' ? 6 : 5} className="px-4 py-10 text-center text-slate-400">
                   No waivers match.
                 </td>
               </tr>

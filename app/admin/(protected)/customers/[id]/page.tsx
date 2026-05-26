@@ -1,8 +1,10 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { supabaseAdmin } from '@/lib/supabase';
+import { requireAdmin } from '@/lib/admin';
 import { NotesEditor } from './NotesEditor';
 import { ChildrenSection } from './ChildrenSection';
+import { DeleteRowButton } from '@/components/admin/DeleteRowButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,6 +60,7 @@ export default async function CustomerDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const me = await requireAdmin();
   const db = supabaseAdmin();
 
   const [{ data: customer }, { data: children }, { data: parties }, { data: openPlay }] =
@@ -132,7 +135,7 @@ export default async function CustomerDetailPage({
                 {partyRows.map((p) => (
                   <li key={p.id} className="py-3">
                     <div className="flex items-center justify-between gap-2">
-                      <div>
+                      <Link href={`/admin/parties/${p.id}`} className="flex-1 hover:opacity-80">
                         <p className="font-semibold text-slate-700">
                           {p.child_name ?? '—'}{' '}
                           <span className="text-slate-400">·</span>{' '}
@@ -142,7 +145,7 @@ export default async function CustomerDetailPage({
                           {fmtDate(p.date)} · {fmtTime(p.start_time)} ·{' '}
                           <span className="capitalize">{p.status}</span>
                         </p>
-                      </div>
+                      </Link>
                       <span className="font-display text-base text-slate-700">
                         {fmtMoney(p.total_cents)}
                       </span>
@@ -170,9 +173,17 @@ export default async function CustomerDetailPage({
                           <span className="capitalize">{o.status}</span>
                         </p>
                       </div>
-                      <span className="font-display text-base text-slate-700">
-                        {fmtMoney(o.total_cents)}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-display text-base text-slate-700">
+                          {fmtMoney(o.total_cents)}
+                        </span>
+                        {me.role === 'owner' && (
+                          <DeleteRowButton
+                            endpoint={`/api/admin/open-play/${o.id}/delete`}
+                            confirmMessage={`Delete this open-play ticket (${fmtDate(o.date)}, ${fmtMoney(o.total_cents)})? Does NOT issue a refund — handle that in Stripe first if needed. This cannot be undone.`}
+                          />
+                        )}
+                      </div>
                     </div>
                   </li>
                 ))}
