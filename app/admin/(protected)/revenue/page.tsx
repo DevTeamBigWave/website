@@ -9,6 +9,7 @@ const fmt = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minim
 const fmtShort = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
 const PRESETS = [
+  { value: 'today', label: 'Today' },
   { value: 'week', label: 'Week' },
   { value: 'month', label: 'Month' },
   { value: 'quarter', label: 'Quarter' },
@@ -22,7 +23,7 @@ export default async function RevenuePage({
   searchParams: Promise<{ range?: string }>;
 }) {
   const sp = await searchParams;
-  const preset = sp.range ?? 'month';
+  const preset = sp.range ?? 'today';
   const range = rangeForPreset(preset);
   const summary = await getRevenue(range);
   const cloverSetup = cloverConfigured();
