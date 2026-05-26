@@ -344,9 +344,6 @@ function AddOns() {
                 <span aria-hidden className="text-xl leading-none">🎈</span>
                 <div>
                   <p className="text-sm font-semibold text-slate-700">{item.name}</p>
-                  {('note' in item && item.note) && (
-                    <p className="mt-0.5 text-xs italic text-slate-500">{item.note as string}</p>
-                  )}
                 </div>
               </div>
               <p className="whitespace-nowrap font-display text-sm text-coral">
