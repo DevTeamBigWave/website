@@ -174,7 +174,7 @@ export async function POST(request: Request) {
         try {
           const { data: party } = await supabase
             .from('parties')
-            .select('id, date, start_time, package, child_name, child_age, parent_name, email, phone, headcount, notes, total_cents, duration_minutes, extension_minutes, google_calendar_event_id')
+            .select('id, date, start_time, package, child_name, child_age, parent_name, email, phone, headcount, notes, total_cents, deposit_cents, deposit_paid_at, deposit_payment_method, balance_paid_at, balance_paid_amount_cents, manual_discount_percent, add_ons_total_cents, inspiration_image_urls, duration_minutes, extension_minutes, weekday_discount_applied, google_calendar_event_id')
             .eq('id', partyId)
             .maybeSingle();
           if (party && !party.google_calendar_event_id) {

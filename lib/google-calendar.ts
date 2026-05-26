@@ -145,9 +145,29 @@ export type PartyForCalendar = {
   headcount: number;
   notes: string | null;
   weekday_discount_applied: boolean | null;
+  total_cents?: number | null;
+  deposit_cents?: number | null;
+  deposit_paid_at?: string | null;
+  deposit_payment_method?: string | null;
+  balance_paid_at?: string | null;
+  balance_paid_amount_cents?: number | null;
+  manual_discount_percent?: number | null;
+  add_ons_total_cents?: number | null;
+  inspiration_image_urls?: string[] | null;
 };
 
-function buildEventBody(party: PartyForCalendar, siteUrl: string) {
+type AddOnForCalendar = {
+  name: string;
+  unit_price_cents: number;
+  qty: number;
+  notes: string | null;
+};
+
+function buildEventBody(
+  party: PartyForCalendar,
+  addOns: AddOnForCalendar[],
+  siteUrl: string,
+) {
   const totalMinutes = party.duration_minutes + (party.extension_minutes ?? 0);
   const startISO = `${party.date}T${party.start_time}`;
   const startDate = new Date(`${startISO}-04:00`); // America/New_York rough; we set timeZone below
@@ -156,22 +176,67 @@ function buildEventBody(party: PartyForCalendar, siteUrl: string) {
   const ageBit = party.child_age ? `${party.child_age}th ` : '';
   const summary = `🎉 ${party.child_name ?? 'Party'} — ${ageBit}birthday (${party.package === 'private' ? 'Private' : 'Semi'})`;
 
-  const descLines = [
+  const fmt = (c: number) => `$${(c / 100).toFixed(2)}`;
+  const lines: (string | null)[] = [
     `Package: ${party.package === 'private' ? 'Private' : 'Semi-Private'}`,
     `Headcount: ${party.headcount} kids`,
+    party.child_age ? `Turning: ${party.child_age}` : null,
+    `Duration: ${totalMinutes} min${party.extension_minutes ? ' (incl. extension)' : ''}`,
+    '',
     `Parent: ${party.parent_name}`,
     `Email: ${party.email}`,
     `Phone: ${party.phone}`,
-    party.weekday_discount_applied ? 'Mon–Thu 20% discount applied' : null,
-    '',
-    party.notes ? `Notes:\n${party.notes}` : null,
-    '',
-    `Manage: ${siteUrl}/admin/parties`,
-  ].filter(Boolean);
+  ];
+
+  if (addOns.length > 0) {
+    lines.push('', 'Add-ons:');
+    for (const a of addOns) {
+      const tag = a.qty > 1 ? ` × ${a.qty}` : '';
+      const note = a.notes ? ` (${a.notes})` : '';
+      lines.push(`  • ${a.name}${tag} — ${fmt(a.unit_price_cents * a.qty)}${note}`);
+    }
+  }
+
+  if (party.total_cents != null) {
+    lines.push('', 'Money:');
+    lines.push(`  Party total: ${fmt(party.total_cents)}`);
+    if (party.add_ons_total_cents && party.add_ons_total_cents > 0) {
+      lines.push(`  + Add-ons: ${fmt(party.add_ons_total_cents)}`);
+    }
+    if (party.manual_discount_percent && party.manual_discount_percent > 0) {
+      lines.push(`  − Friends & family ${party.manual_discount_percent}% off`);
+    }
+    if (party.deposit_cents) {
+      const paid = party.deposit_paid_at
+        ? ` ✓ paid${party.deposit_payment_method ? ` (${party.deposit_payment_method})` : ''}`
+        : ' — unpaid';
+      lines.push(`  Deposit: ${fmt(party.deposit_cents)}${paid}`);
+    }
+    if (party.balance_paid_amount_cents && party.balance_paid_amount_cents > 0) {
+      lines.push(`  Balance paid: ${fmt(party.balance_paid_amount_cents)}`);
+    }
+  }
+
+  if (party.weekday_discount_applied) {
+    lines.push('', 'Mon–Thu 20% discount applied');
+  }
+
+  if (party.notes) {
+    lines.push('', 'Notes:', party.notes);
+  }
+
+  if (party.inspiration_image_urls && party.inspiration_image_urls.length > 0) {
+    lines.push('', 'Inspiration photos:');
+    for (const url of party.inspiration_image_urls) {
+      lines.push(`  ${url}`);
+    }
+  }
+
+  lines.push('', `Manage: ${siteUrl}/admin/parties/${party.id}`);
 
   return {
     summary,
-    description: descLines.join('\n'),
+    description: lines.filter((l) => l !== null).join('\n'),
     start: {
       dateTime: startDate.toISOString(),
       timeZone: 'America/New_York',
@@ -202,8 +267,23 @@ export async function createPartyEvent(
   const integration = await getIntegration();
   if (!integration) return null;
 
+  // Fetch add-ons so they can be itemized in the event description. Best-effort:
+  // if the query fails we still create the event without them.
+  let addOns: AddOnForCalendar[] = [];
+  try {
+    const db = supabaseAdmin();
+    const { data } = await db
+      .from('party_add_ons')
+      .select('name, unit_price_cents, qty, notes')
+      .eq('party_id', party.id)
+      .order('created_at', { ascending: true });
+    addOns = (data ?? []) as AddOnForCalendar[];
+  } catch (err) {
+    console.warn('Could not load add-ons for calendar event:', err);
+  }
+
   const accessToken = await getValidAccessToken(integration);
-  const body = buildEventBody(party, siteUrl);
+  const body = buildEventBody(party, addOns, siteUrl);
 
   const res = await fetch(
     `${CALENDAR_API}/calendars/${encodeURIComponent(integration.calendar_id)}/events`,
