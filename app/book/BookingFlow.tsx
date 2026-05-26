@@ -353,10 +353,18 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                     <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
                       Date
                     </p>
-                    <p className="inline-flex items-center gap-1.5 text-xs text-slate-500">
-                      <span className="inline-block h-2.5 w-2.5 rounded-sm border border-sky-200 bg-sky-50" />
-                      Fri–Sun
-                    </p>
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="inline-block h-2.5 w-2.5 rounded-sm border border-sky-200 bg-sky-50" />
+                        Fri–Sun
+                      </span>
+                      {packageId === 'private' && (
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="inline-block h-2.5 w-2.5 rounded-sm border border-coral-200 bg-coral-50" />
+                          Mon–Thu · 20% off
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="space-y-3">
                     {/* Month pager — keeps scrolling sane across the 6-month window */}
@@ -392,6 +400,9 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                         const blocked = isDayUnavailable(d);
                         const dow = d.getDay();
                         const isWeekend = dow === 0 || dow === 5 || dow === 6;
+                        // Private parties booked Mon-Thu get 20% off automatically
+                        const discountEligible =
+                          packageId === 'private' && dow >= 1 && dow <= 4 && !blocked;
                         return (
                           <button
                             key={d.toISOString()}
@@ -406,11 +417,18 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                                 ? 'cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300'
                                 : selected
                                   ? 'border-coral bg-coral text-white'
-                                  : isWeekend
-                                    ? 'border-sky-200 bg-sky-50 text-slate-700 hover:border-sky-400'
-                                    : 'border-slate-200 bg-white hover:border-slate-400'
+                                  : discountEligible
+                                    ? 'border-coral-200 bg-coral-50 text-slate-700 hover:border-coral-400'
+                                    : isWeekend
+                                      ? 'border-sky-200 bg-sky-50 text-slate-700 hover:border-sky-400'
+                                      : 'border-slate-200 bg-white hover:border-slate-400'
                             }`}
                           >
+                            {discountEligible && !selected && (
+                              <span className="absolute -right-1 -top-1 rounded-full bg-coral px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white shadow-sm">
+                                −20%
+                              </span>
+                            )}
                             <p className="text-[10px] uppercase tracking-wider opacity-70">
                               {d.toLocaleDateString('en-US', { weekday: 'short' })}
                             </p>
