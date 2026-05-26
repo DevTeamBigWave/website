@@ -455,6 +455,10 @@ function Faq() {
       a: "Yes! You are welcome to bring your own food, desserts, and birthday cake, or you can inquire with us about our catering options, including additional pizza pies for adults, custom cakes, cupcakes, and more.\n\nOutside food is subject to an $85 outside food fee, which includes tableware, utensils, setup, cleanup, and garbage handling — so you don't have to worry about bringing a thing.\n\nIf ordering outside food, we recommend scheduling delivery for approximately 30 minutes before the start of your party. Your designated party host will take it from there and make sure everything is set up and ready for your guests. And don't worry — we'll pack up your leftovers for you too!",
     },
     {
+      q: 'Do adults count toward the party guest count? Is there enough seating for parents and family members?',
+      a: "No — we only count children toward the party guest count, not adults. But don't worry, that doesn't mean we don't account for the adults' comfort and enjoyment too!\n\nEach party room is set up with two adult tables for parents and family members, and we can provide an additional table upon request for extra food, desserts, or drinks if needed. There is plenty of seating available so everyone can relax and enjoy the celebration comfortably.",
+    },
+    {
       q: 'How does the planning call work?',
       a: 'After you book, you\'ll get a link to schedule a planning call with us to go over theme, timing, and any add-ons. We do a second call 1 week before to finalize details.',
     },
