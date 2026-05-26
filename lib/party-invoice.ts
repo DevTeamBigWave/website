@@ -21,6 +21,7 @@ type PartyForInvoice = {
   child_name: string | null;
   total_cents: number;
   deposit_cents: number;
+  deposit_paid_at: string | null;
   add_ons_total_cents: number | null;
   gift_card_applied_cents: number | null;
   balance_paid_amount_cents: number | null;

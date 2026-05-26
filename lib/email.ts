@@ -500,10 +500,13 @@ export async function sendBalanceInvoiceReady(args: {
         <strong>Zelle (no fee):</strong> <a href="mailto:info@wonderlandplayhouse.com" style="color:${theme.accentText}; font-weight:700; text-decoration:none;">info@wonderlandplayhouse.com</a> &mdash; please include ${escapeHtml(childName)}'s name in the memo.
       </p>
       <p style="margin:0; line-height:1.65; font-size:14px; color:#2C4253;">
-        <strong>Cash:</strong> In person at the Playhouse before or on the party day.
+        <strong>Cash:</strong> In person at the Playhouse.
       </p>
       <p style="margin:12px 0 0; line-height:1.55; font-size:12px; color:#6B7C8E;">
-        Full payment is required to confirm the party date. Final headcount must be confirmed 3 days before the party. Once paid, no refunds (no exceptions) &mdash; deposits and balances are transferable to a future date up to 14 days before.
+        <strong>Zelle / cash balance:</strong> must be received at least <strong>3 days before the party</strong> so we can confirm before your event. Card can be paid right up to party day.
+      </p>
+      <p style="margin:8px 0 0; line-height:1.55; font-size:12px; color:#6B7C8E;">
+        Final headcount must be confirmed 3 days before the party. Once paid, no refunds (no exceptions) &mdash; deposits and balances are transferable to a future date up to 14 days before.
       </p>
     </div>
 
@@ -610,9 +613,12 @@ export async function sendCreatedPartyInvoice(args: {
         <strong>Zelle (no fee):</strong> <a href="mailto:info@wonderlandplayhouse.com" style="color:${theme.accentText}; font-weight:700; text-decoration:none;">info@wonderlandplayhouse.com</a> &mdash; please include ${escapeHtml(child)}'s name in the memo.
       </p>
       <p style="margin:0; line-height:1.65; font-size:14px; color:#2C4253;">
-        <strong>Cash:</strong> In person at the Playhouse before or on the party day.
+        <strong>Cash:</strong> In person at the Playhouse.
       </p>
       <p style="margin:12px 0 0; line-height:1.55; font-size:12px; color:#6B7C8E;">
+        <strong>Zelle / cash:</strong> must be received at least <strong>3 days before the party</strong> so we can confirm before your event. Card can be paid right up to party day.
+      </p>
+      <p style="margin:8px 0 0; line-height:1.55; font-size:12px; color:#6B7C8E;">
         ${isFull
           ? 'Full payment confirms the date. Final headcount must be confirmed 3 days before the party. Once paid, no refunds (no exceptions) — transferable up to 14 days before.'
           : 'Deposit confirms the date. Balance is due 7 days before the party. Once paid, no refunds (no exceptions) — transferable up to 14 days before.'}

@@ -17,6 +17,7 @@ export type PartyRowForFinancials = {
   add_ons_total_cents?: number | null;
   gift_card_applied_cents?: number | null;
   deposit_cents: number;
+  deposit_paid_at?: string | null;
   balance_paid_amount_cents?: number | null;
   manual_discount_percent?: number | null;
 };
@@ -25,7 +26,10 @@ export function computePartyFinancials(p: PartyRowForFinancials): PartyFinancial
   const baseTotal = p.total_cents;
   const addOnsTotal = p.add_ons_total_cents ?? 0;
   const giftCard = p.gift_card_applied_cents ?? 0;
-  const depositPaid = p.deposit_cents;
+  // Only count the deposit as paid if the webhook has actually confirmed it.
+  // Without this gate, admin-created parties would treat the owed deposit as
+  // received the moment the row is inserted.
+  const depositPaid = p.deposit_paid_at ? p.deposit_cents : 0;
   const balancePaid = p.balance_paid_amount_cents ?? 0;
   const pct = p.manual_discount_percent ?? 0;
 
