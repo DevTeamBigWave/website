@@ -6,6 +6,7 @@ import { PartyActions } from './PartyActions';
 import { AddOnsEditor } from './AddOnsEditor';
 import { InvoiceThemePicker } from './InvoiceThemePicker';
 import { DiscountPicker } from './DiscountPicker';
+import { ManualPaymentRecorder } from './ManualPaymentRecorder';
 import { DeletePartyButton } from './DeletePartyButton';
 import { requireAdmin } from '@/lib/admin';
 import type { InvoiceThemeSlug } from '@/lib/invoice-themes';
@@ -41,7 +42,7 @@ export default async function PartyDetailPage({
   const { data: party } = await db
     .from('parties')
     .select(
-      'id, date, start_time, package, status, child_name, child_age, parent_name, email, phone, headcount, notes, total_cents, subtotal_cents, discount_cents, tax_cents, deposit_cents, deposit_paid_at, add_ons_total_cents, gift_card_applied_cents, balance_invoice_id, balance_invoice_hosted_url, balance_invoice_sent_at, balance_paid_at, balance_paid_amount_cents, planning_call_email_sent_at, extension_minutes, weekday_discount_applied, invoice_theme, manual_discount_percent, created_at',
+      'id, date, start_time, package, status, child_name, child_age, parent_name, email, phone, headcount, notes, total_cents, subtotal_cents, discount_cents, tax_cents, deposit_cents, deposit_paid_at, deposit_payment_method, add_ons_total_cents, gift_card_applied_cents, balance_invoice_id, balance_invoice_hosted_url, balance_invoice_sent_at, balance_paid_at, balance_paid_amount_cents, balance_payment_method, planning_call_email_sent_at, extension_minutes, weekday_discount_applied, invoice_theme, manual_discount_percent, created_at',
     )
     .eq('id', id)
     .maybeSingle();
@@ -133,6 +134,23 @@ export default async function PartyDetailPage({
               hostedInvoiceUrl={party.balance_invoice_hosted_url}
               balancePaidAt={party.balance_paid_at}
               planningCallSentAt={party.planning_call_email_sent_at}
+            />
+          </Card>
+
+          {/* Record manual payment (Zelle / cash / Clover) */}
+          <Card
+            title="Record payment received"
+            subtitle="Use when the customer pays outside Stripe — Zelle, cash, or in-person Clover swipe."
+          >
+            <ManualPaymentRecorder
+              partyId={party.id}
+              depositCents={party.deposit_cents}
+              depositPaidAt={party.deposit_paid_at}
+              depositMethod={(party as any).deposit_payment_method ?? null}
+              balanceDueCents={financials.balance_due_cents}
+              balancePaidAt={party.balance_paid_at}
+              balancePaidAmountCents={party.balance_paid_amount_cents ?? 0}
+              balanceMethod={(party as any).balance_payment_method ?? null}
             />
           </Card>
         </div>
