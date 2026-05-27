@@ -17,7 +17,7 @@ export function Footer() {
             alt="Wonderland Playhouse"
             width={566}
             height={395}
-            className="h-14 w-auto opacity-95"
+            className="h-auto w-[200px] opacity-95 md:w-[240px]"
           />
           <p className="mt-4 max-w-sm text-sm leading-relaxed text-cream/80">
             A magical, low-stim birthday venue and play space in Brooklyn for
