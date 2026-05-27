@@ -115,25 +115,25 @@ export function RescheduleCard({
   }
 
   return (
-    <div className="space-y-3 rounded-xl border-2 border-coral bg-coral-50/50 px-4 py-4">
+    <div className="w-full max-w-full space-y-3 overflow-hidden rounded-xl border-2 border-coral bg-coral-50/50 px-4 py-4">
       <p className="text-sm font-bold text-slate-700">
         Reschedule from {fmtDate(currentDate)} at {fmtTime(currentStartTime)}
       </p>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid min-w-0 gap-3 sm:grid-cols-2">
         <Field label="New date">
           <input
             type="date"
             value={newDate}
             onChange={(e) => setNewDate(e.target.value)}
             min={new Date().toISOString().slice(0, 10)}
-            className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
+            className="mt-1 block w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
           />
         </Field>
         <Field label="New start time">
           <select
             value={newTime}
             onChange={(e) => setNewTime(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
+            className="mt-1 block w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
           >
             {slots.map((s) => (
               <option key={s.value} value={s.value}>
@@ -148,8 +148,10 @@ export function RescheduleCard({
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           rows={2}
+          cols={1}
           placeholder="e.g. Family emergency, moving to next weekend"
-          className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
+          style={{ width: '100%', maxWidth: '100%' }}
+          className="mt-1 block min-w-0 resize-y rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
         />
       </Field>
       {error && <p className="text-xs text-coral-700">{error}</p>}
