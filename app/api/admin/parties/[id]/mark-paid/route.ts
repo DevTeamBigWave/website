@@ -15,6 +15,11 @@ import { sendManualPaymentReceived } from '@/lib/email';
 const Schema = z.object({
   kind: z.enum(['deposit', 'balance']),
   method: z.enum(['zelle', 'cash', 'clover']),
+  // Custom amount — only honored when kind='deposit'. Overrides the
+  // stored deposit_cents (overwrite even if already paid). Used for
+  // legacy parties and any time the owner negotiates a non-standard
+  // deposit amount.
+  amount_cents: z.coerce.number().int().min(50).max(2_000_000).optional(),
 });
 
 export async function POST(
@@ -42,19 +47,23 @@ export async function POST(
   if (!party) return NextResponse.json({ error: 'Party not found' }, { status: 404 });
 
   if (body.kind === 'deposit') {
-    if (party.deposit_paid_at) {
+    // Custom-amount deposits CAN overwrite a previously-marked paid deposit
+    // (owner is correcting a mistake or restating the agreed amount).
+    // Standard deposits (no custom amount) keep the "already paid" guard.
+    if (party.deposit_paid_at && body.amount_cents == null) {
       return NextResponse.json(
         { error: 'Deposit already marked paid.' },
         { status: 409 },
       );
     }
-    await db
-      .from('parties')
-      .update({
-        deposit_paid_at: new Date().toISOString(),
-        deposit_payment_method: body.method,
-      })
-      .eq('id', partyId);
+    const depositUpdates: Record<string, unknown> = {
+      deposit_paid_at: new Date().toISOString(),
+      deposit_payment_method: body.method,
+    };
+    if (body.amount_cents != null) {
+      depositUpdates.deposit_cents = body.amount_cents;
+    }
+    await db.from('parties').update(depositUpdates).eq('id', partyId);
   } else {
     const fin = computePartyFinancials(party as any);
     const amount = fin.balance_due_cents;
@@ -125,8 +134,15 @@ export async function POST(
 
   // Confirmation email so the customer has written proof we got their payment
   try {
+    // Effective deposit amount = the just-overridden custom value if any,
+    // otherwise the existing deposit_cents on the row
+    const effectiveDeposit =
+      body.kind === 'deposit' && body.amount_cents != null
+        ? body.amount_cents
+        : party.deposit_cents;
     const fin = computePartyFinancials({
       ...(party as any),
+      deposit_cents: effectiveDeposit,
       // Re-run with the just-applied payment so the email shows the correct balance
       deposit_paid_at:
         body.kind === 'deposit' ? new Date().toISOString() : party.deposit_paid_at,
@@ -145,7 +161,7 @@ export async function POST(
       method: body.method,
       amount_cents:
         body.kind === 'deposit'
-          ? party.deposit_cents
+          ? effectiveDeposit
           : amountClosedCents || computePartyFinancials(party as any).balance_due_cents,
       remaining_balance_cents: fin.balance_due_cents,
     });

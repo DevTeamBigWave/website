@@ -39,9 +39,20 @@ export function ManualPaymentRecorder({
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customAmount, setCustomAmount] = useState('');
 
-  const submit = async (kind: 'deposit' | 'balance', method: Method) => {
-    const amount = kind === 'deposit' ? depositCents : balanceDueCents;
+  const submit = async (
+    kind: 'deposit' | 'balance',
+    method: Method,
+    customAmountCents?: number,
+  ) => {
+    const amount =
+      customAmountCents != null
+        ? customAmountCents
+        : kind === 'deposit'
+          ? depositCents
+          : balanceDueCents;
     const label = METHODS.find((m) => m.value === method)?.label ?? method;
     const tail =
       kind === 'balance'
@@ -49,9 +60,13 @@ export function ManualPaymentRecorder({
         : hasCalendarEvent
           ? 'marks the deposit as received. Calendar event already exists.'
           : 'creates the calendar event.';
+    const overwriteWarning =
+      kind === 'deposit' && depositPaidAt && customAmountCents != null
+        ? ` This replaces the previously-marked deposit (${fmt(depositCents)}${depositMethod ? ` · ${depositMethod}` : ''}).`
+        : '';
     if (
       !confirm(
-        `Mark the ${kind} of ${fmt(amount)} as paid via ${label}? This closes the Stripe invoice as paid out-of-band and ${tail}`,
+        `Mark the ${kind} of ${fmt(amount)} as paid via ${label}? This closes the Stripe invoice as paid out-of-band and ${tail}${overwriteWarning}`,
       )
     ) {
       return;
@@ -62,19 +77,39 @@ export function ManualPaymentRecorder({
       const res = await fetch(`/api/admin/parties/${partyId}/mark-paid`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ kind, method }),
+        body: JSON.stringify({
+          kind,
+          method,
+          ...(customAmountCents != null ? { amount_cents: customAmountCents } : {}),
+        }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setError(data.error ?? 'Could not mark paid');
         return;
       }
+      setCustomOpen(false);
+      setCustomAmount('');
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed');
     } finally {
       setBusy(null);
     }
+  };
+
+  const onCustomPick = (method: Method) => {
+    const dollars = parseFloat(customAmount);
+    if (!Number.isFinite(dollars) || dollars <= 0) {
+      setError('Enter a deposit amount in dollars.');
+      return;
+    }
+    const cents = Math.round(dollars * 100);
+    if (cents < 50) {
+      setError('Minimum deposit is $0.50.');
+      return;
+    }
+    submit('deposit', method, cents);
   };
 
   return (
@@ -89,12 +124,64 @@ export function ManualPaymentRecorder({
             : 'Not paid yet'
         }
       >
-        {!depositPaidAt && (
-          <ButtonGroup
-            onPick={(method) => submit('deposit', method)}
-            busyKey={busy?.startsWith('deposit-') ? busy.replace('deposit-', '') : null}
-          />
-        )}
+        <div className="space-y-2">
+          {!depositPaidAt && (
+            <ButtonGroup
+              onPick={(method) => submit('deposit', method)}
+              busyKey={busy?.startsWith('deposit-') ? busy.replace('deposit-', '') : null}
+            />
+          )}
+          {!customOpen ? (
+            <button
+              type="button"
+              onClick={() => {
+                setCustomOpen(true);
+                setError(null);
+              }}
+              className="text-[11px] font-bold uppercase tracking-wider text-slate-500 underline hover:text-coral"
+            >
+              {depositPaidAt ? 'Override with custom amount' : 'Different amount?'}
+            </button>
+          ) : (
+            <div className="space-y-2 rounded-lg border border-coral bg-coral-50/40 p-3">
+              <label className="block">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Custom deposit amount
+                </span>
+                <div className="mt-1 flex items-center gap-1.5">
+                  <span className="text-sm text-slate-400">$</span>
+                  <input
+                    type="number"
+                    onFocus={(e) => e.currentTarget.select()}
+                    step="0.01"
+                    min="0.50"
+                    value={customAmount}
+                    onChange={(e) => setCustomAmount(e.target.value)}
+                    placeholder="e.g. 200.00"
+                    style={{ width: 96 }}
+                    className="min-w-0 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-right text-sm font-semibold text-slate-700 focus:border-coral focus:outline-none"
+                  />
+                  <span className="ml-1 text-[11px] text-slate-500">received via</span>
+                </div>
+              </label>
+              <ButtonGroup
+                onPick={onCustomPick}
+                busyKey={busy?.startsWith('deposit-') ? busy.replace('deposit-', '') : null}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setCustomOpen(false);
+                  setCustomAmount('');
+                  setError(null);
+                }}
+                className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 underline hover:text-slate-600"
+              >
+                Cancel custom amount
+              </button>
+            </div>
+          )}
+        </div>
       </Section>
 
       <Section
