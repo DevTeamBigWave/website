@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
@@ -41,7 +42,10 @@ export async function getAuthUser() {
 
 // Enforces: signed in AND email in admin_users with active=true.
 // Use at the top of every protected admin server component / action.
-export async function requireAdmin(): Promise<AdminProfile> {
+//
+// Wrapped in React.cache so the layout's call and the page's call within a
+// single request share one auth+lookup result instead of double-paying.
+export const requireAdmin = cache(async (): Promise<AdminProfile> => {
   const { user } = await getAuthUser();
   if (!user || !user.email) {
     redirect('/admin/login');
@@ -50,7 +54,7 @@ export async function requireAdmin(): Promise<AdminProfile> {
   const admin = supabaseAdmin();
   const { data: row } = await admin
     .from('admin_users')
-    .select('id, email, role, display_name, active')
+    .select('id, email, role, display_name, active, last_signed_in_at')
     .ilike('email', user.email)
     .eq('active', true)
     .maybeSingle();
@@ -59,11 +63,16 @@ export async function requireAdmin(): Promise<AdminProfile> {
     redirect('/admin/login?error=not_allowlisted');
   }
 
-  // Fire-and-forget last-signed-in timestamp
-  void admin
-    .from('admin_users')
-    .update({ last_signed_in_at: new Date().toISOString() })
-    .eq('id', row.id);
+  // Throttle the last-signed-in write — once every 5 minutes is plenty for
+  // an analytics signal and saves a DB write on every admin page render.
+  const FIVE_MIN_MS = 5 * 60 * 1000;
+  const last = row.last_signed_in_at ? new Date(row.last_signed_in_at).getTime() : 0;
+  if (Date.now() - last > FIVE_MIN_MS) {
+    void admin
+      .from('admin_users')
+      .update({ last_signed_in_at: new Date().toISOString() })
+      .eq('id', row.id);
+  }
 
   return {
     id: row.id,
@@ -71,7 +80,7 @@ export async function requireAdmin(): Promise<AdminProfile> {
     role: row.role as AdminRole,
     displayName: row.display_name,
   };
-}
+});
 
 // Stronger guard: requires owner role. Use on team management, refunds,
 // anything destructive. Redirects to /admin if signed in but not owner.

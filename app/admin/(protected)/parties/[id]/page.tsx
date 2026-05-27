@@ -36,24 +36,28 @@ export default async function PartyDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const me = await requireAdmin();
   const db = supabaseAdmin();
 
-  const { data: party } = await db
-    .from('parties')
-    .select(
-      'id, date, start_time, package, status, child_name, child_age, parent_name, email, phone, headcount, notes, total_cents, subtotal_cents, discount_cents, tax_cents, deposit_cents, deposit_paid_at, deposit_payment_method, add_ons_total_cents, gift_card_applied_cents, balance_invoice_id, balance_invoice_hosted_url, balance_invoice_sent_at, balance_paid_at, balance_paid_amount_cents, balance_payment_method, planning_call_email_sent_at, extension_minutes, weekday_discount_applied, invoice_theme, manual_discount_percent, inspiration_image_urls, created_at',
-    )
-    .eq('id', id)
-    .maybeSingle();
+  // Fire all three in parallel: auth check, party row, add-ons. Previously
+  // these awaited sequentially so the page TTFB was the sum of all three.
+  // requireAdmin is React.cached so the layout's call is shared, not redone.
+  const [me, { data: party }, { data: addOns = [] }] = await Promise.all([
+    requireAdmin(),
+    db
+      .from('parties')
+      .select(
+        'id, date, start_time, package, status, child_name, child_age, parent_name, email, phone, headcount, notes, total_cents, subtotal_cents, discount_cents, tax_cents, deposit_cents, deposit_paid_at, deposit_payment_method, add_ons_total_cents, gift_card_applied_cents, balance_invoice_id, balance_invoice_hosted_url, balance_invoice_sent_at, balance_paid_at, balance_paid_amount_cents, balance_payment_method, planning_call_email_sent_at, extension_minutes, weekday_discount_applied, invoice_theme, manual_discount_percent, inspiration_image_urls, created_at',
+      )
+      .eq('id', id)
+      .maybeSingle(),
+    db
+      .from('party_add_ons')
+      .select('id, catalog_id, name, unit_price_cents, qty, notes, created_at')
+      .eq('party_id', id)
+      .order('created_at', { ascending: true }),
+  ]);
 
   if (!party) notFound();
-
-  const { data: addOns = [] } = await db
-    .from('party_add_ons')
-    .select('id, catalog_id, name, unit_price_cents, qty, notes, created_at')
-    .eq('party_id', id)
-    .order('created_at', { ascending: true });
 
   const financials = computePartyFinancials(party as any);
   const balanceAlreadyPaid = !!party.balance_paid_at;
