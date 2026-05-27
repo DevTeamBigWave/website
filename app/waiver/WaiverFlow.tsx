@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { SignatureCanvas } from '@/components/SignatureCanvas';
 import {
   WAIVER_TITLE,

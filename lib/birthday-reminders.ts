@@ -17,7 +17,7 @@ export type UpcomingBirthday = {
 const NYC = 'America/New_York';
 
 // Returns today's date in NYC as YYYY-MM-DD
-export function todayNYC(): string {
+function todayNYC(): string {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: NYC,
     year: 'numeric',

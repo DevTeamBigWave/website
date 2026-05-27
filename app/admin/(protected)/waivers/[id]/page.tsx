@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import Image from 'next/image';
 import { supabaseAdmin } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';

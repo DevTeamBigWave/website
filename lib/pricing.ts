@@ -46,7 +46,7 @@ export const PACKAGES = {
 } as const;
 
 // Hard ceiling across all packages
-export const MAX_KIDS_PER_PARTY = 40;
+const MAX_KIDS_PER_PARTY = 40;
 
 // 1-hour extension is the only option now. Price differs by package:
 // $500 private, $250 semi-private — looked up via getExtensionPriceCents()
@@ -74,9 +74,6 @@ export const PRIVATE_PARTY_TIMES = [
   '6:00 PM',
 ] as const;
 export const SEMI_PARTY_TIMES = ['1:00 PM', '2:00 PM'] as const;
-
-// Legacy compat — defaults to private slot list
-export const PARTY_TIMES = PRIVATE_PARTY_TIMES;
 
 export function partyTimesFor(packageId: PackageId): readonly string[] {
   return packageId === 'private' ? PRIVATE_PARTY_TIMES : SEMI_PARTY_TIMES;

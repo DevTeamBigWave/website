@@ -165,7 +165,6 @@ export async function POST(request: Request) {
   }
 
   const isFull = isFullInvoice;
-  const addOnsTotalCents = _addOnsTotal;
   const manualDiscountCents = _manualDiscount;
   const fullAfterDiscount = _fullAfterDiscount;
   const depositAfterDiscount = _depositAfterDiscount;

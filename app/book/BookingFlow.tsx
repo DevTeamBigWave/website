@@ -942,13 +942,6 @@ function sameDay(a: Date, b: Date): boolean {
     a.getDate() === b.getDate()
   );
 }
-function sqlTime(displayTime: string): string {
-  const [t, period] = displayTime.split(' ');
-  let [h, m] = t.split(':').map(Number);
-  if (period === 'PM' && h !== 12) h += 12;
-  if (period === 'AM' && h === 12) h = 0;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
-}
 
 // Promo-code (skip-deposit) entry. Collapsed by default — most parents won't
 // have one. When applied, the booking submits without going through Stripe.

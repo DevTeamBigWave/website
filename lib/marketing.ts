@@ -4,7 +4,7 @@
 // Two scopes we currently check: 'birthday_reminders' and 'promotions'.
 // A customer with scope='all' is suppressed from EVERYTHING.
 
-import { createHash, randomBytes } from 'crypto';
+import { createHash } from 'crypto';
 import { supabaseAdmin } from '@/lib/supabase';
 
 export type Scope = 'all' | 'birthday_reminders' | 'promotions' | 'special_events';

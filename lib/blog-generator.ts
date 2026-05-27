@@ -77,13 +77,13 @@ For prose blocks, write the text inline — no HTML, no markdown formatting char
 
 If you want to emphasize a phrase inline, just use it as plain text and let context carry the weight. Don't use **bold** or *italic* syntax.`;
 
-export type GeneratePostInput = {
+type GeneratePostInput = {
   keyword: string;
   brief: string;
   recentTitles: string[];
 };
 
-export type GeneratedPost = {
+type GeneratedPost = {
   title: string;
   slug: string;
   excerpt: string;
@@ -93,7 +93,7 @@ export type GeneratedPost = {
   blocks: BlogBlock[];
 };
 
-export async function generatePost(input: GeneratePostInput): Promise<GeneratedPost> {
+async function generatePost(input: GeneratePostInput): Promise<GeneratedPost> {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
   const recentList =
@@ -148,7 +148,7 @@ Return only the JSON object as specified.`;
 
 // Pick N topics from the catalogue that haven't been covered in the last 60 days.
 // Returns them in a random-ish order to keep the rotation feeling fresh.
-export async function pickFreshTopics(count: number): Promise<Array<{ keyword: string; brief: string }>> {
+async function pickFreshTopics(count: number): Promise<Array<{ keyword: string; brief: string }>> {
   const { primaryKeywords: recentKeywords, titles: recentTitles } = await getRecentlyCoveredTopics(60);
   const recentSet = new Set(recentKeywords.map((k) => k.toLowerCase()));
   const recentTitleWords = new Set(
@@ -192,7 +192,7 @@ async function insertWithUniqueSlug(
   return null;
 }
 
-export type BatchResult = {
+type BatchResult = {
   saved: BlogPost[];
   failures: Array<{ keyword: string; error: string }>;
 };
