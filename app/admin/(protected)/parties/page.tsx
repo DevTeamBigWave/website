@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { supabaseAdmin } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/admin';
 import { computePartyFinancials } from '@/lib/parties';
-import { SeedTestPartyButton } from './SeedTestPartyButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -111,7 +110,6 @@ export default async function AdminPartiesPage({
               + New party
             </Link>
           )}
-          {me.role === 'owner' && <SeedTestPartyButton />}
         </div>
       </header>
 
