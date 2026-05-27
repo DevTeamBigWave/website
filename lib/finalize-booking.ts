@@ -87,12 +87,21 @@ export async function finalizeParty(partyId: string, opts: FinalizePartyOptions 
   const siteUrl =
     process.env.NEXT_PUBLIC_SITE_URL ?? 'https://wonderlandplayhouse.com';
 
+  // Fetch add-ons so both emails can itemize them — same data the calendar
+  // event description uses, so the three communications match.
+  const { data: addOns = [] } = await supabase
+    .from('party_add_ons')
+    .select('name, unit_price_cents, qty, notes')
+    .eq('party_id', party.id)
+    .order('created_at', { ascending: true });
+
   const promoFlag = !party.deposit_paid_at ? ' · promo · UNPAID' : '';
   const [, , calendarResult] = await Promise.allSettled([
-    sendPartyConfirmation(party),
+    sendPartyConfirmation(party, addOns ?? []),
     sendOwnerNotification({
       subject: `🎉 New party booked: ${party.child_name}'s ${party.package} party${promoFlag}`,
       party,
+      addOns: addOns ?? [],
     }),
     createPartyEvent(party, siteUrl),
   ]);

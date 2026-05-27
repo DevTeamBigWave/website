@@ -1,6 +1,7 @@
 import { Resend } from 'resend';
 import { unsubscribeUrl } from '@/lib/marketing';
 import { getInvoiceTheme } from '@/lib/invoice-themes';
+import { computePartyFinancials } from '@/lib/parties';
 
 let _resend: Resend | null = null;
 function resend(): Resend {
@@ -132,35 +133,75 @@ function ctaButton(label: string, href: string): string {
 // ---------------------------------------------------------------------------
 // Customer: party booking confirmed
 // ---------------------------------------------------------------------------
-export async function sendPartyConfirmation(party: any) {
+type AddOnLite = { name: string; unit_price_cents: number; qty: number; notes?: string | null };
+
+export async function sendPartyConfirmation(party: any, addOns: AddOnLite[] = []) {
   const balanceDueDate = new Date(party.date);
   balanceDueDate.setDate(balanceDueDate.getDate() - 7);
   const firstName = party.parent_name.split(' ')[0] || party.parent_name;
   // Promo-code path: no deposit was actually paid; show the full total as
   // owed and skip the "deposit paid ✓" language entirely.
   const depositPaid = !!party.deposit_paid_at;
+  const fin = computePartyFinancials(party);
 
   const intro = depositPaid
     ? `We got your <strong>${fmtMoney(party.deposit_cents)}</strong> deposit. ${escapeHtml(party.child_name ?? "Your child")}'s ${party.package === 'private' ? 'private' : 'semi-private'} party on <strong>${fmtDate(party.date)}</strong> at <strong>${party.start_time}</strong> is officially booked. 🎉`
     : `Your date is locked in via promo code — ${escapeHtml(party.child_name ?? "your child")}'s ${party.package === 'private' ? 'private' : 'semi-private'} party on <strong>${fmtDate(party.date)}</strong> at <strong>${party.start_time}</strong>. 🎉 We'll send your invoice separately — no card was charged today.`;
 
-  const moneyRows: Array<[string, string]> = depositPaid
-    ? [
-        ['Package', party.package === 'private' ? 'Private' : 'Semi-Private'],
-        ['Total', fmtMoney(party.total_cents)],
-        ['Deposit paid', `<span style="color:#7C8E5C;">${fmtMoney(party.deposit_cents)} ✓</span>`],
-        [`Balance due ${fmtDate(balanceDueDate)}`, `<strong>${fmtMoney(party.total_cents - party.deposit_cents)}</strong>`],
-      ]
-    : [
-        ['Package', party.package === 'private' ? 'Private' : 'Semi-Private'],
-        ['Total', `<strong>${fmtMoney(party.total_cents)}</strong>`],
-        ['Balance owed', `<strong style="color:#ff7783;">${fmtMoney(party.total_cents)}</strong> · invoice coming separately`],
-      ];
+  // Itemize add-ons inline so the customer sees what they signed up for —
+  // mirrors the calendar event description structure.
+  const addOnsHtml = addOns.length
+    ? `
+        <table style="width:100%; border-collapse:collapse; margin:24px 0; font-size:14px;">
+          <tr><th colspan="2" style="text-align:left; padding:10px 0; border-bottom:1px solid #EDE7DC; color:#6B7C8E; font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:1.5px;">Add-ons</th></tr>
+          ${addOns
+            .map(
+              (a, i, arr) => `
+                <tr>
+                  <td style="padding:10px 0; color:#2C4253; border-bottom:${i === arr.length - 1 ? 'none' : '1px solid #EDE7DC'};">${escapeHtml(a.name)}${a.qty > 1 ? ` × ${a.qty}` : ''}</td>
+                  <td style="padding:10px 0; text-align:right; color:#2C4253; font-weight:600; border-bottom:${i === arr.length - 1 ? 'none' : '1px solid #EDE7DC'};">${fmtMoney(a.unit_price_cents * a.qty)}</td>
+                </tr>`,
+            )
+            .join('')}
+        </table>`
+    : '';
+
+  // Money rows — grand total + balance always reflect computePartyFinancials
+  // (party_total + add_ons − friends-&-family discount). Same math the admin
+  // page + Stripe invoice use.
+  const moneyRows: Array<[string, string]> = [];
+  moneyRows.push(['Package', party.package === 'private' ? 'Private' : 'Semi-Private']);
+  moneyRows.push(['Party total (incl. tax)', fmtMoney(fin.base_total_cents)]);
+  if (fin.add_ons_total_cents > 0) {
+    moneyRows.push(['Add-ons', fmtMoney(fin.add_ons_total_cents)]);
+  }
+  if (fin.manual_discount_cents > 0) {
+    moneyRows.push([
+      `Friends & family ${fin.manual_discount_percent}% off`,
+      `<span style="color:#ff7783;">−${fmtMoney(fin.manual_discount_cents)}</span>`,
+    ]);
+  }
+  moneyRows.push(['Grand total', `<strong>${fmtMoney(fin.grand_total_cents)}</strong>`]);
+  if (depositPaid) {
+    moneyRows.push(['Deposit paid', `<span style="color:#7C8E5C;">−${fmtMoney(fin.deposit_paid_cents)} ✓</span>`]);
+    if (fin.balance_paid_cents > 0) {
+      moneyRows.push(['Balance paid', `<span style="color:#7C8E5C;">−${fmtMoney(fin.balance_paid_cents)} ✓</span>`]);
+    }
+    moneyRows.push([
+      `Balance due ${fmtDate(balanceDueDate)}`,
+      `<strong>${fmtMoney(fin.balance_due_cents)}</strong>`,
+    ]);
+  } else {
+    moneyRows.push([
+      'Balance owed',
+      `<strong style="color:#ff7783;">${fmtMoney(fin.balance_due_cents)}</strong> · invoice coming separately`,
+    ]);
+  }
 
   const body = `
     <p style="margin:0 0 16px; line-height:1.65;">Hi ${escapeHtml(firstName)},</p>
     <p style="margin:0 0 16px; line-height:1.65;">${intro}</p>
-
+    ${addOnsHtml}
     ${kvpTable(moneyRows)}
 
     <div style="background:#FFF4F5; border-radius:12px; padding:18px 20px; margin:20px 0;">
@@ -800,25 +841,47 @@ export async function sendMarketingCampaign(args: {
 // ---------------------------------------------------------------------------
 // Owner: someone just paid you
 // ---------------------------------------------------------------------------
-export async function sendOwnerNotification({ subject, party }: { subject: string; party: any }) {
+export async function sendOwnerNotification({
+  subject,
+  party,
+  addOns = [],
+}: {
+  subject: string;
+  party: any;
+  addOns?: AddOnLite[];
+}) {
   // Promo-code bookings: no payment received. Show that clearly so the
   // owner doesn't think money landed when it didn't.
   const depositPaid = !!party.deposit_paid_at;
+  const fin = computePartyFinancials(party);
 
   const rows: Array<[string, string]> = [
     ['Date', `${fmtDate(party.date)} at ${party.start_time}`],
-    ['Package', `${party.package === 'private' ? 'Private' : 'Semi-Private'} · ${fmtMoney(party.total_cents)} total`],
+    ['Package', party.package === 'private' ? 'Private' : 'Semi-Private'],
+    ['Party total (incl. tax)', fmtMoney(fin.base_total_cents)],
   ];
+  if (fin.add_ons_total_cents > 0) {
+    rows.push(['Add-ons', fmtMoney(fin.add_ons_total_cents)]);
+  }
+  if (fin.manual_discount_cents > 0) {
+    rows.push([
+      `Friends & family ${fin.manual_discount_percent}% off`,
+      `<span style="color:#ff7783;">−${fmtMoney(fin.manual_discount_cents)}</span>`,
+    ]);
+  }
+  rows.push(['Grand total', `<strong>${fmtMoney(fin.grand_total_cents)}</strong>`]);
   if (depositPaid) {
-    rows.push(
-      ['Deposit paid', `<span style="color:#7C8E5C;">${fmtMoney(party.deposit_cents)} ✓</span>`],
-      ['Balance due', `<strong>${fmtMoney(party.total_cents - party.deposit_cents)}</strong>`],
-    );
+    rows.push(['Deposit paid', `<span style="color:#7C8E5C;">${fmtMoney(fin.deposit_paid_cents)} ✓</span>`]);
+    if (fin.balance_paid_cents > 0) {
+      rows.push(['Balance paid', `<span style="color:#7C8E5C;">${fmtMoney(fin.balance_paid_cents)} ✓</span>`]);
+    }
+    rows.push(['Balance due', `<strong>${fmtMoney(fin.balance_due_cents)}</strong>`]);
   } else {
-    rows.push(
-      ['Promo code used', `<span style="color:#b45309;">⚠ no payment received yet</span>`],
-      ['Full balance owed', `<strong style="color:#ff7783;">${fmtMoney(party.total_cents)}</strong>`],
-    );
+    rows.push(['Promo code used', `<span style="color:#b45309;">⚠ no payment received yet</span>`]);
+    rows.push([
+      'Full balance owed',
+      `<strong style="color:#ff7783;">${fmtMoney(fin.balance_due_cents)}</strong>`,
+    ]);
   }
   rows.push(
     ['Birthday child', `${escapeHtml(party.child_name ?? '—')}${party.child_age != null ? `, age ${party.child_age}` : ''}`],
@@ -832,6 +895,20 @@ export async function sendOwnerNotification({ subject, party }: { subject: strin
     rows.push(['Notes', escapeHtml(party.notes)]);
   }
 
+  // Itemized add-ons block so owner can see exactly what was ordered
+  const addOnsHtml = addOns.length
+    ? `
+        <p style="margin:18px 0 8px; font-size:11px; font-weight:800; letter-spacing:1.5px; text-transform:uppercase; color:#6B7C8E;">Add-ons ordered</p>
+        <ul style="margin:0 0 16px; padding-left:18px; font-size:14px; line-height:1.7; color:#2C4253;">
+          ${addOns
+            .map(
+              (a) =>
+                `<li>${escapeHtml(a.name)}${a.qty > 1 ? ` × ${a.qty}` : ''} — ${fmtMoney(a.unit_price_cents * a.qty)}${a.notes ? ` <span style="color:#94A3B8;">(${escapeHtml(a.notes)})</span>` : ''}</li>`,
+            )
+            .join('')}
+        </ul>`
+    : '';
+
   const headline = depositPaid
     ? 'Heads up — a new party booking just came in.'
     : '⚠ Heads up — a new party booking just came in via a promo code. No payment was charged. Send a deposit or full invoice from admin when ready.';
@@ -839,6 +916,7 @@ export async function sendOwnerNotification({ subject, party }: { subject: strin
   const body = `
     <p style="margin:0 0 16px; line-height:1.65;">${headline}</p>
     ${kvpTable(rows)}
+    ${addOnsHtml}
     ${ctaButton('View in admin', `${SITE}/admin/parties/${party.id}`)}
   `;
   const html = brandedShell(
