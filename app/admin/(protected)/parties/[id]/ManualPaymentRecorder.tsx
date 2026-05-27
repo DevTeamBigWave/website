@@ -42,11 +42,15 @@ export function ManualPaymentRecorder({
   const [customOpen, setCustomOpen] = useState(false);
   const [customAmount, setCustomAmount] = useState('');
 
+  // Default flow: tap a method → confirm dialog → fetch. customAmountCents
+  // bypasses the stored deposit_cents (used by the "Different amount" path).
   const submit = async (
     kind: 'deposit' | 'balance',
     method: Method,
     customAmountCents?: number,
+    skipConfirm?: boolean,
   ) => {
+    if (busy) return;
     const amount =
       customAmountCents != null
         ? customAmountCents
@@ -54,22 +58,20 @@ export function ManualPaymentRecorder({
           ? depositCents
           : balanceDueCents;
     const label = METHODS.find((m) => m.value === method)?.label ?? method;
-    const tail =
-      kind === 'balance'
-        ? 'records the balance payment.'
-        : hasCalendarEvent
-          ? 'marks the deposit as received. Calendar event already exists.'
-          : 'creates the calendar event.';
-    const overwriteWarning =
-      kind === 'deposit' && depositPaidAt && customAmountCents != null
-        ? ` This replaces the previously-marked deposit (${fmt(depositCents)}${depositMethod ? ` · ${depositMethod}` : ''}).`
-        : '';
-    if (
-      !confirm(
-        `Mark the ${kind} of ${fmt(amount)} as paid via ${label}? This closes the Stripe invoice as paid out-of-band and ${tail}${overwriteWarning}`,
-      )
-    ) {
-      return;
+    if (!skipConfirm) {
+      const tail =
+        kind === 'balance'
+          ? 'records the balance payment.'
+          : hasCalendarEvent
+            ? 'marks the deposit as received. Calendar event already exists.'
+            : 'creates the calendar event.';
+      if (
+        !confirm(
+          `Mark the ${kind} of ${fmt(amount)} as paid via ${label}? This closes the Stripe invoice as paid out-of-band and ${tail}`,
+        )
+      ) {
+        return;
+      }
     }
     setBusy(`${kind}-${method}`);
     setError(null);
@@ -85,23 +87,26 @@ export function ManualPaymentRecorder({
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data.error ?? 'Could not mark paid');
+        setError(data.error ?? `Could not mark paid (${res.status})`);
         return;
       }
       setCustomOpen(false);
       setCustomAmount('');
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed');
+      setError(err instanceof Error ? err.message : 'Network error');
     } finally {
       setBusy(null);
     }
   };
 
-  const onCustomPick = (method: Method) => {
+  // Custom-amount path: user has already explicitly opened the custom card
+  // and typed a number — that IS the confirmation, no native dialog needed
+  // (and iOS sometimes mis-renders confirm() inside a nested form).
+  const onCustomPick = async (method: Method) => {
     const dollars = parseFloat(customAmount);
     if (!Number.isFinite(dollars) || dollars <= 0) {
-      setError('Enter a deposit amount in dollars.');
+      setError('Enter a deposit amount in dollars before picking a method.');
       return;
     }
     const cents = Math.round(dollars * 100);
@@ -109,7 +114,7 @@ export function ManualPaymentRecorder({
       setError('Minimum deposit is $0.50.');
       return;
     }
-    submit('deposit', method, cents);
+    await submit('deposit', method, cents, true);
   };
 
   return (
@@ -168,6 +173,16 @@ export function ManualPaymentRecorder({
                 onPick={onCustomPick}
                 busyKey={busy?.startsWith('deposit-') ? busy.replace('deposit-', '') : null}
               />
+              {error && (
+                <p className="text-xs font-semibold text-coral-700">{error}</p>
+              )}
+              {depositPaidAt && (
+                <p className="text-[11px] text-slate-500">
+                  Heads up — this will replace the previous deposit (
+                  {fmt(depositCents)}
+                  {depositMethod ? ` · ${depositMethod}` : ''}).
+                </p>
+              )}
               <button
                 type="button"
                 onClick={() => {
@@ -212,7 +227,10 @@ export function ManualPaymentRecorder({
         )}
       </Section>
 
-      {error && <p className="text-xs text-coral-700">{error}</p>}
+      {/* Error from non-custom paths (Zelle/Cash/Clover on the default
+          deposit OR balance) — the custom-amount path renders its own
+          inline error inside the card so it's visible right at the action. */}
+      {error && !customOpen && <p className="text-xs text-coral-700">{error}</p>}
       <p className="text-[11px] text-slate-400">
         Use these when a customer pays outside Stripe — Zelle, cash, or in-person on Clover.
         Stripe card payments record automatically.
