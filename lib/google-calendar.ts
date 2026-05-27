@@ -163,6 +163,12 @@ type AddOnForCalendar = {
   notes: string | null;
 };
 
+function ordinal(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return `${n}${s[(v - 20) % 10] ?? s[v] ?? s[0]}`;
+}
+
 function buildEventBody(
   party: PartyForCalendar,
   addOns: AddOnForCalendar[],
@@ -173,7 +179,7 @@ function buildEventBody(
   const startDate = new Date(`${startISO}-04:00`); // America/New_York rough; we set timeZone below
   const endDate = new Date(startDate.getTime() + totalMinutes * 60_000);
 
-  const ageBit = party.child_age ? `${party.child_age}th ` : '';
+  const ageBit = party.child_age ? `${ordinal(party.child_age)} ` : '';
   const summary = `🎉 ${party.child_name ?? 'Party'} — ${ageBit}birthday (${party.package === 'private' ? 'Private' : 'Semi'})`;
 
   const fmt = (c: number) => `$${(c / 100).toFixed(2)}`;

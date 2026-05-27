@@ -46,6 +46,17 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
   const [date, setDate] = useState<Date | null>(null);
   const [time, setTime] = useState<string | null>(null);
   const [extensionId, setExtensionId] = useState<ExtensionId | null>(null);
+
+  // Single source of truth for switching package — clears anything that
+  // depends on the package (date, time, extension since extension price
+  // differs by package). Used by both the Step-1 picker and the upsell card.
+  const switchPackage = (id: PackageId) => {
+    userPickedPackage.current = true;
+    setPackageId(id);
+    setDate(null);
+    setTime(null);
+    setExtensionId(null);
+  };
   const [details, setDetails] = useState({
     parentName: '',
     email: '',
@@ -313,12 +324,7 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                   <button
                     key={id}
                     type="button"
-                    onClick={() => {
-                      userPickedPackage.current = true;
-                      setPackageId(id);
-                      setDate(null);
-                      setTime(null);
-                    }}
+                    onClick={() => switchPackage(id)}
                     className={`text-left rounded-3xl border-2 p-6 transition ${
                       selected
                         ? 'border-coral bg-coral text-white shadow-playful'
@@ -366,12 +372,7 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    userPickedPackage.current = true;
-                    setPackageId('private');
-                    setDate(null);
-                    setTime(null);
-                  }}
+                  onClick={() => switchPackage('private')}
                   className="whitespace-nowrap rounded-full bg-coral px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-playful transition hover:bg-coral-600"
                 >
                   See Private →
@@ -708,7 +709,15 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                   maxApplyCents={pricing.depositCents}
                 />
               )}
-              <PromoCodeInput value={promoCode} onApply={setPromoCode} />
+              <PromoCodeInput
+                value={promoCode}
+                onApply={(code) => {
+                  setPromoCode(code);
+                  // Clear any applied gift card so the server doesn't get
+                  // both a giftCardCode and promoCode in the body.
+                  if (code) setGiftCard(null);
+                }}
+              />
               {error && (
                 <p className="rounded-xl bg-coral-50 px-4 py-3 text-sm text-coral-700">
                   {error}

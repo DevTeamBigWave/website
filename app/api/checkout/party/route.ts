@@ -12,7 +12,7 @@ const PartyCheckoutSchema = z.object({
   packageId: z.enum(['private', 'semi']),
   date: z.string(), // ISO date
   time: z.string(),
-  extensionId: z.enum(['30m', '60m']).nullable().optional(),
+  extensionId: z.enum(['60m']).nullable().optional(),
   parentName: z.string().min(1).max(120),
   email: z.string().email(),
   phone: z.string().min(7).max(40),
@@ -50,18 +50,16 @@ function composeNotes(notes: string | undefined, decorTheme: string | undefined)
   return parts.length ? parts.join('\n\n').slice(0, 2000) : null;
 }
 
-// If a DOB is provided, compute the age the kid is *turning* on the party date.
-// Otherwise fall back to the client-supplied childAge.
+// If a DOB is provided, compute the age the kid is turning at the birthday
+// that falls in the party's calendar year. Same answer whether the party is
+// before or after the actual birthday date — a 2020-05-01 kid is turning 6
+// in 2026 regardless of whether the party is April or June 2026.
 function computeAgeTurning(dob: string | undefined, partyDate: Date, fallback: number | undefined): number | null {
   if (dob) {
-    const [y, m, d] = dob.split('-').map(Number);
-    // Age "turning" = how old they'll be at their next birthday on or before partyDate
-    let age = partyDate.getFullYear() - y;
-    const hadBirthday =
-      partyDate.getMonth() + 1 > m ||
-      (partyDate.getMonth() + 1 === m && partyDate.getDate() >= d);
-    if (!hadBirthday) age -= 1;
-    return age + 1; // age turning = current age + 1 (this is a birthday party)
+    const birthYear = parseInt(dob.split('-')[0], 10);
+    if (Number.isFinite(birthYear)) {
+      return partyDate.getFullYear() - birthYear;
+    }
   }
   return fallback ?? null;
 }
@@ -160,7 +158,15 @@ export async function POST(request: Request) {
     .single();
 
   if (insertError || !party) {
-    return NextResponse.json({ error: 'Could not create booking', detail: insertError?.message }, { status: 500 });
+    // Log the raw DB error server-side; don't leak schema/RLS detail to the browser.
+    console.error('Party insert failed:', insertError);
+    return NextResponse.json(
+      {
+        error:
+          'Could not create booking. Please try again or call us at (718) 889-1777.',
+      },
+      { status: 500 },
+    );
   }
 
   // Customer-picked add-ons. Validated against the catalog; price comes from
