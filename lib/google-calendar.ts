@@ -149,6 +149,7 @@ export type PartyForCalendar = {
   deposit_cents?: number | null;
   deposit_paid_at?: string | null;
   deposit_payment_method?: string | null;
+  promo_code_id?: string | null;
   balance_paid_at?: string | null;
   balance_paid_amount_cents?: number | null;
   manual_discount_percent?: number | null;
@@ -212,7 +213,14 @@ function buildEventBody(
     if (party.manual_discount_percent && party.manual_discount_percent > 0) {
       lines.push(`  − Friends & family ${party.manual_discount_percent}% off`);
     }
-    if (party.deposit_cents) {
+    // Promo-code path: no deposit was collected at booking. Show the full
+    // amount as owed instead of a "Deposit: $X — unpaid" line that implies
+    // only the deposit is due.
+    const isPromoUnpaid = !party.deposit_paid_at && !!party.promo_code_id;
+    if (isPromoUnpaid) {
+      lines.push('  ⚠ Promo code applied · no payment received yet');
+      lines.push(`  Balance owed: ${fmt(party.total_cents + (party.add_ons_total_cents ?? 0))}`);
+    } else if (party.deposit_cents) {
       const paid = party.deposit_paid_at
         ? ` ✓ paid${party.deposit_payment_method ? ` (${party.deposit_payment_method})` : ''}`
         : ' — unpaid';
