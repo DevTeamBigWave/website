@@ -1219,7 +1219,7 @@ function AddOnsAccordion({
                       <span className="font-display text-sm text-coral">
                         {fmt(item.price_cents)}
                       </span>
-                      {checked && (
+                      {checked && !item.fixed && (
                         <>
                           <span className="text-xs text-slate-400">×</span>
                           <input

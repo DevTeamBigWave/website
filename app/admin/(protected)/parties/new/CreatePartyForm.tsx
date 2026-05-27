@@ -453,29 +453,35 @@ export function CreatePartyForm() {
                           </div>
                         </div>
                         <div className="flex flex-none items-center justify-end gap-1.5 pl-8 sm:pl-0">
-                          <span className="text-sm text-slate-400">$</span>
-                          <input
-                            type="number"
-                            onFocus={(e) => e.currentTarget.select()}
-                            step="0.01"
-                            min="0"
-                            value={r.priceDollars}
-                            onChange={(e) => setAddOnField(c.id, 'priceDollars', e.target.value)}
-                            onClick={(e) => e.stopPropagation()}
-                            style={{ width: 88 }}
-                            className="min-w-0 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-right text-sm font-semibold text-slate-700 focus:border-coral focus:outline-none"
-                          />
-                          <span className="ml-1 text-sm text-slate-400">×</span>
-                          <input
-                            type="number"
-                            onFocus={(e) => e.currentTarget.select()}
-                            min="1"
-                            value={r.qty}
-                            onChange={(e) => setAddOnField(c.id, 'qty', e.target.value)}
-                            onClick={(e) => e.stopPropagation()}
-                            style={{ width: 64 }}
-                            className="min-w-0 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-right text-sm font-semibold text-slate-700 focus:border-coral focus:outline-none"
-                          />
+                          {c.fixed ? (
+                            <span className="font-display text-sm text-coral">{fmt(c.price_cents)}</span>
+                          ) : (
+                            <>
+                              <span className="text-sm text-slate-400">$</span>
+                              <input
+                                type="number"
+                                onFocus={(e) => e.currentTarget.select()}
+                                step="0.01"
+                                min="0"
+                                value={r.priceDollars}
+                                onChange={(e) => setAddOnField(c.id, 'priceDollars', e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                style={{ width: 88 }}
+                                className="min-w-0 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-right text-sm font-semibold text-slate-700 focus:border-coral focus:outline-none"
+                              />
+                              <span className="ml-1 text-sm text-slate-400">×</span>
+                              <input
+                                type="number"
+                                onFocus={(e) => e.currentTarget.select()}
+                                min="1"
+                                value={r.qty}
+                                onChange={(e) => setAddOnField(c.id, 'qty', e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                style={{ width: 64 }}
+                                className="min-w-0 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-right text-sm font-semibold text-slate-700 focus:border-coral focus:outline-none"
+                              />
+                            </>
+                          )}
                         </div>
                       </label>
                     );
