@@ -754,7 +754,7 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
               )}
               <p className="text-xs text-slate-400">
                 {promoCode
-                  ? 'No deposit charged — balance is invoiced after the party is confirmed.'
+                  ? "We'll lock the date and send your invoice separately — no card charged today."
                   : "You'll be redirected to Stripe to pay. Deposits are non-refundable but the date may be rescheduled."}
               </p>
             </div>
@@ -986,7 +986,7 @@ function PromoCodeInput({
     return (
       <div className="flex items-center justify-between rounded-2xl border-2 border-coral bg-coral-50 px-4 py-3">
         <div>
-          <p className="text-sm font-bold text-coral-700">Promo applied · no deposit</p>
+          <p className="text-sm font-bold text-coral-700">Promo applied · invoice coming separately</p>
           <p className="text-xs text-coral-700/80">{value}</p>
         </div>
         <button

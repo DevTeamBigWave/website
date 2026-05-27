@@ -7,6 +7,8 @@ const fmt = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
 export function PartyActions({
   partyId,
+  depositCents,
+  depositPaidAt,
   balanceDueCents,
   invoiceSentAt,
   hostedInvoiceUrl,
@@ -14,6 +16,8 @@ export function PartyActions({
   planningCallSentAt,
 }: {
   partyId: string;
+  depositCents: number;
+  depositPaidAt: string | null;
   balanceDueCents: number;
   invoiceSentAt: string | null;
   hostedInvoiceUrl: string | null;
@@ -39,6 +43,37 @@ export function PartyActions({
         setFeedback(`Error: ${data.error ?? 'failed'}`);
       } else {
         setFeedback('Email sent ✓');
+        router.refresh();
+      }
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const sendDepositInvoice = async () => {
+    if (busy) return;
+    if (depositPaidAt) {
+      setFeedback('Deposit is already marked paid.');
+      return;
+    }
+    if (
+      !confirm(
+        `Send a Stripe deposit invoice for ${fmt(depositCents)}? The customer pays just the deposit now; the balance gets invoiced separately later. Any prior open invoice will be voided.`,
+      )
+    ) {
+      return;
+    }
+    setBusy('deposit');
+    setFeedback(null);
+    try {
+      const res = await fetch(`/api/admin/parties/${partyId}/invoice-deposit`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setFeedback(`Error: ${data.error ?? 'failed'}`);
+      } else {
+        setFeedback(`Deposit invoice sent for ${fmt(data.amountCents)} ✓`);
         router.refresh();
       }
     } finally {
@@ -88,6 +123,17 @@ export function PartyActions({
         onClick={sendPlanningCall}
         loading={busy === 'planning'}
       />
+      {/* Deposit-only invoice — useful for promo-code bookings where no
+          deposit was collected at booking time. Hidden once paid. */}
+      {!depositPaidAt && (
+        <ActionRow
+          title={`Deposit invoice (50%) · ${fmt(depositCents)}`}
+          description="Send a Stripe invoice for just the deposit. Customer pays the deposit now; the rest gets invoiced later."
+          actionLabel="Send deposit invoice"
+          onClick={sendDepositInvoice}
+          loading={busy === 'deposit'}
+        />
+      )}
       <ActionRow
         title={balanceDueCents > 0 ? `Balance invoice · ${fmt(balanceDueCents)}` : 'Balance invoice'}
         description={

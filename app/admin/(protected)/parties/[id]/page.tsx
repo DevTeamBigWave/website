@@ -154,6 +154,8 @@ export default async function PartyDetailPage({
           <Card title="Send to customer">
             <PartyActions
               partyId={party.id}
+              depositCents={party.deposit_cents}
+              depositPaidAt={party.deposit_paid_at}
               balanceDueCents={financials.balance_due_cents}
               invoiceSentAt={party.balance_invoice_sent_at}
               hostedInvoiceUrl={party.balance_invoice_hosted_url}

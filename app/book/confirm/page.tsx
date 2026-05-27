@@ -46,12 +46,15 @@ async function PartyConfirm({ partyId, giftFlag }: { partyId: string; giftFlag: 
   const { data: party } = await db
     .from('parties')
     .select(
-      'id, parent_name, email, child_name, child_age, date, start_time, package, status, headcount, total_cents, deposit_cents',
+      'id, parent_name, email, child_name, child_age, date, start_time, package, status, headcount, total_cents, deposit_cents, deposit_paid_at, promo_code_id',
     )
     .eq('id', partyId)
     .maybeSingle();
 
   if (!party) notFound();
+
+  // Promo-code booking: no deposit was actually paid. Render different copy.
+  const isPromoBooking = !party.deposit_paid_at && !!party.promo_code_id;
 
   return (
     <>
@@ -73,6 +76,12 @@ async function PartyConfirm({ partyId, giftFlag }: { partyId: string; giftFlag: 
                 We&rsquo;ve got you down for <strong>{fmtDate(party.date)}</strong> at{' '}
                 <strong>{formatTime(party.start_time)}</strong>. Confirmation email
                 sent to <strong>{party.email}</strong>.
+                {isPromoBooking && (
+                  <>
+                    {' '}
+                    We&rsquo;ll send your invoice separately — no card was charged today.
+                  </>
+                )}
               </>
             ) : (
               <>
@@ -90,12 +99,20 @@ async function PartyConfirm({ partyId, giftFlag }: { partyId: string; giftFlag: 
               <Row label="Package">{party.package === 'private' ? 'Private' : 'Semi-Private'}</Row>
               <Row label="Headcount">{party.headcount} kids</Row>
               <Row label="Total">{fmt(party.total_cents)}</Row>
-              <Row label={giftFlag ? 'Covered by gift card' : 'Deposit paid'}>
-                {fmt(party.deposit_cents)} {giftFlag ? '🎁' : '✓'}
-              </Row>
-              <Row label="Balance due 7 days before">
-                {fmt(party.total_cents - party.deposit_cents)}
-              </Row>
+              {isPromoBooking ? (
+                <Row label="Balance owed">
+                  <strong>{fmt(party.total_cents)}</strong> · invoice on the way
+                </Row>
+              ) : (
+                <>
+                  <Row label={giftFlag ? 'Covered by gift card' : 'Deposit paid'}>
+                    {fmt(party.deposit_cents)} {giftFlag ? '🎁' : '✓'}
+                  </Row>
+                  <Row label="Balance due 7 days before">
+                    {fmt(party.total_cents - party.deposit_cents)}
+                  </Row>
+                </>
+              )}
             </div>
           )}
         </div>

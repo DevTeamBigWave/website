@@ -225,7 +225,7 @@ export async function POST(request: Request) {
         partyId: party.id,
         skipDeposit: true,
         // No checkout URL — the frontend redirects to the confirm page directly
-        redirectTo: `/book/confirm?id=${party.id}`,
+        redirectTo: `/book/confirm?party_id=${party.id}`,
       });
     }
   }

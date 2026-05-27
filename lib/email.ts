@@ -133,21 +133,35 @@ function ctaButton(label: string, href: string): string {
 // Customer: party booking confirmed
 // ---------------------------------------------------------------------------
 export async function sendPartyConfirmation(party: any) {
-  const balance = party.total_cents - party.deposit_cents;
   const balanceDueDate = new Date(party.date);
   balanceDueDate.setDate(balanceDueDate.getDate() - 7);
   const firstName = party.parent_name.split(' ')[0] || party.parent_name;
+  // Promo-code path: no deposit was actually paid; show the full total as
+  // owed and skip the "deposit paid ✓" language entirely.
+  const depositPaid = !!party.deposit_paid_at;
+
+  const intro = depositPaid
+    ? `We got your <strong>${fmtMoney(party.deposit_cents)}</strong> deposit. ${escapeHtml(party.child_name ?? "Your child")}'s ${party.package === 'private' ? 'private' : 'semi-private'} party on <strong>${fmtDate(party.date)}</strong> at <strong>${party.start_time}</strong> is officially booked. 🎉`
+    : `Your date is locked in via promo code — ${escapeHtml(party.child_name ?? "your child")}'s ${party.package === 'private' ? 'private' : 'semi-private'} party on <strong>${fmtDate(party.date)}</strong> at <strong>${party.start_time}</strong>. 🎉 We'll send your invoice separately — no card was charged today.`;
+
+  const moneyRows: Array<[string, string]> = depositPaid
+    ? [
+        ['Package', party.package === 'private' ? 'Private' : 'Semi-Private'],
+        ['Total', fmtMoney(party.total_cents)],
+        ['Deposit paid', `<span style="color:#7C8E5C;">${fmtMoney(party.deposit_cents)} ✓</span>`],
+        [`Balance due ${fmtDate(balanceDueDate)}`, `<strong>${fmtMoney(party.total_cents - party.deposit_cents)}</strong>`],
+      ]
+    : [
+        ['Package', party.package === 'private' ? 'Private' : 'Semi-Private'],
+        ['Total', `<strong>${fmtMoney(party.total_cents)}</strong>`],
+        ['Balance owed', `<strong style="color:#ff7783;">${fmtMoney(party.total_cents)}</strong> · invoice coming separately`],
+      ];
 
   const body = `
     <p style="margin:0 0 16px; line-height:1.65;">Hi ${escapeHtml(firstName)},</p>
-    <p style="margin:0 0 16px; line-height:1.65;">We got your <strong>${fmtMoney(party.deposit_cents)}</strong> deposit. ${escapeHtml(party.child_name ?? "Your child")}'s ${party.package === 'private' ? 'private' : 'semi-private'} party on <strong>${fmtDate(party.date)}</strong> at <strong>${party.start_time}</strong> is officially booked. 🎉</p>
+    <p style="margin:0 0 16px; line-height:1.65;">${intro}</p>
 
-    ${kvpTable([
-      ['Package', party.package === 'private' ? 'Private' : 'Semi-Private'],
-      ['Total', fmtMoney(party.total_cents)],
-      ['Deposit paid', `<span style="color:#7C8E5C;">${fmtMoney(party.deposit_cents)} ✓</span>`],
-      [`Balance due ${fmtDate(balanceDueDate)}`, `<strong>${fmtMoney(balance)}</strong>`],
-    ])}
+    ${kvpTable(moneyRows)}
 
     <div style="background:#FFF4F5; border-radius:12px; padding:18px 20px; margin:20px 0;">
       <p style="margin:0 0 6px; font-size:11px; text-transform:uppercase; letter-spacing:1.5px; color:#ff7783; font-weight:800;">Before the day</p>
@@ -162,7 +176,7 @@ export async function sendPartyConfirmation(party: any) {
 
   const html = brandedShell(
     {
-      heroEyebrow: 'Booked ✓',
+      heroEyebrow: depositPaid ? 'Booked ✓' : 'Date held · promo applied',
       title: 'Your date is locked in.',
       subtitle: `${escapeHtml(party.child_name ?? "Your child")}'s ${party.package === 'private' ? 'private' : 'semi-private'} party · ${fmtDate(party.date)}`,
     },
@@ -787,16 +801,30 @@ export async function sendMarketingCampaign(args: {
 // Owner: someone just paid you
 // ---------------------------------------------------------------------------
 export async function sendOwnerNotification({ subject, party }: { subject: string; party: any }) {
-  const balanceDue = party.total_cents - party.deposit_cents;
+  // Promo-code bookings: no payment received. Show that clearly so the
+  // owner doesn't think money landed when it didn't.
+  const depositPaid = !!party.deposit_paid_at;
+
   const rows: Array<[string, string]> = [
     ['Date', `${fmtDate(party.date)} at ${party.start_time}`],
     ['Package', `${party.package === 'private' ? 'Private' : 'Semi-Private'} · ${fmtMoney(party.total_cents)} total`],
-    ['Deposit paid', `<span style="color:#7C8E5C;">${fmtMoney(party.deposit_cents)} ✓</span>`],
-    ['Balance due', `<strong>${fmtMoney(balanceDue)}</strong>`],
+  ];
+  if (depositPaid) {
+    rows.push(
+      ['Deposit paid', `<span style="color:#7C8E5C;">${fmtMoney(party.deposit_cents)} ✓</span>`],
+      ['Balance due', `<strong>${fmtMoney(party.total_cents - party.deposit_cents)}</strong>`],
+    );
+  } else {
+    rows.push(
+      ['Promo code used', `<span style="color:#b45309;">⚠ no payment received yet</span>`],
+      ['Full balance owed', `<strong style="color:#ff7783;">${fmtMoney(party.total_cents)}</strong>`],
+    );
+  }
+  rows.push(
     ['Birthday child', `${escapeHtml(party.child_name ?? '—')}${party.child_age != null ? `, age ${party.child_age}` : ''}`],
     ['Headcount', `${party.headcount} kids`],
     ['Parent', `${escapeHtml(party.parent_name)} · <a href="mailto:${escapeHtml(party.email)}" style="color:#ff7783;">${escapeHtml(party.email)}</a> · ${escapeHtml(party.phone)}`],
-  ];
+  );
   if (party.weekday_discount_applied) {
     rows.push(['Weekday discount', `applied (-${fmtMoney(party.discount_cents)})`]);
   }
@@ -804,14 +832,18 @@ export async function sendOwnerNotification({ subject, party }: { subject: strin
     rows.push(['Notes', escapeHtml(party.notes)]);
   }
 
+  const headline = depositPaid
+    ? 'Heads up — a new party booking just came in.'
+    : '⚠ Heads up — a new party booking just came in via a promo code. No payment was charged. Send a deposit or full invoice from admin when ready.';
+
   const body = `
-    <p style="margin:0 0 16px; line-height:1.65;">Heads up — a new party booking just came in.</p>
+    <p style="margin:0 0 16px; line-height:1.65;">${headline}</p>
     ${kvpTable(rows)}
     ${ctaButton('View in admin', `${SITE}/admin/parties/${party.id}`)}
   `;
   const html = brandedShell(
     {
-      heroEyebrow: 'New booking',
+      heroEyebrow: depositPaid ? 'New booking' : 'New booking · promo · unpaid',
       title: subject,
       heroBg: 'linear-gradient(135deg, #ff7783 0%, #fdda26 100%)',
     },

@@ -87,10 +87,11 @@ export async function finalizeParty(partyId: string, opts: FinalizePartyOptions 
   const siteUrl =
     process.env.NEXT_PUBLIC_SITE_URL ?? 'https://wonderlandplayhouse.com';
 
+  const promoFlag = !party.deposit_paid_at ? ' · promo · UNPAID' : '';
   const [, , calendarResult] = await Promise.allSettled([
     sendPartyConfirmation(party),
     sendOwnerNotification({
-      subject: `🎉 New party booked: ${party.child_name}'s ${party.package} party`,
+      subject: `🎉 New party booked: ${party.child_name}'s ${party.package} party${promoFlag}`,
       party,
     }),
     createPartyEvent(party, siteUrl),
