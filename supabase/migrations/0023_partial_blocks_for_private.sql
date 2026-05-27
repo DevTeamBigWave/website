@@ -10,7 +10,7 @@
 -- ============================================================================
 
 create or replace function sync_blocked_dates_from_party()
-returns trigger as $$
+returns trigger as $func$
 begin
   -- Remove any existing block for this party (handles status changes)
   delete from blocked_dates where party_id = new.id;
@@ -34,7 +34,7 @@ begin
 
   return new;
 end;
-$$ language plpgsql;
+$func$ language plpgsql;
 
 -- Backfill: any currently-full Private block becomes partial.
 update blocked_dates
