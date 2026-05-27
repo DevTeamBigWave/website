@@ -56,3 +56,51 @@ export function computePartyFinancials(p: PartyRowForFinancials): PartyFinancial
     balance_due_cents: balanceDue,
   };
 }
+
+// ============================================================================
+// Time-slot conflict detection
+//
+// Two parties on the same date conflict if their 2-hour windows overlap when
+// each is expanded by BUFFER_MINUTES on both sides — the buffer represents
+// setup + cleanup time we need between bookings. A 12pm party (12–2pm) thus
+// blocks any new slot from 10:30am through 4:30pm start.
+// ============================================================================
+
+export const BUFFER_MINUTES = 30;
+
+export type DayBooking = {
+  id: string;
+  start_time: string; // "HH:MM" or "HH:MM:SS"
+  duration_minutes: number;
+  extension_minutes: number | null;
+};
+
+function parseTimeToMinutes(t: string): number {
+  // Accepts "HH:MM" or "HH:MM:SS" or "10:00 AM"
+  if (t.includes('AM') || t.includes('PM')) {
+    const [hm, period] = t.split(' ');
+    let [h, m] = hm.split(':').map(Number);
+    if (period === 'PM' && h !== 12) h += 12;
+    if (period === 'AM' && h === 12) h = 0;
+    return h * 60 + (m || 0);
+  }
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + (m || 0);
+}
+
+export function partyTimeConflict(
+  newStart: string, // "HH:MM" or "HH:MM AM/PM"
+  newDurationMin: number,
+  others: DayBooking[],
+): DayBooking | null {
+  const nStart = parseTimeToMinutes(newStart);
+  const nEnd = nStart + newDurationMin;
+  for (const o of others) {
+    const oStart = parseTimeToMinutes(o.start_time);
+    const oEnd = oStart + o.duration_minutes + (o.extension_minutes ?? 0);
+    if (nStart < oEnd + BUFFER_MINUTES && oStart < nEnd + BUFFER_MINUTES) {
+      return o;
+    }
+  }
+  return null;
+}

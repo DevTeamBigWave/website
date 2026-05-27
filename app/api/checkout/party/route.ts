@@ -7,6 +7,7 @@ import { getGiftCardByCode, balanceCents } from '@/lib/gift-cards';
 import { finalizeParty } from '@/lib/finalize-booking';
 import { findCatalogItem } from '@/lib/add-ons';
 import { validatePromoCode, recordPromoUse } from '@/lib/promo-codes';
+import { partyTimeConflict } from '@/lib/parties';
 
 const PartyCheckoutSchema = z.object({
   packageId: z.enum(['private', 'semi']),
@@ -94,27 +95,22 @@ export async function POST(request: Request) {
     .in('status', ['confirmed', 'hold']);
 
   if (existing && existing.length > 0) {
-    const newStartMin = sqlTimeToMinutes(convertTimeToSql(body.time));
     const newDuration =
       PACKAGES[body.packageId as PackageId].durationMinutes +
       (body.extensionId ? EXTENSIONS[body.extensionId as ExtensionId].minutes : 0);
-    const newEndMin = newStartMin + newDuration;
 
-    // Conflict if either party is private and time ranges overlap,
-    // OR both are semi and same start time (semi slots only allow one party).
-    // Back-to-back overlap (1-hour extension running into next slot) IS a conflict.
-    const conflict = existing.find((p: any) => {
-      const pStart = sqlTimeToMinutes(p.start_time);
-      const pTotal = (p.duration_minutes ?? 120) + (p.extension_minutes ?? 0);
-      const pEnd = pStart + pTotal;
-      const overlap = newStartMin < pEnd && pStart < newEndMin;
-
-      if (!overlap) return false;
-      if (body.packageId === 'private' || p.package === 'private') return true;
-      // Two semi parties at the exact same start are allowed up to capacity —
-      // for now, any time overlap is a conflict to keep semantics simple.
-      return true;
-    });
+    // 30-min buffer for setup/cleanup between parties. Two parties on the
+    // same day conflict when their buffered windows overlap.
+    const conflict = partyTimeConflict(
+      convertTimeToSql(body.time),
+      newDuration,
+      existing.map((p: any) => ({
+        id: p.id,
+        start_time: p.start_time,
+        duration_minutes: p.duration_minutes ?? 120,
+        extension_minutes: p.extension_minutes ?? 0,
+      })),
+    );
 
     if (conflict) {
       return NextResponse.json(
@@ -326,8 +322,3 @@ function convertTimeToSql(displayTime: string): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
 }
 
-// "HH:MM:SS" → minutes since midnight
-function sqlTimeToMinutes(t: string): number {
-  const [h, m] = t.split(':').map(Number);
-  return h * 60 + m;
-}

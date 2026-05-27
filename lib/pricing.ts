@@ -63,14 +63,20 @@ export function getExtensionPriceCents(
 }
 
 // Time slots are different by package:
-// - Private: 2-hour slots starting at 10am, 12pm, 2pm, 4pm, 6pm — standard
-//   defaults, but anything is negotiable (parents should call for off-slot times)
-// - Semi-Private: two 2-hour slot options — 1–3pm or 2–4pm (only one runs per day)
+// - Private: every hour 10am–6pm. Each booking blocks its 2-hour window
+//   plus a 30-minute buffer (setup/cleanup) — see partyTimeConflict() in
+//   lib/parties.ts. Multiple Private parties can run on the same day as
+//   long as their buffered windows don't overlap.
+// - Semi-Private: two slot options — 1–3pm or 2–4pm. Only one runs per day.
 export const PRIVATE_PARTY_TIMES = [
   '10:00 AM',
+  '11:00 AM',
   '12:00 PM',
+  '1:00 PM',
   '2:00 PM',
+  '3:00 PM',
   '4:00 PM',
+  '5:00 PM',
   '6:00 PM',
 ] as const;
 export const SEMI_PARTY_TIMES = ['1:00 PM', '2:00 PM'] as const;

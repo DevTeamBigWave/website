@@ -15,6 +15,7 @@ import { requireOwner } from '@/lib/admin';
 import { supabaseAdmin } from '@/lib/supabase';
 import { stripe } from '@/lib/stripe';
 import { calculatePartyPricing, type PackageId, type ExtensionId } from '@/lib/pricing';
+import { partyTimeConflict } from '@/lib/parties';
 import { INVOICE_THEMES, type InvoiceThemeSlug } from '@/lib/invoice-themes';
 import { sendCreatedPartyInvoice } from '@/lib/email';
 
@@ -58,7 +59,9 @@ export async function POST(request: Request) {
 
   const db = supabaseAdmin();
 
-  // Conflict check — any FULL block on this date kills the create
+  // Conflict check:
+  //  1. Full-day blocks (admin closures) → hard reject
+  //  2. Existing parties on the same day → time-overlap with 30-min buffer
   const { data: blocks } = await db
     .from('blocked_dates')
     .select('date, block_type, reason')
@@ -67,6 +70,33 @@ export async function POST(request: Request) {
   if (fullBlock) {
     return NextResponse.json(
       { error: `That date is fully blocked: ${fullBlock.reason ?? 'another party'}.` },
+      { status: 409 },
+    );
+  }
+
+  const { data: sameDay } = await db
+    .from('parties')
+    .select('id, start_time, duration_minutes, extension_minutes')
+    .eq('date', body.date)
+    .in('status', ['hold', 'confirmed']);
+  const newDuration =
+    120 + (body.extension_minutes === 60 ? 60 : 0);
+  const conflict = partyTimeConflict(
+    body.start_time,
+    newDuration,
+    (sameDay ?? []).map((p: any) => ({
+      id: p.id,
+      start_time: p.start_time,
+      duration_minutes: p.duration_minutes ?? 120,
+      extension_minutes: p.extension_minutes ?? 0,
+    })),
+  );
+  if (conflict) {
+    return NextResponse.json(
+      {
+        error:
+          'That time conflicts with another party on the same date (parties need a 30-minute setup/cleanup gap between them).',
+      },
       { status: 409 },
     );
   }

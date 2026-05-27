@@ -13,9 +13,11 @@ import { supabaseAdmin } from '@/lib/supabase';
 import {
   partyTimesFor,
   calculatePartyPricing,
+  PACKAGES,
   type PackageId,
   type ExtensionId,
 } from '@/lib/pricing';
+import { partyTimeConflict } from '@/lib/parties';
 import { syncPartyEventByPartyId } from '@/lib/google-calendar';
 import { sendPartyRescheduled, sendOwnerNotification } from '@/lib/email';
 
@@ -72,7 +74,7 @@ export async function POST(
   const { data: party, error: pErr } = await db
     .from('parties')
     .select(
-      'id, date, start_time, package, child_name, parent_name, email, status, headcount, extension_minutes, weekday_discount_applied, total_cents',
+      'id, date, start_time, package, child_name, parent_name, email, status, headcount, duration_minutes, extension_minutes, weekday_discount_applied, total_cents',
     )
     .eq('id', partyId)
     .maybeSingle();
@@ -105,22 +107,46 @@ export async function POST(
     );
   }
 
-  // Hard conflict check: another non-cancelled party already on this date,
-  // OR a full-day block (e.g., venue closure) on this date.
-  const { data: conflicts } = await db
+  // Full-day venue closure check (admin-created blocked_dates not tied to a party).
+  const { data: blocks } = await db
     .from('blocked_dates')
-    .select('date, block_type, reason, party_id')
-    .eq('date', body.new_date);
-  const hit = (conflicts ?? []).find(
-    (b: any) => b.party_id !== partyId, // a different party
+    .select('block_type, reason, party_id')
+    .eq('date', body.new_date)
+    .eq('block_type', 'full');
+  const fullBlock = (blocks ?? []).find((b: any) => !b.party_id);
+  if (fullBlock) {
+    return NextResponse.json(
+      { error: `That date is fully booked: ${fullBlock.reason ?? 'venue closure'}.` },
+      { status: 409 },
+    );
+  }
+
+  // Time-aware conflict check: other non-cancelled parties on the new date,
+  // expanded by the 30-min setup/cleanup buffer. Excludes this party itself.
+  const { data: sameDay } = await db
+    .from('parties')
+    .select('id, start_time, duration_minutes, extension_minutes')
+    .eq('date', body.new_date)
+    .in('status', ['hold', 'confirmed'])
+    .neq('id', partyId);
+  const newDuration =
+    PACKAGES[party.package as PackageId].durationMinutes +
+    (party.extension_minutes ?? 0);
+  const conflict = partyTimeConflict(
+    body.new_start_time,
+    newDuration,
+    (sameDay ?? []).map((p: any) => ({
+      id: p.id,
+      start_time: p.start_time,
+      duration_minutes: p.duration_minutes ?? 120,
+      extension_minutes: p.extension_minutes ?? 0,
+    })),
   );
-  if (hit) {
+  if (conflict) {
     return NextResponse.json(
       {
         error:
-          hit.block_type === 'full'
-            ? `That date is fully booked: ${hit.reason ?? 'another party'}.`
-            : `That date already has a private party booked — Wonderland is closed to additional parties.`,
+          'That time conflicts with another party on the new date (parties need a 30-minute setup/cleanup gap between them).',
       },
       { status: 409 },
     );

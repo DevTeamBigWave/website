@@ -161,14 +161,20 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
     if (!packageId) return false;
     const key = isoDate(d);
     const rows = blockedByDate.get(key) ?? [];
-    if (rows.some((r) => r.blockType === 'full' || r.package === 'private')) return true;
-    if (packageId === 'private' && rows.length > 0) return true;
+    // A full-day block (admin closure, holiday, etc) takes a day off the
+    // table entirely. Party-level blocks are 'partial' and resolved at the
+    // time-slot level so multiple parties can share a day if they don't
+    // overlap (with a 30-minute setup buffer between them).
+    if (rows.some((r) => r.blockType === 'full')) return true;
     return false;
   };
 
-  // A proposed (start, duration) is "unavailable" if it overlaps an existing
-  // party on that day. Used both to gray out time-slot buttons AND to disable
-  // the 1-hour extension option when it would push into the next booking.
+  // 30-min buffer for setup + cleanup between any two parties.
+  const BUFFER_MIN = 30;
+
+  // A proposed (start, duration) "conflicts" with an existing party on that
+  // day if the buffered windows of the two overlap. The buffer represents
+  // setup/cleanup time on both sides of each booking.
   const timeOverlapsExisting = (
     t: string,
     durationMinutes: number,
@@ -182,7 +188,7 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
       if (!r.startTime) return false;
       const eStart = timeStringToMinutes(r.startTime);
       const eEnd = eStart + (r.totalMinutes ?? 120);
-      return newStart < eEnd && eStart < newEnd;
+      return newStart < eEnd + BUFFER_MIN && eStart < newEnd + BUFFER_MIN;
     });
   };
 
