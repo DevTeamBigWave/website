@@ -10,7 +10,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { stripe } from '@/lib/stripe';
 import { createPartyEvent, syncPartyEventByPartyId } from '@/lib/google-calendar';
 import { computePartyFinancials } from '@/lib/parties';
-import { sendManualPaymentReceived } from '@/lib/email';
+import { sendManualPaymentReceived, sendOwnerNotification } from '@/lib/email';
 
 const Schema = z.object({
   kind: z.enum(['deposit', 'balance']),
@@ -132,41 +132,58 @@ export async function POST(
     void syncPartyEventByPartyId(partyId);
   }
 
-  // Confirmation email so the customer has written proof we got their payment
+  // Refetch the party so emails + finance math use the post-update state.
+  const { data: refreshed } = await db
+    .from('parties')
+    .select('*')
+    .eq('id', partyId)
+    .maybeSingle();
+  const fullParty = refreshed ?? party;
+
+  // Pull add-ons so the owner notification shows the full picture.
+  const { data: addOns = [] } = await db
+    .from('party_add_ons')
+    .select('name, unit_price_cents, qty, notes')
+    .eq('party_id', partyId)
+    .order('created_at', { ascending: true });
+
+  const fin = computePartyFinancials(fullParty as any);
+
+  // Confirmation email to the customer
   try {
-    // Effective deposit amount = the just-overridden custom value if any,
-    // otherwise the existing deposit_cents on the row
-    const effectiveDeposit =
-      body.kind === 'deposit' && body.amount_cents != null
-        ? body.amount_cents
-        : party.deposit_cents;
-    const fin = computePartyFinancials({
-      ...(party as any),
-      deposit_cents: effectiveDeposit,
-      // Re-run with the just-applied payment so the email shows the correct balance
-      deposit_paid_at:
-        body.kind === 'deposit' ? new Date().toISOString() : party.deposit_paid_at,
-      balance_paid_amount_cents:
-        body.kind === 'balance'
-          ? (party.balance_paid_amount_cents ?? 0) +
-            Math.max(0, computePartyFinancials(party as any).balance_due_cents)
-          : party.balance_paid_amount_cents ?? 0,
-    });
     await sendManualPaymentReceived({
-      parent_name: party.parent_name,
-      email: party.email,
-      child_name: party.child_name,
-      date: party.date,
+      parent_name: fullParty.parent_name,
+      email: fullParty.email,
+      child_name: fullParty.child_name,
+      date: fullParty.date,
       kind: body.kind,
       method: body.method,
       amount_cents:
         body.kind === 'deposit'
-          ? effectiveDeposit
-          : amountClosedCents || computePartyFinancials(party as any).balance_due_cents,
+          ? (fullParty.deposit_cents as number)
+          : amountClosedCents || fin.balance_due_cents,
       remaining_balance_cents: fin.balance_due_cents,
     });
   } catch (err) {
-    console.error('Manual-payment confirmation email failed:', err);
+    console.error('Manual-payment customer email failed:', err);
+  }
+
+  // Notify the owner so the paper trail lands in their inbox too
+  try {
+    const amt =
+      body.kind === 'deposit'
+        ? (fullParty.deposit_cents as number)
+        : amountClosedCents || fin.balance_due_cents;
+    const methodLabel =
+      body.method === 'zelle' ? 'Zelle' : body.method === 'cash' ? 'Cash' : 'Clover';
+    const subject = `💵 Payment recorded · $${(amt / 100).toFixed(2)} ${methodLabel} · ${fullParty.child_name ?? 'party'}`;
+    await sendOwnerNotification({
+      subject,
+      party: fullParty,
+      addOns: (addOns ?? []) as any,
+    });
+  } catch (err) {
+    console.error('Manual-payment owner email failed:', err);
   }
 
   return NextResponse.json({ ok: true });
