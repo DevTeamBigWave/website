@@ -233,6 +233,72 @@ export async function sendPartyConfirmation(party: any, addOns: AddOnLite[] = []
 }
 
 // ---------------------------------------------------------------------------
+// Customer: party rescheduled (admin moved the date or time)
+// ---------------------------------------------------------------------------
+export async function sendPartyRescheduled(args: {
+  party: any;
+  oldDate: string;
+  oldStartTime: string;
+  reason?: string;
+}) {
+  const { party, oldDate, oldStartTime, reason } = args;
+  const firstName = party.parent_name.split(' ')[0] || party.parent_name;
+  const child = party.child_name ?? 'your child';
+  const niceTime = (t: string) => {
+    const [h, m] = t.split(':').map(Number);
+    const period = h >= 12 ? 'PM' : 'AM';
+    const display = ((h + 11) % 12) + 1;
+    return `${display}:${String(m).padStart(2, '0')} ${period}`;
+  };
+
+  const body = `
+    <p style="margin:0 0 16px; line-height:1.65;">Hi ${escapeHtml(firstName)},</p>
+    <p style="margin:0 0 16px; line-height:1.65;">${escapeHtml(child)}'s party has been rescheduled. Here are the new details — your calendar invite will update automatically too.</p>
+
+    <table style="width:100%; border-collapse:collapse; margin:24px 0; font-size:14px; background:#FFF4F5; border-radius:14px; overflow:hidden;">
+      <tr>
+        <td style="padding:14px 18px; color:#94A3B8; vertical-align:top;">
+          <div style="font-size:11px; text-transform:uppercase; letter-spacing:1.5px; color:#94A3B8;">Was</div>
+          <div style="margin-top:2px; text-decoration:line-through;">${fmtDate(oldDate)}</div>
+          <div style="font-size:13px; text-decoration:line-through;">${niceTime(oldStartTime)}</div>
+        </td>
+        <td style="padding:14px 18px; color:#2C4253; text-align:right; vertical-align:top;">
+          <div style="font-size:11px; text-transform:uppercase; letter-spacing:1.5px; color:#ff7783; font-weight:800;">Now</div>
+          <div style="margin-top:2px; font-weight:700;">${fmtDate(party.date)}</div>
+          <div style="font-size:13px;">${niceTime(party.start_time)}</div>
+        </td>
+      </tr>
+    </table>
+
+    ${reason ? `<div style="background:#FFFBF5; border-left:3px solid #fdda26; padding:14px 18px; margin:20px 0; font-size:14px; line-height:1.6; color:#2C4253;"><strong style="display:block; font-size:11px; text-transform:uppercase; letter-spacing:1.5px; color:#6B7C8E; margin-bottom:4px;">Note from us</strong>${escapeHtml(reason)}</div>` : ''}
+
+    <p style="margin:0 0 16px; line-height:1.65;">
+      Your <strong>${party.package === 'private' ? 'Private' : 'Semi-Private'}</strong> party, headcount, add-ons, and waiver — everything else stays the same.
+      <strong>Nothing was charged or refunded</strong> — your balance and paid status carry over to the new date.
+    </p>
+
+    <p style="margin:16px 0 0; line-height:1.65; font-size:14px; color:#6B7C8E;">If this new date doesn't work either, just reply to this email or call <a href="tel:+17188891777" style="color:#6B7C8E;">(718) 889-1777</a> — we'll find something that does.</p>
+  `;
+
+  const html = brandedShell(
+    {
+      heroEyebrow: 'Rescheduled',
+      title: 'Your party has a new date.',
+      subtitle: `${fmtDate(oldDate)} → ${fmtDate(party.date)}`,
+      heroBg: 'linear-gradient(135deg, #fdba74 0%, #ff7783 100%)',
+    },
+    body,
+  );
+
+  return resend().emails.send({
+    from: FROM,
+    to: party.email,
+    subject: `↻ ${child}'s party moved to ${fmtDate(party.date)}`,
+    html,
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Customer: open play paid
 // ---------------------------------------------------------------------------
 export async function sendOpenPlayConfirmation(ticket: any) {

@@ -7,6 +7,7 @@ import { AddOnsEditor } from './AddOnsEditor';
 import { InvoiceThemePicker } from './InvoiceThemePicker';
 import { DiscountPicker } from './DiscountPicker';
 import { ManualPaymentRecorder } from './ManualPaymentRecorder';
+import { RescheduleCard } from './RescheduleCard';
 import { DeletePartyButton } from './DeletePartyButton';
 import { requireAdmin } from '@/lib/admin';
 import type { InvoiceThemeSlug } from '@/lib/invoice-themes';
@@ -163,6 +164,18 @@ export default async function PartyDetailPage({
               planningCallSentAt={party.planning_call_email_sent_at}
             />
           </Card>
+
+          {/* Reschedule */}
+          {(party.status === 'hold' || party.status === 'confirmed') && (
+            <Card title="Reschedule" subtitle="Move the date / time. Customer + calendar update automatically. Money state carries over.">
+              <RescheduleCard
+                partyId={party.id}
+                partyPackage={party.package as 'private' | 'semi'}
+                currentDate={party.date}
+                currentStartTime={party.start_time}
+              />
+            </Card>
+          )}
 
           {/* Record manual payment (Zelle / cash / Clover) */}
           <Card

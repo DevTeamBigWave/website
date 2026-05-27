@@ -336,10 +336,14 @@ export async function createPartyEvent(
 // or Google returns 404 (event manually deleted). Failures are logged and
 // swallowed — the caller's mutation must not block on a Google round-trip.
 //
-// sendUpdates=none so the parent isn't spammed with "event updated" emails
-// every time the owner ticks a new add-on. Initial invite + cancellation
-// remain notification-worthy; mid-flight financial tweaks aren't.
-export async function syncPartyEventByPartyId(partyId: string): Promise<void> {
+// sendUpdates defaults to 'none' so the parent isn't spammed with "event
+// updated" emails every time the owner ticks a new add-on. Pass
+// notifyAttendees=true for reschedules so Google sends its native iCal
+// "event moved" notice.
+export async function syncPartyEventByPartyId(
+  partyId: string,
+  opts: { notifyAttendees?: boolean } = {},
+): Promise<void> {
   const integration = await getIntegration();
   if (!integration) return;
 
@@ -370,9 +374,10 @@ export async function syncPartyEventByPartyId(partyId: string): Promise<void> {
     process.env.NEXT_PUBLIC_SITE_URL ?? 'https://wonderlandplayhouse.com';
   const accessToken = await getValidAccessToken(integration);
   const body = buildEventBody(party as PartyForCalendar, addOns, siteUrl);
+  const sendUpdates = opts.notifyAttendees ? 'all' : 'none';
 
   const res = await fetch(
-    `${CALENDAR_API}/calendars/${encodeURIComponent(integration.calendar_id)}/events/${party.google_calendar_event_id}?sendUpdates=none`,
+    `${CALENDAR_API}/calendars/${encodeURIComponent(integration.calendar_id)}/events/${party.google_calendar_event_id}?sendUpdates=${sendUpdates}`,
     {
       method: 'PATCH',
       headers: {
