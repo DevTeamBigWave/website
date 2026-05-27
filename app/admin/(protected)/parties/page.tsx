@@ -27,7 +27,7 @@ type PartyRow = {
   manual_discount_percent: number | null;
 };
 
-type TimeFilter = 'upcoming' | 'today' | 'past' | 'all';
+type TimeFilter = 'upcoming' | 'past' | 'all';
 
 function nycToday(): string {
   return new Intl.DateTimeFormat('en-CA', {
@@ -46,9 +46,7 @@ export default async function AdminPartiesPage({
   const me = await requireAdmin();
   const sp = await searchParams;
   const timeFilter: TimeFilter =
-    sp.time === 'today' || sp.time === 'past' || sp.time === 'all'
-      ? sp.time
-      : 'upcoming';
+    sp.time === 'past' || sp.time === 'all' ? sp.time : 'upcoming';
 
   const db = supabaseAdmin();
   // Pull a wider window than the previous 200-most-recent: we need to bucket
@@ -65,14 +63,12 @@ export default async function AdminPartiesPage({
   const today = nycToday();
 
   // Counts for the filter pills
-  const counts = {
+  const counts: Record<TimeFilter, number> = {
     upcoming: 0,
-    today: 0,
     past: 0,
     all: all.length,
   };
   for (const p of all) {
-    if (p.date === today) counts.today += 1;
     if (p.date >= today && (p.status === 'hold' || p.status === 'confirmed')) {
       counts.upcoming += 1;
     }
@@ -85,14 +81,12 @@ export default async function AdminPartiesPage({
     visible = all.filter(
       (p) => p.date >= today && (p.status === 'hold' || p.status === 'confirmed'),
     );
-  } else if (timeFilter === 'today') {
-    visible = all.filter((p) => p.date === today);
   } else if (timeFilter === 'past') {
     visible = all.filter((p) => p.date < today);
   }
 
   // Sort: upcoming ascending (next-up first); past + all descending (most recent first)
-  if (timeFilter === 'upcoming' || timeFilter === 'today') {
+  if (timeFilter === 'upcoming') {
     visible = [...visible].sort((a, b) =>
       a.date === b.date ? a.start_time.localeCompare(b.start_time) : a.date.localeCompare(b.date),
     );
@@ -210,7 +204,6 @@ function TimeFilterPills({
 }) {
   const options: Array<{ value: TimeFilter; label: string }> = [
     { value: 'upcoming', label: 'Upcoming' },
-    { value: 'today', label: 'Today' },
     { value: 'past', label: 'Past' },
     { value: 'all', label: 'All' },
   ];
