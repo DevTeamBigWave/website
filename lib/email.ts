@@ -240,8 +240,9 @@ export async function sendPartyRescheduled(args: {
   oldDate: string;
   oldStartTime: string;
   reason?: string;
+  pricingNote?: string;
 }) {
-  const { party, oldDate, oldStartTime, reason } = args;
+  const { party, oldDate, oldStartTime, reason, pricingNote } = args;
   const firstName = party.parent_name.split(' ')[0] || party.parent_name;
   const child = party.child_name ?? 'your child';
   const niceTime = (t: string) => {
@@ -272,9 +273,10 @@ export async function sendPartyRescheduled(args: {
 
     ${reason ? `<div style="background:#FFFBF5; border-left:3px solid #fdda26; padding:14px 18px; margin:20px 0; font-size:14px; line-height:1.6; color:#2C4253;"><strong style="display:block; font-size:11px; text-transform:uppercase; letter-spacing:1.5px; color:#6B7C8E; margin-bottom:4px;">Note from us</strong>${escapeHtml(reason)}</div>` : ''}
 
+    ${pricingNote ? `<div style="background:#FFF4F5; border-left:3px solid #ff7783; padding:14px 18px; margin:20px 0; font-size:14px; line-height:1.6; color:#2C4253;"><strong style="display:block; font-size:11px; text-transform:uppercase; letter-spacing:1.5px; color:#ff7783; margin-bottom:4px;">Pricing change</strong>${escapeHtml(pricingNote)}</div>` : ''}
+
     <p style="margin:0 0 16px; line-height:1.65;">
-      Your <strong>${party.package === 'private' ? 'Private' : 'Semi-Private'}</strong> party, headcount, add-ons, and waiver — everything else stays the same.
-      <strong>Nothing was charged or refunded</strong> — your balance and paid status carry over to the new date.
+      Your <strong>${party.package === 'private' ? 'Private' : 'Semi-Private'}</strong> party, headcount, add-ons, and waiver — everything else stays the same.${pricingNote ? '' : ` <strong>Nothing was charged or refunded</strong> — your balance and paid status carry over to the new date.`}
     </p>
 
     <p style="margin:16px 0 0; line-height:1.65; font-size:14px; color:#6B7C8E;">If this new date doesn't work either, just reply to this email or call <a href="tel:+17188891777" style="color:#6B7C8E;">(718) 889-1777</a> — we'll find something that does.</p>

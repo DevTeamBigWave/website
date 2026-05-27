@@ -10,7 +10,12 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireOwner } from '@/lib/admin';
 import { supabaseAdmin } from '@/lib/supabase';
-import { partyTimesFor, type PackageId } from '@/lib/pricing';
+import {
+  partyTimesFor,
+  calculatePartyPricing,
+  type PackageId,
+  type ExtensionId,
+} from '@/lib/pricing';
 import { syncPartyEventByPartyId } from '@/lib/google-calendar';
 import { sendPartyRescheduled, sendOwnerNotification } from '@/lib/email';
 
@@ -66,7 +71,9 @@ export async function POST(
   const db = supabaseAdmin();
   const { data: party, error: pErr } = await db
     .from('parties')
-    .select('id, date, start_time, package, child_name, parent_name, email, status')
+    .select(
+      'id, date, start_time, package, child_name, parent_name, email, status, headcount, extension_minutes, weekday_discount_applied, total_cents',
+    )
     .eq('id', partyId)
     .maybeSingle();
   if (pErr || !party) {
@@ -119,13 +126,49 @@ export async function POST(
     );
   }
 
-  // Persist the move. The sync_blocked_dates_from_party trigger automatically
-  // repoints the blocked_dates row to the new date.
+  // Mon-Thu private discount is asymmetric on reschedule:
+  // - If the OLD slot had it applied AND the NEW slot doesn't qualify → strip
+  //   it (recompute pricing without the 20% off so the customer's balance
+  //   reflects the new, undiscounted total).
+  // - If moving from a non-eligible slot to an eligible one → do NOT
+  //   auto-apply. Owner can apply manually via the friends-&-family
+  //   discount picker if they want to honor a make-good.
+  const oldDow = new Date(`${party.date}T00:00:00`).getDay();
+  const newDow = new Date(`${body.new_date}T00:00:00`).getDay();
+  const isPrivate = party.package === 'private';
+  const oldEligible = isPrivate && oldDow >= 1 && oldDow <= 4;
+  const newEligible = isPrivate && newDow >= 1 && newDow <= 4;
+  const stripDiscount = party.weekday_discount_applied && oldEligible && !newEligible;
+
+  const updates: Record<string, unknown> = {
+    date: body.new_date,
+    start_time: body.new_start_time,
+  };
+  let pricingNote: string | undefined;
+
+  if (stripDiscount) {
+    const recomputed = calculatePartyPricing({
+      packageId: party.package as PackageId,
+      date: new Date(`${body.new_date}T${body.new_start_time}:00`),
+      time: body.new_start_time,
+      extensionId: (party.extension_minutes ?? 0) >= 60 ? ('60m' as ExtensionId) : null,
+      headcount: party.headcount,
+    });
+    updates.subtotal_cents = recomputed.subtotalCents;
+    updates.discount_cents = recomputed.discountCents; // 0
+    updates.tax_cents = recomputed.taxCents;
+    updates.total_cents = recomputed.totalCents;
+    updates.deposit_cents = recomputed.depositCents;
+    updates.weekday_discount_applied = false;
+    pricingNote = `The Mon–Thu 20% discount no longer applies on the new date — party total is now $${(recomputed.totalCents / 100).toFixed(2)}. Any payments you've already made carry over and credit the new balance.`;
+  }
+
+  // Persist. The sync_blocked_dates_from_party trigger repoints blocked_dates.
   const oldDate = party.date;
   const oldStartTime = party.start_time;
   const { error: updErr } = await db
     .from('parties')
-    .update({ date: body.new_date, start_time: body.new_start_time })
+    .update(updates)
     .eq('id', partyId);
   if (updErr) {
     return NextResponse.json(
@@ -149,9 +192,10 @@ export async function POST(
       oldDate,
       oldStartTime,
       reason: body.reason,
+      pricingNote,
     }),
     sendOwnerNotification({
-      subject: `↻ Party rescheduled: ${fullParty.child_name ?? 'party'} · ${oldDate} → ${body.new_date}`,
+      subject: `↻ Party rescheduled: ${fullParty.child_name ?? 'party'} · ${oldDate} → ${body.new_date}${stripDiscount ? ' · discount removed' : ''}`,
       party: fullParty,
     }),
   ]).catch((err) => console.error('Reschedule emails failed:', err));
