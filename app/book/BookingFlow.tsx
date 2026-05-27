@@ -1224,6 +1224,7 @@ function AddOnsAccordion({
                           <span className="text-xs text-slate-400">×</span>
                           <input
                             type="number"
+                            onFocus={(e) => e.currentTarget.select()}
                             min={1}
                             max={40}
                             value={qty}

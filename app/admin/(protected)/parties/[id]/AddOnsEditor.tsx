@@ -274,6 +274,7 @@ export function AddOnsEditor({
                         <span className="text-sm text-slate-400">$</span>
                         <input
                           type="number"
+                          onFocus={(e) => e.currentTarget.select()}
                           step="0.01"
                           min="0"
                           value={r.priceDollars}
@@ -285,6 +286,7 @@ export function AddOnsEditor({
                         <span className="ml-1 text-sm text-slate-400">×</span>
                         <input
                           type="number"
+                          onFocus={(e) => e.currentTarget.select()}
                           min="1"
                           value={r.qty}
                           onChange={(e) => setRowField(c.id, 'qty', e.target.value)}
@@ -340,6 +342,7 @@ export function AddOnsEditor({
             <Field label="Price (USD)">
               <input
                 type="number"
+                onFocus={(e) => e.currentTarget.select()}
                 step="0.01"
                 min="0"
                 value={customPrice}
@@ -350,6 +353,7 @@ export function AddOnsEditor({
             <Field label="Qty">
               <input
                 type="number"
+                onFocus={(e) => e.currentTarget.select()}
                 min="1"
                 value={customQty}
                 onChange={(e) => setCustomQty(e.target.value)}

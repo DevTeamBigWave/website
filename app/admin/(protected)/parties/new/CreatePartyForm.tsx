@@ -219,6 +219,7 @@ export function CreatePartyForm() {
             <Field label="Headcount (total kids incl. birthday child)">
               <input
                 type="number"
+                onFocus={(e) => e.currentTarget.select()}
                 min={1}
                 max={40}
                 value={headcount}
@@ -455,6 +456,7 @@ export function CreatePartyForm() {
                           <span className="text-sm text-slate-400">$</span>
                           <input
                             type="number"
+                            onFocus={(e) => e.currentTarget.select()}
                             step="0.01"
                             min="0"
                             value={r.priceDollars}
@@ -466,6 +468,7 @@ export function CreatePartyForm() {
                           <span className="ml-1 text-sm text-slate-400">×</span>
                           <input
                             type="number"
+                            onFocus={(e) => e.currentTarget.select()}
                             min="1"
                             value={r.qty}
                             onChange={(e) => setAddOnField(c.id, 'qty', e.target.value)}
