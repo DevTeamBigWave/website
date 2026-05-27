@@ -147,7 +147,7 @@ export default async function PartyDetailPage({
           <Card title="Friends & family discount" subtitle="Owner-applied courtesy off the grand total. Applies on the next invoice.">
             <DiscountPicker
               partyId={party.id}
-              initial={((party as any).manual_discount_percent ?? 0) as 0 | 10 | 15 | 20}
+              initial={((party as any).manual_discount_percent ?? 0) as number}
               initialAmountCents={((party as any).manual_discount_cents ?? 0) as number}
             />
           </Card>

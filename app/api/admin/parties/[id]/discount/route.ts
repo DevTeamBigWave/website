@@ -11,7 +11,7 @@ import { syncPartyEventByPartyId } from '@/lib/google-calendar';
 
 const Schema = z.union([
   z.object({
-    percent: z.union([z.literal(0), z.literal(10), z.literal(15), z.literal(20)]),
+    percent: z.coerce.number().int().min(0).max(100),
     amount_cents: z.undefined().optional(),
   }),
   z.object({
