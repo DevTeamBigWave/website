@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin';
 import { supabaseAdmin } from '@/lib/supabase';
+import { syncPartyEventByPartyId } from '@/lib/google-calendar';
 
 export async function DELETE(
   _request: Request,
@@ -19,5 +20,6 @@ export async function DELETE(
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+  void syncPartyEventByPartyId(partyId);
   return NextResponse.json({ ok: true });
 }

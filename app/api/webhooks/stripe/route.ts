@@ -9,7 +9,7 @@ import {
   sendOwnerSaleNotification,
 } from '@/lib/email';
 import { finalizeParty, finalizeOpenPlay } from '@/lib/finalize-booking';
-import { createPartyEvent } from '@/lib/google-calendar';
+import { createPartyEvent, syncPartyEventByPartyId } from '@/lib/google-calendar';
 
 // Stripe sends raw bodies — App Router gives us req.text() which preserves them
 export async function POST(request: Request) {
@@ -209,6 +209,15 @@ export async function POST(request: Request) {
             balance_paid_amount_cents: priorPaid + (invoice.amount_paid ?? 0),
           })
           .eq('id', partyId);
+      }
+
+      // Any party-related payment closes the loop on the calendar event
+      // description too (paid status, deposit method, remaining balance).
+      if (
+        partyId &&
+        (type === 'party_balance' || type === 'party_full' || type === 'party_deposit_admin')
+      ) {
+        void syncPartyEventByPartyId(partyId);
       }
       // Membership renewals — bump current_period_end on success
       if (invoice.subscription) {

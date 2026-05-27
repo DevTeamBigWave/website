@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireAdmin } from '@/lib/admin';
 import { supabaseAdmin } from '@/lib/supabase';
 import { findCatalogItem } from '@/lib/add-ons';
+import { syncPartyEventByPartyId } from '@/lib/google-calendar';
 
 const AddSchema = z.object({
   catalog_id: z.string().min(1).max(80).optional(),
@@ -49,5 +50,6 @@ export async function POST(
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+  void syncPartyEventByPartyId(partyId);
   return NextResponse.json({ addOn: data });
 }

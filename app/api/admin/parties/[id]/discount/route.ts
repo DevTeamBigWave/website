@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireOwner } from '@/lib/admin';
 import { supabaseAdmin } from '@/lib/supabase';
+import { syncPartyEventByPartyId } from '@/lib/google-calendar';
 
 const Schema = z.object({
   percent: z.union([z.literal(0), z.literal(10), z.literal(15), z.literal(20)]),
@@ -31,5 +32,6 @@ export async function PATCH(
     .eq('id', partyId);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  void syncPartyEventByPartyId(partyId);
   return NextResponse.json({ ok: true, percent: body.percent });
 }

@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { requireOwner } from '@/lib/admin';
 import { supabaseAdmin } from '@/lib/supabase';
 import { stripe } from '@/lib/stripe';
-import { createPartyEvent } from '@/lib/google-calendar';
+import { createPartyEvent, syncPartyEventByPartyId } from '@/lib/google-calendar';
 import { computePartyFinancials } from '@/lib/parties';
 import { sendManualPaymentReceived } from '@/lib/email';
 
@@ -103,6 +103,8 @@ export async function POST(
 
   // Create the calendar event the first time a deposit lands, mirroring the
   // /book flow (finalizeParty) and the Stripe webhook for admin invoices.
+  // For all other mutations (balance paid, deposit paid when event already
+  // exists), just re-sync the event description with the new state.
   if (body.kind === 'deposit' && !party.google_calendar_event_id) {
     try {
       const siteUrl =
@@ -117,6 +119,8 @@ export async function POST(
     } catch (err) {
       console.error('Calendar event creation failed (payment still recorded):', err);
     }
+  } else {
+    void syncPartyEventByPartyId(partyId);
   }
 
   // Confirmation email so the customer has written proof we got their payment

@@ -329,6 +329,65 @@ export async function createPartyEvent(
   return data.id;
 }
 
+// Re-sync the existing calendar event with the party's current state. Called
+// from every code path that mutates party financials, add-ons, discount, or
+// payment status so the calendar description never goes stale. Best-effort:
+// silent no-op if the integration isn't connected, the party has no event,
+// or Google returns 404 (event manually deleted). Failures are logged and
+// swallowed — the caller's mutation must not block on a Google round-trip.
+//
+// sendUpdates=none so the parent isn't spammed with "event updated" emails
+// every time the owner ticks a new add-on. Initial invite + cancellation
+// remain notification-worthy; mid-flight financial tweaks aren't.
+export async function syncPartyEventByPartyId(partyId: string): Promise<void> {
+  const integration = await getIntegration();
+  if (!integration) return;
+
+  const db = supabaseAdmin();
+  const { data: party } = await db
+    .from('parties')
+    .select(
+      'id, date, start_time, package, child_name, child_age, parent_name, email, phone, headcount, notes, total_cents, deposit_cents, deposit_paid_at, deposit_payment_method, promo_code_id, balance_paid_at, balance_paid_amount_cents, manual_discount_percent, add_ons_total_cents, inspiration_image_urls, duration_minutes, extension_minutes, weekday_discount_applied, google_calendar_event_id',
+    )
+    .eq('id', partyId)
+    .maybeSingle();
+
+  if (!party?.google_calendar_event_id) return;
+
+  let addOns: AddOnForCalendar[] = [];
+  try {
+    const { data } = await db
+      .from('party_add_ons')
+      .select('name, unit_price_cents, qty, notes')
+      .eq('party_id', partyId)
+      .order('created_at', { ascending: true });
+    addOns = (data ?? []) as AddOnForCalendar[];
+  } catch (err) {
+    console.warn('Could not load add-ons for calendar sync:', err);
+  }
+
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ?? 'https://wonderlandplayhouse.com';
+  const accessToken = await getValidAccessToken(integration);
+  const body = buildEventBody(party as PartyForCalendar, addOns, siteUrl);
+
+  const res = await fetch(
+    `${CALENDAR_API}/calendars/${encodeURIComponent(integration.calendar_id)}/events/${party.google_calendar_event_id}?sendUpdates=none`,
+    {
+      method: 'PATCH',
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok && res.status !== 404 && res.status !== 410) {
+    const err = await res.text();
+    console.warn(`Calendar update failed: ${res.status} ${err}`);
+  }
+}
+
 export async function deletePartyEvent(eventId: string): Promise<void> {
   const integration = await getIntegration();
   if (!integration) return;
