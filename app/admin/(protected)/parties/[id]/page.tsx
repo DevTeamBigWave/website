@@ -47,7 +47,7 @@ export default async function PartyDetailPage({
     db
       .from('parties')
       .select(
-        'id, date, start_time, package, status, child_name, child_age, parent_name, email, phone, headcount, notes, total_cents, subtotal_cents, discount_cents, tax_cents, deposit_cents, deposit_paid_at, deposit_payment_method, add_ons_total_cents, gift_card_applied_cents, balance_invoice_id, balance_invoice_hosted_url, balance_invoice_sent_at, balance_paid_at, balance_paid_amount_cents, balance_payment_method, planning_call_email_sent_at, extension_minutes, weekday_discount_applied, invoice_theme, manual_discount_percent, inspiration_image_urls, promo_code_id, google_calendar_event_id, created_at',
+        'id, date, start_time, package, status, child_name, child_age, parent_name, email, phone, headcount, notes, total_cents, subtotal_cents, discount_cents, tax_cents, deposit_cents, deposit_paid_at, deposit_payment_method, add_ons_total_cents, gift_card_applied_cents, balance_invoice_id, balance_invoice_hosted_url, balance_invoice_sent_at, balance_paid_at, balance_paid_amount_cents, balance_payment_method, planning_call_email_sent_at, extension_minutes, weekday_discount_applied, invoice_theme, manual_discount_percent, manual_discount_cents, inspiration_image_urls, promo_code_id, google_calendar_event_id, created_at',
       )
       .eq('id', id)
       .maybeSingle(),
@@ -148,6 +148,7 @@ export default async function PartyDetailPage({
             <DiscountPicker
               partyId={party.id}
               initial={((party as any).manual_discount_percent ?? 0) as 0 | 10 | 15 | 20}
+              initialAmountCents={((party as any).manual_discount_cents ?? 0) as number}
             />
           </Card>
 
@@ -211,7 +212,11 @@ export default async function PartyDetailPage({
               <Row label="Add-ons" value={fmtMoney(financials.add_ons_total_cents)} />
               {financials.manual_discount_cents > 0 && (
                 <Row
-                  label={`Friends & family ${financials.manual_discount_percent}% off`}
+                  label={
+                    financials.manual_discount_percent > 0
+                      ? `Friends & family ${financials.manual_discount_percent}% off`
+                      : 'Friends & family discount'
+                  }
                   value={`−${fmtMoney(financials.manual_discount_cents)}`}
                   accent
                 />

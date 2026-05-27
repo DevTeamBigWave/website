@@ -126,7 +126,10 @@ export async function createOrUpdateBalanceInvoice(
       invoice: invoice.id,
       amount: -financials.manual_discount_cents,
       currency: 'usd',
-      description: `Friends & family discount (${financials.manual_discount_percent}% off)`,
+      description:
+        financials.manual_discount_percent > 0
+          ? `Friends & family discount (${financials.manual_discount_percent}% off)`
+          : `Friends & family discount`,
     });
   }
 

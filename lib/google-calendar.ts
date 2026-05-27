@@ -153,6 +153,7 @@ export type PartyForCalendar = {
   balance_paid_at?: string | null;
   balance_paid_amount_cents?: number | null;
   manual_discount_percent?: number | null;
+  manual_discount_cents?: number | null;
   add_ons_total_cents?: number | null;
   inspiration_image_urls?: string[] | null;
 };
@@ -212,6 +213,8 @@ function buildEventBody(
     }
     if (party.manual_discount_percent && party.manual_discount_percent > 0) {
       lines.push(`  − Friends & family ${party.manual_discount_percent}% off`);
+    } else if (party.manual_discount_cents && party.manual_discount_cents > 0) {
+      lines.push(`  − Friends & family discount: ${fmt(party.manual_discount_cents)}`);
     }
     // Promo-code path: no deposit was collected at booking. Show the full
     // amount as owed instead of a "Deposit: $X — unpaid" line that implies
@@ -351,7 +354,7 @@ export async function syncPartyEventByPartyId(
   const { data: party } = await db
     .from('parties')
     .select(
-      'id, date, start_time, package, child_name, child_age, parent_name, email, phone, headcount, notes, total_cents, deposit_cents, deposit_paid_at, deposit_payment_method, promo_code_id, balance_paid_at, balance_paid_amount_cents, manual_discount_percent, add_ons_total_cents, inspiration_image_urls, duration_minutes, extension_minutes, weekday_discount_applied, google_calendar_event_id',
+      'id, date, start_time, package, child_name, child_age, parent_name, email, phone, headcount, notes, total_cents, deposit_cents, deposit_paid_at, deposit_payment_method, promo_code_id, balance_paid_at, balance_paid_amount_cents, manual_discount_percent, manual_discount_cents, add_ons_total_cents, inspiration_image_urls, duration_minutes, extension_minutes, weekday_discount_applied, google_calendar_event_id',
     )
     .eq('id', partyId)
     .maybeSingle();

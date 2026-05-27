@@ -39,7 +39,7 @@ export async function POST(
   const { data: party, error: pErr } = await db
     .from('parties')
     .select(
-      'id, parent_name, email, phone, date, start_time, package, child_name, total_cents, deposit_cents, deposit_paid_at, manual_discount_percent, invoice_theme, balance_invoice_id',
+      'id, parent_name, email, phone, date, start_time, package, child_name, total_cents, deposit_cents, deposit_paid_at, manual_discount_percent, manual_discount_cents, invoice_theme, balance_invoice_id',
     )
     .eq('id', partyId)
     .maybeSingle();
@@ -55,8 +55,11 @@ export async function POST(
   }
 
   // Math: apply any friends-&-family discount to the party total, take 50%.
+  // Custom-$ amount wins over percent (matches computePartyFinancials).
   const pct = party.manual_discount_percent ?? 0;
-  const discountCents = Math.round((party.total_cents * pct) / 100);
+  const flatCents = party.manual_discount_cents ?? 0;
+  const rawDiscount = flatCents > 0 ? flatCents : Math.round((party.total_cents * pct) / 100);
+  const discountCents = Math.min(rawDiscount, party.total_cents);
   const partyAfterDiscount = party.total_cents - discountCents;
   const depositAmount = Math.round(partyAfterDiscount / 2);
   const remainingAfterDeposit = partyAfterDiscount - depositAmount;
@@ -125,7 +128,10 @@ export async function POST(
       invoice: invoice.id,
       amount: -discountCents,
       currency: 'usd',
-      description: `Friends & family discount (${pct}% off)`,
+      description:
+        flatCents > 0
+          ? 'Friends & family discount'
+          : `Friends & family discount (${pct}% off)`,
     });
   }
   if (remainingAfterDeposit > 0) {

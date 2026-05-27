@@ -20,6 +20,7 @@ export type PartyRowForFinancials = {
   deposit_paid_at?: string | null;
   balance_paid_amount_cents?: number | null;
   manual_discount_percent?: number | null;
+  manual_discount_cents?: number | null; // flat-$ override; preempts percent
 };
 
 export function computePartyFinancials(p: PartyRowForFinancials): PartyFinancials {
@@ -32,16 +33,21 @@ export function computePartyFinancials(p: PartyRowForFinancials): PartyFinancial
   const depositPaid = p.deposit_paid_at ? p.deposit_cents : 0;
   const balancePaid = p.balance_paid_amount_cents ?? 0;
   const pct = p.manual_discount_percent ?? 0;
+  const flatCents = p.manual_discount_cents ?? 0;
 
   const preDiscountTotal = baseTotal + addOnsTotal;
-  const manualDiscount = Math.round((preDiscountTotal * pct) / 100);
+  // Custom-$ takes precedence over %. The discount endpoint zeroes the other
+  // when one is set, but we defend here too. Cap at preDiscountTotal so we
+  // can't produce a negative grand total.
+  const rawDiscount = flatCents > 0 ? flatCents : Math.round((preDiscountTotal * pct) / 100);
+  const manualDiscount = Math.min(rawDiscount, preDiscountTotal);
   const grandTotal = preDiscountTotal - manualDiscount;
   const balanceDue = Math.max(0, grandTotal - depositPaid - balancePaid - giftCard);
 
   return {
     base_total_cents: baseTotal,
     add_ons_total_cents: addOnsTotal,
-    manual_discount_percent: pct,
+    manual_discount_percent: flatCents > 0 ? 0 : pct,
     manual_discount_cents: manualDiscount,
     gift_card_applied_cents: giftCard,
     deposit_paid_cents: depositPaid,
