@@ -21,6 +21,7 @@ export function ManualPaymentRecorder({
   balancePaidAt,
   balancePaidAmountCents,
   balanceMethod,
+  hasCalendarEvent,
 }: {
   partyId: string;
   depositCents: number;
@@ -30,6 +31,10 @@ export function ManualPaymentRecorder({
   balancePaidAt: string | null;
   balancePaidAmountCents: number;
   balanceMethod: string | null;
+  // Promo-code bookings create the calendar event up front. Knowing whether
+  // one already exists lets the confirm dialog avoid the misleading
+  // "creates the calendar event" line when it's already there.
+  hasCalendarEvent: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -38,9 +43,15 @@ export function ManualPaymentRecorder({
   const submit = async (kind: 'deposit' | 'balance', method: Method) => {
     const amount = kind === 'deposit' ? depositCents : balanceDueCents;
     const label = METHODS.find((m) => m.value === method)?.label ?? method;
+    const tail =
+      kind === 'balance'
+        ? 'records the balance payment.'
+        : hasCalendarEvent
+          ? 'marks the deposit as received. Calendar event already exists.'
+          : 'creates the calendar event.';
     if (
       !confirm(
-        `Mark the ${kind} of ${fmt(amount)} as paid via ${label}? This voids any open Stripe invoice and ${kind === 'deposit' ? 'creates the calendar event.' : 'records the balance payment.'}`,
+        `Mark the ${kind} of ${fmt(amount)} as paid via ${label}? This closes the Stripe invoice as paid out-of-band and ${tail}`,
       )
     ) {
       return;
