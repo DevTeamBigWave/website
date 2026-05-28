@@ -63,10 +63,17 @@ export async function GET(req: Request) {
     }
 
     const externalEvents = events.filter((e) => !ourEventIds.has(e.id));
-    const externalIds = new Set(externalEvents.map((e) => e.id));
 
-    // Upsert by external_event_id. The unique index from migration 0026
-    // makes onConflict deterministic.
+    // Nuke-and-rebuild: drop every blocked_dates row tied to an external
+    // calendar event, then re-insert from the current event list. Clean,
+    // idempotent, no ON CONFLICT inference needed (PostgREST upsert can't
+    // target the partial unique index we have on external_event_id).
+    const { error: delErr } = await db
+      .from('blocked_dates')
+      .delete()
+      .not('external_event_id', 'is', null);
+    if (delErr) throw new Error(`prune failed: ${delErr.message}`);
+
     let upserted = 0;
     if (externalEvents.length > 0) {
       const rows = externalEvents.map((e) => ({
@@ -80,34 +87,9 @@ export async function GET(req: Request) {
         duration_minutes: e.durationMinutes,
         external_event_id: e.id,
       }));
-      const { error: upsertErr } = await db
-        .from('blocked_dates')
-        .upsert(rows, { onConflict: 'external_event_id' });
-      if (upsertErr) throw new Error(`upsert failed: ${upsertErr.message}`);
+      const { error: insErr } = await db.from('blocked_dates').insert(rows);
+      if (insErr) throw new Error(`insert failed: ${insErr.message}`);
       upserted = rows.length;
-    }
-
-    // Reconcile: fetch every block that has an external_event_id, then
-    // delete in JS those whose id isn't in the current event set.
-    // (Avoids PostgREST's awkward .not(...).in(...) string quoting.)
-    const { data: existing, error: existErr } = await db
-      .from('blocked_dates')
-      .select('id, external_event_id')
-      .not('external_event_id', 'is', null);
-    if (existErr) throw new Error(`existing read failed: ${existErr.message}`);
-
-    const staleIds = (existing ?? [])
-      .filter((r: any) => r.external_event_id && !externalIds.has(r.external_event_id))
-      .map((r: any) => r.id);
-
-    let pruned = 0;
-    if (staleIds.length > 0) {
-      const { error: delErr } = await db
-        .from('blocked_dates')
-        .delete()
-        .in('id', staleIds);
-      if (delErr) throw new Error(`prune failed: ${delErr.message}`);
-      pruned = staleIds.length;
     }
 
     return NextResponse.json({
@@ -115,7 +97,6 @@ export async function GET(req: Request) {
       scanned: events.length,
       ours_skipped: events.length - externalEvents.length,
       upserted,
-      pruned,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
