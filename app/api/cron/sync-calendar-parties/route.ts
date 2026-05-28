@@ -26,7 +26,9 @@ export const maxDuration = 60;
 function authed(req: Request) {
   const secret = process.env.CRON_SECRET;
   if (!secret) return true;
-  return req.headers.get('x-cron-secret') === secret;
+  const headerSecret = req.headers.get('x-cron-secret');
+  const querySecret = new URL(req.url).searchParams.get('secret');
+  return headerSecret === secret || querySecret === secret;
 }
 
 export async function GET(req: Request) {
