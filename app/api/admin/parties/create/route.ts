@@ -47,7 +47,10 @@ const CreateSchema = z.object({
   // is $0.50, the upper bound is enforced server-side against the actual
   // grand total once it's been computed.
   custom_deposit_cents: z.coerce.number().int().min(50).max(2_000_000).optional(),
-  manual_discount_percent: z.union([z.literal(0), z.literal(10), z.literal(15), z.literal(20)]).default(0),
+  manual_discount_percent: z.coerce.number().int().min(0).max(100).default(0),
+  // Custom flat-$ discount override. Mirrors the existing-party
+  // /discount endpoint shape — cents > 0 wins over percent.
+  manual_discount_cents: z.coerce.number().int().min(0).max(2_000_000).optional(),
   add_ons: z.array(AddOnSchema).max(40).default([]),
 });
 
@@ -128,18 +131,32 @@ export async function POST(request: Request) {
   // The two existing modes (deposit_only / full) still compute their
   // invoice amounts the way they always did to stay consistent with the
   // customer-side /book flow (50% of party-only, no add-ons-on-deposit).
+  // Custom-$ wins over percent (matches computePartyFinancials).
+  const _customDiscountCents = body.manual_discount_cents ?? 0;
   const _allAddOnsCents = body.add_ons.reduce((s, a) => s + a.unit_price_cents * a.qty, 0);
   const _grandPreDiscount = pricing.totalCents + _allAddOnsCents;
-  const _grandManualDiscount = Math.round(
-    (_grandPreDiscount * body.manual_discount_percent) / 100,
+  const _grandManualDiscount = Math.min(
+    _grandPreDiscount,
+    _customDiscountCents > 0
+      ? _customDiscountCents
+      : Math.round((_grandPreDiscount * body.manual_discount_percent) / 100),
   );
   const _grandAfterDiscount = _grandPreDiscount - _grandManualDiscount;
 
   // Legacy compatibles for full / deposit_only modes (party-only basis,
-  // matching the customer /book flow):
+  // matching the customer /book flow).
+  // For custom-$ discount on deposit_only mode, prorate the flat discount
+  // across the party portion (since add-ons aren't on this invoice).
   const _addOnsTotal = isFullInvoice ? _allAddOnsCents : 0;
   const _preDiscountFull = pricing.totalCents + _addOnsTotal;
-  const _manualDiscount = Math.round((_preDiscountFull * body.manual_discount_percent) / 100);
+  const _manualDiscount = Math.min(
+    _preDiscountFull,
+    _customDiscountCents > 0
+      ? Math.round(
+          (_customDiscountCents * _preDiscountFull) / Math.max(1, _grandPreDiscount),
+        )
+      : Math.round((_preDiscountFull * body.manual_discount_percent) / 100),
+  );
   const _fullAfterDiscount = _preDiscountFull - _manualDiscount;
   const _depositAfterDiscount = Math.round(_fullAfterDiscount / 2);
 
@@ -196,7 +213,8 @@ export async function POST(request: Request) {
       status: 'confirmed',
       weekday_discount_applied: pricing.discountApplied,
       invoice_theme: body.invoice_theme,
-      manual_discount_percent: body.manual_discount_percent,
+      manual_discount_percent: _customDiscountCents > 0 ? 0 : body.manual_discount_percent,
+      manual_discount_cents: _customDiscountCents,
     })
     .select('id')
     .single();
@@ -316,7 +334,10 @@ export async function POST(request: Request) {
         invoice: invoice.id,
         amount: -manualDiscountCents,
         currency: 'usd',
-        description: `Friends & family discount (${body.manual_discount_percent}% off)`,
+        description:
+          _customDiscountCents > 0
+            ? 'Friends & family discount'
+            : `Friends & family discount (${body.manual_discount_percent}% off)`,
       });
     }
   } else {
@@ -337,7 +358,10 @@ export async function POST(request: Request) {
         invoice: invoice.id,
         amount: -manualDiscountCents,
         currency: 'usd',
-        description: `Friends & family discount (${body.manual_discount_percent}% off)`,
+        description:
+          _customDiscountCents > 0
+            ? 'Friends & family discount'
+            : `Friends & family discount (${body.manual_discount_percent}% off)`,
       });
     }
     const remaining = pricing.totalCents - manualDiscountCents - depositAfterDiscount;

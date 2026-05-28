@@ -59,7 +59,14 @@ export function CreatePartyForm() {
   // empty or invalid.
   const [customDepositDollars, setCustomDepositDollars] = useState('');
   const [theme, setTheme] = useState<InvoiceThemeSlug>('wonderland');
-  const [manualDiscount, setManualDiscount] = useState<0 | 10 | 15 | 20>(0);
+  // F&F discount: percent OR flat-$ override. Matches computePartyFinancials
+  // semantics — cents > 0 wins over percent (so picking a custom $ amount
+  // takes precedence). One state for each so the picker can show both
+  // shortcut tiles AND the two custom inputs without fighting itself.
+  const [discountPercent, setDiscountPercent] = useState<number>(0);
+  const [discountCents, setDiscountCents] = useState<number>(0);
+  const [discountPctInput, setDiscountPctInput] = useState<string>('');
+  const [discountDollarInput, setDiscountDollarInput] = useState<string>('');
 
   // Add-on grid
   const [addOnRows, setAddOnRows] = useState<Record<string, RowState>>(() =>
@@ -158,10 +165,22 @@ export function CreatePartyForm() {
   // - Custom deposit → typed amount, capped at the all-inclusive grand total.
   const partyTotalCents = pricing?.totalCents ?? 0;
   const grandPreDiscount = partyTotalCents + addOnsTotalCents;
-  const grandManualDiscount = Math.round((grandPreDiscount * manualDiscount) / 100);
+  // Custom-$ wins over percent — matches computePartyFinancials.
+  const grandManualDiscount = Math.min(
+    grandPreDiscount,
+    discountCents > 0
+      ? discountCents
+      : Math.round((grandPreDiscount * discountPercent) / 100),
+  );
   const fullAfterDiscount = grandPreDiscount - grandManualDiscount;
 
-  const partyManualDiscount = Math.round((partyTotalCents * manualDiscount) / 100);
+  // Deposit-only path discounts the party portion only (matches /book).
+  const partyManualDiscount = Math.min(
+    partyTotalCents,
+    discountCents > 0
+      ? Math.round((discountCents * partyTotalCents) / Math.max(1, grandPreDiscount))
+      : Math.round((partyTotalCents * discountPercent) / 100),
+  );
   const partyAfterDiscount = partyTotalCents - partyManualDiscount;
   const depositAfterDiscount = Math.round(partyAfterDiscount / 2);
 
@@ -246,7 +265,8 @@ export function CreatePartyForm() {
           ...(invoiceType === 'custom_deposit'
             ? { custom_deposit_cents: customDepositCents }
             : {}),
-          manual_discount_percent: manualDiscount,
+          manual_discount_percent: discountCents > 0 ? 0 : discountPercent,
+          ...(discountCents > 0 ? { manual_discount_cents: discountCents } : {}),
           add_ons: selectedAddOns,
         }),
       });
@@ -476,33 +496,122 @@ export function CreatePartyForm() {
           )}
         </Card>
 
-        {/* Friends & family discount */}
+        {/* Friends & family discount — shortcut tiles + custom % + custom $ */}
         <Card
           title="Friends & family discount"
           subtitle="Owner-applied courtesy. Comes off the grand total on the invoice."
         >
           <div className="grid grid-cols-4 gap-2">
-            {([0, 10, 15, 20] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => setManualDiscount(v)}
-                className={`rounded-2xl border-2 px-2 py-3 text-center transition ${
-                  manualDiscount === v
-                    ? 'border-coral bg-coral-50 shadow-card'
-                    : 'border-slate-200 hover:border-slate-300'
-                }`}
-              >
-                <p
-                  className={`font-display text-base ${
-                    manualDiscount === v ? 'text-coral' : 'text-slate-700'
+            {([0, 10, 15, 20] as const).map((v) => {
+              const isSelected =
+                discountCents === 0 && discountPercent === v && !(v === 0 && discountCents > 0);
+              return (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => {
+                    setDiscountPercent(v);
+                    setDiscountCents(0);
+                    setDiscountPctInput(v > 0 ? String(v) : '');
+                    setDiscountDollarInput('');
+                  }}
+                  className={`rounded-2xl border-2 px-2 py-3 text-center transition ${
+                    isSelected
+                      ? 'border-coral bg-coral-50 shadow-card'
+                      : 'border-slate-200 hover:border-slate-300'
                   }`}
                 >
-                  {v === 0 ? 'None' : `${v}% off`}
-                </p>
-              </button>
-            ))}
+                  <p
+                    className={`font-display text-base ${
+                      isSelected ? 'text-coral' : 'text-slate-700'
+                    }`}
+                  >
+                    {v === 0 ? 'None' : `${v}% off`}
+                  </p>
+                </button>
+              );
+            })}
           </div>
+
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <label className="block rounded-2xl border border-slate-200 bg-white p-3">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Custom %
+              </span>
+              <div className="mt-1 flex items-center gap-2">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  max="100"
+                  step="1"
+                  placeholder="e.g. 25"
+                  value={discountPctInput}
+                  onChange={(e) => setDiscountPctInput(e.target.value.replace(/[^0-9.]/g, ''))}
+                  className="w-20 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm focus:border-coral focus:outline-none"
+                />
+                <span className="text-sm text-slate-400">%</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const n = parseInt(discountPctInput, 10);
+                    if (!Number.isFinite(n) || n < 0 || n > 100) return;
+                    setDiscountPercent(n);
+                    setDiscountCents(0);
+                    setDiscountDollarInput('');
+                  }}
+                  className="ml-auto rounded-full bg-coral px-3 py-1 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-coral-600"
+                >
+                  Apply
+                </button>
+              </div>
+              <p className="mt-1 text-[11px] text-slate-400">Scales with add-ons.</p>
+            </label>
+            <label className="block rounded-2xl border border-slate-200 bg-white p-3">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Custom $
+              </span>
+              <div className="mt-1 flex items-center gap-2">
+                <span className="text-sm text-slate-400">$</span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  placeholder="e.g. 50"
+                  value={discountDollarInput}
+                  onChange={(e) =>
+                    setDiscountDollarInput(e.target.value.replace(/[^0-9.]/g, ''))
+                  }
+                  className="w-24 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm focus:border-coral focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const n = parseFloat(discountDollarInput);
+                    if (!Number.isFinite(n) || n < 0) return;
+                    setDiscountCents(Math.round(n * 100));
+                    setDiscountPercent(0);
+                    setDiscountPctInput('');
+                  }}
+                  className="ml-auto rounded-full bg-coral px-3 py-1 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-coral-600"
+                >
+                  Apply
+                </button>
+              </div>
+              <p className="mt-1 text-[11px] text-slate-400">Fixed amount.</p>
+            </label>
+          </div>
+
+          {(discountPercent > 0 || discountCents > 0) && pricing && (
+            <p className="mt-3 text-xs text-slate-500">
+              Current: <strong className="text-coral">
+                {discountCents > 0
+                  ? `${fmt(grandManualDiscount)} off`
+                  : `${discountPercent}% off · ${fmt(grandManualDiscount)}`}
+              </strong>
+            </p>
+          )}
         </Card>
 
         {/* Theme picker */}
@@ -767,9 +876,13 @@ export function CreatePartyForm() {
               {addOnsTotalCents > 0 && (
                 <Row label="Add-ons" value={fmt(addOnsTotalCents)} />
               )}
-              {manualDiscount > 0 && (
+              {grandManualDiscount > 0 && (
                 <Row
-                  label={`Friends & family ${manualDiscount}% off`}
+                  label={
+                    discountCents > 0
+                      ? 'Friends & family discount'
+                      : `Friends & family ${discountPercent}% off`
+                  }
                   value={`−${fmt(grandManualDiscount)}`}
                   accent
                 />
