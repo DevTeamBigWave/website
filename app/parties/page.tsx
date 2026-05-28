@@ -53,10 +53,10 @@ function PartyVideo() {
           poster={poster}
           // 9:16 to match a vertical phone-shot video; contain (not cover)
           // so we never crop, since we control the aspect ratio anyway.
-          // rounded-3xl lives on the video itself (not a wrapper with
-          // overflow-hidden) so the native fullscreen button in the top-
-          // right corner of the controls layer doesn't get clipped.
-          className="aspect-[9/16] w-full rounded-3xl bg-slate-900 object-contain shadow-card"
+          // rounded-xl (not the larger 3xl) so iOS Safari's corner-
+          // anchored controls (fullscreen top-left, PiP top-right, mute
+          // top-right) sit clear of the curve.
+          className="aspect-[9/16] w-full rounded-xl bg-slate-900 object-contain shadow-card"
         >
           {/* No type= hint — lets the browser sniff so we accept .mp4
               or .mov (iPhone exports) without breaking. */}
