@@ -200,7 +200,7 @@ export async function POST(request: Request) {
       headcount: body.headcount,
       notes: body.notes ?? null,
       parent_name: body.parent_name,
-      email: body.email.toLowerCase(),
+      email: body.email.trim().toLowerCase(),
       phone: body.phone,
       subtotal_cents: pricing.subtotalCents,
       discount_cents: pricing.discountCents,
@@ -253,7 +253,7 @@ export async function POST(request: Request) {
     customerId = existing.data[0].id;
   } else {
     const newCust = await stripe.customers.create({
-      email: body.email.toLowerCase(),
+      email: body.email.trim().toLowerCase(),
       name: body.parent_name,
       phone: body.phone,
     });
