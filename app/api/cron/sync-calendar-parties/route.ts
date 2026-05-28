@@ -86,6 +86,9 @@ export async function GET(req: Request) {
         start_time: e.startTimeSql,
         duration_minutes: e.durationMinutes,
         external_event_id: e.id,
+        // Surfacing the type so the open-play page can ignore semi-private
+        // entries when rendering closure banners — semi keeps open play open.
+        package_type: e.isPrivate ? 'private' : 'semi',
       }));
       const { error: insErr } = await db.from('blocked_dates').insert(rows);
       if (insErr) throw new Error(`insert failed: ${insErr.message}`);

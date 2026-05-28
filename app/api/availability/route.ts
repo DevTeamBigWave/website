@@ -24,7 +24,7 @@ export async function GET(request: Request) {
 
   const { data, error } = await supabase
     .from('blocked_dates')
-    .select('date, block_type, reason, start_time, duration_minutes')
+    .select('date, block_type, reason, start_time, duration_minutes, package_type')
     .gte('date', from.toISOString().split('T')[0])
     .lte('date', to.toISOString().split('T')[0]);
 
@@ -38,6 +38,7 @@ export async function GET(request: Request) {
     reason: row.reason,
     startTime: row.start_time,
     totalMinutes: row.duration_minutes ?? 120,
+    packageType: row.package_type, // 'private' | 'semi' | null
   }));
 
   return NextResponse.json({

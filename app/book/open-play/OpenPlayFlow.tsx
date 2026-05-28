@@ -9,9 +9,11 @@ type AvailabilityRow = {
   date: string;
   blockType: 'full' | 'partial';
   reason: string;
-  package?: string;
   startTime?: string;
   totalMinutes?: number;
+  // Open play continues during semi-private parties (just the party room is
+  // dedicated), so we only treat 'private' partial blocks as closures here.
+  packageType?: 'private' | 'semi' | null;
 };
 
 function sqlTimeToDisplay(sql: string, addMinutes = 0): string {
@@ -129,6 +131,10 @@ export function OpenPlayFlow({ cancelled }: { cancelled: boolean }) {
     const map = new Map<string, AvailabilityRow[]>();
     for (const row of availability) {
       if (row.blockType !== 'partial' || !row.startTime) continue;
+      // Semi-private parties don't pause open play (only the party room
+      // is dedicated; the rest of the venue stays open to drop-ins).
+      // Skip them so they don't show a "closed" banner.
+      if (row.packageType === 'semi') continue;
       const arr = map.get(row.date) ?? [];
       arr.push(row);
       map.set(row.date, arr);
