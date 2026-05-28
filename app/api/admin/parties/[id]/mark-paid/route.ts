@@ -59,6 +59,11 @@ export async function POST(
     const depositUpdates: Record<string, unknown> = {
       deposit_paid_at: new Date().toISOString(),
       deposit_payment_method: body.method,
+      // Recording a deposit is the contractual signal that the party is
+      // happening — promote out of 'hold' so the blocked_dates trigger
+      // fires and the slot stops looking available to everyone else.
+      status: 'confirmed',
+      hold_expires_at: null,
     };
     if (body.amount_cents != null) {
       depositUpdates.deposit_cents = body.amount_cents;
