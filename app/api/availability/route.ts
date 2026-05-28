@@ -14,28 +14,17 @@ export async function GET(request: Request) {
   const to = new Date(from);
   to.setDate(from.getDate() + days);
 
-  // Service-role client: parties has RLS that blocks anon SELECT (PII),
-  // which means the embedded join below returns nothing under the anon
-  // client. The fields we surface here are non-PII (date, package, start
-  // time, duration only — no names, no emails, no phone), so it's safe
-  // to bypass RLS for this read.
+  // Service-role read: blocked_dates and parties both have RLS that hides
+  // these fields from the anon client. What we surface is non-PII (date,
+  // start time, duration, reason text) so bypassing RLS for this read is
+  // safe. start_time + duration_minutes live directly on blocked_dates as
+  // of migration 0026, so both party-sourced and external-calendar-sourced
+  // blocks come back through the same shape — no JOIN needed.
   const supabase = supabaseAdmin();
 
-  // We read from blocked_dates (auto-populated by trigger) joined with parties for context
   const { data, error } = await supabase
     .from('blocked_dates')
-    .select(`
-      date,
-      block_type,
-      reason,
-      parties (
-        id,
-        package,
-        start_time,
-        duration_minutes,
-        extension_minutes
-      )
-    `)
+    .select('date, block_type, reason, start_time, duration_minutes')
     .gte('date', from.toISOString().split('T')[0])
     .lte('date', to.toISOString().split('T')[0]);
 
@@ -43,17 +32,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Normalize for the client. totalMinutes = base duration + optional extension —
-  // booking flow uses it to flag back-to-back overlaps when picking an extension.
   const availability = (data ?? []).map((row: any) => ({
     date: row.date,
     blockType: row.block_type, // 'full' | 'partial'
     reason: row.reason,
-    package: row.parties?.package,
-    startTime: row.parties?.start_time,
-    totalMinutes:
-      (row.parties?.duration_minutes ?? 120) +
-      (row.parties?.extension_minutes ?? 0),
+    startTime: row.start_time,
+    totalMinutes: row.duration_minutes ?? 120,
   }));
 
   return NextResponse.json({

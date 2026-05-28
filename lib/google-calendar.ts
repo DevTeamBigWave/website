@@ -450,6 +450,107 @@ export async function getBusyRanges(
   return data.calendars[integration.calendar_id]?.busy ?? [];
 }
 
+// List private/semi-private party events on the owner's calendar in a date
+// range. Used by the sync-calendar-parties cron to surface manual calendar
+// entries (pre-website parties + one-offs) as blocked_dates rows.
+//
+// Match rule: summary case-insensitively contains "private" or "semi". That
+// catches both our own auto-created events ("🎉 Mia — birthday (Private)")
+// AND hand-typed ones ("Sasha Semi-Private", "Private party for Leo").
+// Cron caller filters our own out by matching event.id against the
+// google_calendar_event_id we already store on parties rows.
+export type ExternalPartyEvent = {
+  id: string;
+  summary: string;
+  date: string;             // YYYY-MM-DD
+  startTimeSql: string;     // HH:MM:SS (NYC local)
+  durationMinutes: number;
+  isPrivate: boolean;
+};
+
+export async function listPartyEvents(
+  fromDate: Date,
+  toDate: Date,
+): Promise<ExternalPartyEvent[]> {
+  const integration = await getIntegration();
+  if (!integration) return [];
+
+  const accessToken = await getValidAccessToken(integration);
+  // singleEvents=true expands recurring events to their individual instances
+  // so we get one block per occurrence (matters if owner ever sets up a
+  // recurring "Private party" pattern — unlikely but harmless).
+  const url =
+    `${CALENDAR_API}/calendars/${encodeURIComponent(integration.calendar_id)}/events` +
+    `?timeMin=${encodeURIComponent(fromDate.toISOString())}` +
+    `&timeMax=${encodeURIComponent(toDate.toISOString())}` +
+    `&singleEvents=true&orderBy=startTime&maxResults=250`;
+
+  const res = await fetch(url, {
+    headers: { authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Calendar list failed: ${res.status} ${err}`);
+  }
+  const data = (await res.json()) as {
+    items?: Array<{
+      id: string;
+      summary?: string;
+      status?: string;
+      start?: { dateTime?: string; date?: string };
+      end?: { dateTime?: string; date?: string };
+    }>;
+  };
+
+  const out: ExternalPartyEvent[] = [];
+  for (const ev of data.items ?? []) {
+    if (ev.status === 'cancelled') continue;
+    const summary = (ev.summary ?? '').trim();
+    if (!summary) continue;
+    const lower = summary.toLowerCase();
+    const isPrivate = lower.includes('private');
+    const isSemi = lower.includes('semi');
+    if (!isPrivate && !isSemi) continue;
+
+    // All-day events (no time component) — skip; we can't compute a window.
+    const startISO = ev.start?.dateTime;
+    const endISO = ev.end?.dateTime;
+    if (!startISO || !endISO) continue;
+
+    const start = new Date(startISO);
+    const end = new Date(endISO);
+    const durationMinutes = Math.max(
+      30,
+      Math.round((end.getTime() - start.getTime()) / 60_000),
+    );
+
+    // Render the date + time in America/New_York so a 2pm party shows as
+    // 2pm regardless of where the cron is running.
+    const nyDateTime = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/New_York',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }).formatToParts(start);
+    const pick = (t: string) => nyDateTime.find((p) => p.type === t)?.value ?? '';
+    const date = `${pick('year')}-${pick('month')}-${pick('day')}`;
+    let hour = pick('hour');
+    if (hour === '24') hour = '00';
+    const startTimeSql = `${hour}:${pick('minute')}:00`;
+
+    out.push({
+      id: ev.id,
+      summary,
+      date,
+      startTimeSql,
+      durationMinutes,
+      // If the title contains "semi" we treat it as semi (even if it also
+      // contains "private", since "Semi-Private" includes both words).
+      isPrivate: isPrivate && !isSemi,
+    });
+  }
+  return out;
+}
+
 // Generic appointment event creator (for tours, inquiry calls, planning calls).
 // Returns the new event ID or null if no integration is connected.
 export async function createAppointmentEvent(input: {
