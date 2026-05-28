@@ -38,7 +38,7 @@ function PartyVideo() {
   const poster = process.env.NEXT_PUBLIC_PARTY_VIDEO_POSTER_URL;
   return (
     <section className="bg-cream py-12 md:py-16">
-      <div className="mx-auto max-w-5xl px-6">
+      <div className="mx-auto max-w-sm px-6">
         <div className="overflow-hidden rounded-3xl bg-slate-900 shadow-card">
           <video
             // autoPlay + muted + playsInline is the standard combo that
@@ -52,7 +52,9 @@ function PartyVideo() {
             controls
             preload="metadata"
             poster={poster}
-            className="aspect-video w-full object-cover"
+            // 9:16 to match a vertical phone-shot video; contain (not cover)
+            // so we never crop, since we control the aspect ratio anyway.
+            className="aspect-[9/16] w-full object-contain"
           >
             {/* No type= hint — lets the browser sniff so we accept .mp4
                 or .mov (iPhone exports) without breaking. */}
