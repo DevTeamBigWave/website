@@ -321,7 +321,7 @@ async function handleMembershipCheckoutCompleted(
   const customer = await stripe.customers.retrieve(customerId);
   if (customer.deleted) return;
 
-  const email = (customer.email ?? '').toLowerCase();
+  const email = (customer.email ?? '').trim().toLowerCase();
   const parentName =
     customer.name ??
     (session.metadata?.parent_name as string) ??

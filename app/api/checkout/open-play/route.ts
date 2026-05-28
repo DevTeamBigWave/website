@@ -48,7 +48,7 @@ export async function POST(request: Request) {
       date: body.date.split('T')[0],
       num_children: body.numChildren,
       parent_name: body.parentName,
-      email: body.email,
+      email: body.email.trim().toLowerCase(),
       phone: body.phone,
       total_cents: pricing.totalCents,
       payment_method: body.paymentMethod,
@@ -111,7 +111,7 @@ export async function POST(request: Request) {
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
     payment_method_types: ['card'],
-    customer_email: body.email,
+    customer_email: body.email.trim().toLowerCase(),
     line_items:
       giftCardApplyCents > 0
         ? [

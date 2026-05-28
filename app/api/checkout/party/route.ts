@@ -138,7 +138,7 @@ export async function POST(request: Request) {
       headcount: body.headcount,
       notes: composeNotes(body.notes, body.decorTheme),
       parent_name: body.parentName,
-      email: body.email,
+      email: body.email.trim().toLowerCase(),
       phone: body.phone,
       subtotal_cents: pricing.subtotalCents,
       discount_cents: pricing.discountCents,
@@ -280,7 +280,7 @@ export async function POST(request: Request) {
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
     payment_method_types: ['card'],
-    customer_email: body.email,
+    customer_email: body.email.trim().toLowerCase(),
     line_items: [
       {
         quantity: 1,
