@@ -24,6 +24,22 @@ function sqlTimeToDisplay(sql: string, addMinutes = 0): string {
   return `${hh}:${String(mm).padStart(2, '0')} ${period}`;
 }
 
+// Compact form for the calendar tile: "12–2p", "9:30a", etc.
+// We deliberately do NOT include the 30-min setup buffer here — customers
+// see the actual party window, since open play is what's blocked, not the
+// staff turnover time around it.
+function sqlTimeToCompact(sql: string, addMinutes = 0): string {
+  const [h, m] = sql.split(':').map(Number);
+  const total = h * 60 + m + addMinutes;
+  const h24 = Math.floor(total / 60) % 24;
+  const mm = total % 60;
+  const period = h24 >= 12 ? 'p' : 'a';
+  const hh = ((h24 + 11) % 12) + 1;
+  return mm === 0
+    ? `${hh}${period}`
+    : `${hh}:${String(mm).padStart(2, '0')}${period}`;
+}
+
 export function OpenPlayFlow({ cancelled }: { cancelled: boolean }) {
   const [date, setDate] = useState<Date | null>(null);
   const [numChildren, setNumChildren] = useState(1);
@@ -130,6 +146,20 @@ export function OpenPlayFlow({ cancelled }: { cancelled: boolean }) {
       const end = sqlTimeToDisplay(r.startTime!, r.totalMinutes ?? 120);
       return `${start} – ${end}`;
     });
+  };
+
+  // Short labels for the calendar tiles ("12–2p"). Sorted by start time so
+  // multi-party days read in chronological order.
+  const compactClosuresFor = (d: Date): string[] => {
+    const rows = partialBlocksByDate.get(isoDate(d)) ?? [];
+    return rows
+      .slice()
+      .sort((a, b) => (a.startTime ?? '').localeCompare(b.startTime ?? ''))
+      .map((r) => {
+        const start = sqlTimeToCompact(r.startTime!);
+        const end = sqlTimeToCompact(r.startTime!, r.totalMinutes ?? 120);
+        return `${start}–${end}`;
+      });
   };
 
   const pricing = useMemo(() => calculateOpenPlayPricing(numChildren), [numChildren]);
@@ -260,9 +290,15 @@ export function OpenPlayFlow({ cancelled }: { cancelled: boolean }) {
               <p className="text-sm text-slate-500">Loading availability…</p>
             ) : (
               <>
-                <p className="mb-3 inline-flex items-center gap-1.5 text-xs text-slate-500">
-                  <span className="inline-block h-2.5 w-2.5 rounded-sm border border-sky-200 bg-sky-50" />
-                  Fri–Sun highlighted
+                <p className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-500">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="inline-block h-2.5 w-2.5 rounded-sm border border-sky-200 bg-sky-50" />
+                    Fri–Sun
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="inline-block h-2.5 w-2.5 rounded-sm border border-coral-200 bg-coral-50" />
+                    Open play paused during a private party (window shown)
+                  </span>
                 </p>
                 <div className="space-y-6">
                   {daysByMonth.map((group) => (
@@ -274,7 +310,8 @@ export function OpenPlayFlow({ cancelled }: { cancelled: boolean }) {
                         {group.days.map((d) => {
                           const selected = date && sameDay(d, date);
                           const closed = isDayClosed(d);
-                          const partial = partialBlocksByDate.has(isoDate(d));
+                          const closures = closed ? [] : compactClosuresFor(d);
+                          const partial = closures.length > 0;
                           const dow = d.getDay();
                           const isWeekend = dow === 0 || dow === 5 || dow === 6;
                           return (
@@ -283,31 +320,45 @@ export function OpenPlayFlow({ cancelled }: { cancelled: boolean }) {
                               type="button"
                               disabled={closed}
                               onClick={() => setDate(d)}
-                              className={`relative rounded-xl border px-2 py-3 text-center transition ${
+                              className={`relative flex flex-col items-center justify-start rounded-xl border px-2 py-3 text-center transition ${
                                 closed
                                   ? 'cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300'
                                   : selected
                                     ? 'border-coral bg-coral text-white'
-                                    : isWeekend
-                                      ? 'border-sky-200 bg-sky-50 text-slate-700 hover:border-sky-400'
-                                      : 'border-slate-200 bg-white hover:border-slate-400'
+                                    : partial
+                                      ? 'border-coral-200 bg-coral-50 text-slate-700 hover:border-coral-400'
+                                      : isWeekend
+                                        ? 'border-sky-200 bg-sky-50 text-slate-700 hover:border-sky-400'
+                                        : 'border-slate-200 bg-white hover:border-slate-400'
                               }`}
+                              aria-label={
+                                partial
+                                  ? `${d.toDateString()}. Open play paused ${closures.join(', ')} for a private party.`
+                                  : undefined
+                              }
                             >
                               <p className="text-[10px] uppercase tracking-wider opacity-70">
                                 {d.toLocaleDateString('en-US', { weekday: 'short' })}
                               </p>
-                              <p className="font-display text-xl">{d.getDate()}</p>
+                              <p className="font-display text-xl leading-none">
+                                {d.getDate()}
+                              </p>
                               {closed && (
-                                <p className="mt-0.5 text-[8px] font-bold uppercase opacity-60">
+                                <p className="mt-1 text-[8px] font-bold uppercase opacity-60">
                                   Closed
                                 </p>
                               )}
-                              {partial && !closed && !selected && (
-                                <span
-                                  className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-sunshine"
-                                  aria-label="Partial closure"
-                                />
-                              )}
+                              {partial &&
+                                closures.map((c) => (
+                                  <p
+                                    key={c}
+                                    className={`mt-0.5 text-[9px] font-bold tracking-tight ${
+                                      selected ? 'text-white/90' : 'text-coral-700'
+                                    }`}
+                                  >
+                                    {c}
+                                  </p>
+                                ))}
                             </button>
                           );
                         })}
@@ -316,9 +367,9 @@ export function OpenPlayFlow({ cancelled }: { cancelled: boolean }) {
                   ))}
                 </div>
                 <p className="mt-3 text-xs text-slate-400">
-                  Days marked &ldquo;closed&rdquo; are fully unavailable. A yellow dot
-                  means a private party is booked for part of the day — open play
-                  pauses during that window only.
+                  Days marked &ldquo;closed&rdquo; are fully unavailable. Days with a
+                  time range mean a private party is booked then — open play is paused
+                  during that window only, and you&rsquo;re welcome before or after.
                 </p>
 
                 {date && closureWindowsFor(date).length > 0 && (
