@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseServer } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase';
 
 // Edge-cached for performance. Stripe webhook calls revalidatePath('/api/availability') on success.
 export const revalidate = 60;
@@ -14,7 +14,12 @@ export async function GET(request: Request) {
   const to = new Date(from);
   to.setDate(from.getDate() + days);
 
-  const supabase = await supabaseServer();
+  // Service-role client: parties has RLS that blocks anon SELECT (PII),
+  // which means the embedded join below returns nothing under the anon
+  // client. The fields we surface here are non-PII (date, package, start
+  // time, duration only — no names, no emails, no phone), so it's safe
+  // to bypass RLS for this read.
+  const supabase = supabaseAdmin();
 
   // We read from blocked_dates (auto-populated by trigger) joined with parties for context
   const { data, error } = await supabase
