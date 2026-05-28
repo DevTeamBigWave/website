@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { AnnouncementBar, Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { supabaseAdmin } from '@/lib/supabase';
+import { computePartyFinancials } from '@/lib/parties';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,7 +47,7 @@ async function PartyConfirm({ partyId, giftFlag }: { partyId: string; giftFlag: 
   const { data: party } = await db
     .from('parties')
     .select(
-      'id, parent_name, email, child_name, child_age, date, start_time, package, status, headcount, total_cents, deposit_cents, deposit_paid_at, promo_code_id',
+      'id, parent_name, email, child_name, child_age, date, start_time, package, status, headcount, total_cents, deposit_cents, deposit_paid_at, add_ons_total_cents, gift_card_applied_cents, balance_paid_amount_cents, manual_discount_percent, manual_discount_cents, promo_code_id',
     )
     .eq('id', partyId)
     .maybeSingle();
@@ -55,6 +56,9 @@ async function PartyConfirm({ partyId, giftFlag }: { partyId: string; giftFlag: 
 
   // Promo-code booking: no deposit was actually paid. Render different copy.
   const isPromoBooking = !party.deposit_paid_at && !!party.promo_code_id;
+  // Use the same finance helper as admin / emails / calendar so this page
+  // stays accurate if add-ons or a F&F discount get applied later.
+  const fin = computePartyFinancials(party as any);
 
   return (
     <>
@@ -98,10 +102,10 @@ async function PartyConfirm({ partyId, giftFlag }: { partyId: string; giftFlag: 
             <div className="mt-6 rounded-2xl bg-cream-deep p-5 text-sm">
               <Row label="Package">{party.package === 'private' ? 'Private' : 'Semi-Private'}</Row>
               <Row label="Headcount">{party.headcount} kids</Row>
-              <Row label="Total">{fmt(party.total_cents)}</Row>
+              <Row label="Total">{fmt(fin.grand_total_cents)}</Row>
               {isPromoBooking ? (
                 <Row label="Balance owed">
-                  <strong>{fmt(party.total_cents)}</strong> · invoice on the way
+                  <strong>{fmt(fin.balance_due_cents)}</strong> · invoice on the way
                 </Row>
               ) : (
                 <>
@@ -109,7 +113,7 @@ async function PartyConfirm({ partyId, giftFlag }: { partyId: string; giftFlag: 
                     {fmt(party.deposit_cents)} {giftFlag ? '🎁' : '✓'}
                   </Row>
                   <Row label="Balance due 7 days before">
-                    {fmt(party.total_cents - party.deposit_cents)}
+                    {fmt(fin.balance_due_cents)}
                   </Row>
                 </>
               )}

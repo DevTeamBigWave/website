@@ -6,6 +6,7 @@
 // it's expired, then hits Calendar API directly.
 
 import { supabaseAdmin } from '@/lib/supabase';
+import { computePartyFinancials } from '@/lib/parties';
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const CALENDAR_API = 'https://www.googleapis.com/calendar/v3';
@@ -206,23 +207,31 @@ function buildEventBody(
   }
 
   if (party.total_cents != null) {
+    // Single source of truth for grand total + balance, so the calendar
+    // event always agrees with admin views, balance invoices, and emails.
+    const fin = computePartyFinancials(party as any);
+
     lines.push('', 'Money:');
     lines.push(`  Party total: ${fmt(party.total_cents)}`);
     if (party.add_ons_total_cents && party.add_ons_total_cents > 0) {
       lines.push(`  + Add-ons: ${fmt(party.add_ons_total_cents)}`);
     }
-    if (party.manual_discount_percent && party.manual_discount_percent > 0) {
-      lines.push(`  − Friends & family ${party.manual_discount_percent}% off`);
-    } else if (party.manual_discount_cents && party.manual_discount_cents > 0) {
-      lines.push(`  − Friends & family discount: ${fmt(party.manual_discount_cents)}`);
+    if (fin.manual_discount_cents > 0) {
+      lines.push(
+        fin.manual_discount_percent > 0
+          ? `  − Friends & family ${fin.manual_discount_percent}% off: ${fmt(fin.manual_discount_cents)}`
+          : `  − Friends & family discount: ${fmt(fin.manual_discount_cents)}`,
+      );
     }
-    // Promo-code path: no deposit was collected at booking. Show the full
-    // amount as owed instead of a "Deposit: $X — unpaid" line that implies
-    // only the deposit is due.
+    lines.push(`  Grand total: ${fmt(fin.grand_total_cents)}`);
+
+    // Promo-code path: no deposit was collected at booking. Show the real
+    // grand-total balance (post-discount, post-add-ons) so the owner sees
+    // the actual outstanding amount, not a stale party-only subtotal.
     const isPromoUnpaid = !party.deposit_paid_at && !!party.promo_code_id;
     if (isPromoUnpaid) {
       lines.push('  ⚠ Promo code applied · no payment received yet');
-      lines.push(`  Balance owed: ${fmt(party.total_cents + (party.add_ons_total_cents ?? 0))}`);
+      lines.push(`  Balance owed: ${fmt(fin.balance_due_cents)}`);
     } else if (party.deposit_cents) {
       const paid = party.deposit_paid_at
         ? ` ✓ paid${party.deposit_payment_method ? ` (${party.deposit_payment_method})` : ''}`
@@ -231,6 +240,9 @@ function buildEventBody(
     }
     if (party.balance_paid_amount_cents && party.balance_paid_amount_cents > 0) {
       lines.push(`  Balance paid: ${fmt(party.balance_paid_amount_cents)}`);
+    }
+    if (fin.balance_due_cents > 0 && !isPromoUnpaid) {
+      lines.push(`  Balance due: ${fmt(fin.balance_due_cents)}`);
     }
   }
 

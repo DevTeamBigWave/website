@@ -74,7 +74,7 @@ export async function POST(
   const { data: party, error: pErr } = await db
     .from('parties')
     .select(
-      'id, date, start_time, package, child_name, parent_name, email, status, headcount, duration_minutes, extension_minutes, weekday_discount_applied, total_cents',
+      'id, date, start_time, package, child_name, parent_name, email, status, headcount, duration_minutes, extension_minutes, weekday_discount_applied, total_cents, deposit_cents, deposit_paid_at',
     )
     .eq('id', partyId)
     .maybeSingle();
@@ -184,8 +184,19 @@ export async function POST(
     updates.discount_cents = recomputed.discountCents; // 0
     updates.tax_cents = recomputed.taxCents;
     updates.total_cents = recomputed.totalCents;
-    updates.deposit_cents = recomputed.depositCents;
     updates.weekday_discount_applied = false;
+
+    // Only re-quote the deposit if the existing one was the standard 50%
+    // of the old discounted total. Custom deposits (set by the owner for a
+    // legacy / negotiated party) and already-paid deposits stay put — the
+    // customer paid X, that X is the deposit, balance picks up the rest.
+    const oldStandardDeposit = Math.round(party.total_cents / 2);
+    const wasStandardDeposit =
+      !party.deposit_paid_at && party.deposit_cents === oldStandardDeposit;
+    if (wasStandardDeposit) {
+      updates.deposit_cents = recomputed.depositCents;
+    }
+
     pricingNote = `The Mon–Thu 20% discount no longer applies on the new date — party total is now $${(recomputed.totalCents / 100).toFixed(2)}. Any payments you've already made carry over and credit the new balance.`;
   }
 

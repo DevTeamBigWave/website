@@ -14,6 +14,7 @@ import { requireAdmin } from '@/lib/admin';
 import { supabaseAdmin } from '@/lib/supabase';
 import { stripe } from '@/lib/stripe';
 import { sendCreatedPartyInvoice } from '@/lib/email';
+import { computePartyFinancials } from '@/lib/parties';
 
 export const maxDuration = 60;
 
@@ -39,7 +40,7 @@ export async function POST(
   const { data: party, error: pErr } = await db
     .from('parties')
     .select(
-      'id, parent_name, email, phone, date, start_time, package, child_name, total_cents, deposit_cents, deposit_paid_at, manual_discount_percent, manual_discount_cents, invoice_theme, balance_invoice_id',
+      'id, parent_name, email, phone, date, start_time, package, child_name, total_cents, deposit_cents, deposit_paid_at, add_ons_total_cents, gift_card_applied_cents, balance_paid_amount_cents, manual_discount_percent, manual_discount_cents, invoice_theme, balance_invoice_id',
     )
     .eq('id', partyId)
     .maybeSingle();
@@ -54,15 +55,22 @@ export async function POST(
     );
   }
 
-  // Math: apply any friends-&-family discount to the party total, take 50%.
-  // Custom-$ amount wins over percent (matches computePartyFinancials).
+  // The deposit amount is whatever the party row carries (50% default at
+  // creation, or a custom amount the owner set). The balance shown on the
+  // invoice description is the canonical computePartyFinancials grand
+  // total minus what's about to be deposited.
+  const fin = computePartyFinancials(party as any);
+  const depositAmount = party.deposit_cents;
+  const remainingAfterDeposit = Math.max(0, fin.grand_total_cents - depositAmount);
+
+  // The Stripe invoice itemization (party + discount + balance credit)
+  // still discounts the party portion only, so we recompute the per-line
+  // numbers from party.total_cents. This matches the deposit-only branch
+  // of /admin/parties/new and the customer /book flow.
   const pct = party.manual_discount_percent ?? 0;
   const flatCents = party.manual_discount_cents ?? 0;
-  const rawDiscount = flatCents > 0 ? flatCents : Math.round((party.total_cents * pct) / 100);
-  const discountCents = Math.min(rawDiscount, party.total_cents);
-  const partyAfterDiscount = party.total_cents - discountCents;
-  const depositAmount = Math.round(partyAfterDiscount / 2);
-  const remainingAfterDeposit = partyAfterDiscount - depositAmount;
+  const rawPartyDiscount = flatCents > 0 ? flatCents : Math.round((party.total_cents * pct) / 100);
+  const partyDiscountCents = Math.min(rawPartyDiscount, party.total_cents);
 
   if (depositAmount < 50) {
     return NextResponse.json(
@@ -114,35 +122,20 @@ export async function POST(
     },
   });
 
-  // Itemize: party (with tax), discount, "balance later" credit
+  // Single-line itemization keeps the math simple regardless of how the
+  // deposit was set (custom amount vs default 50%). The invoice description
+  // already spells out the party + balance breakdown for the customer.
   await stripe.invoiceItems.create({
     customer: customerId,
     invoice: invoice.id,
-    amount: party.total_cents,
+    amount: depositAmount,
     currency: 'usd',
-    description: `${party.package === 'private' ? 'Private' : 'Semi-Private'} party (incl. tax) — ${formatDateLong(party.date)}`,
+    description: `Deposit for ${party.child_name ?? 'the'}'s ${party.package === 'private' ? 'Private' : 'Semi-Private'} party — ${formatDateLong(party.date)}. Balance of ${fmtMoney(remainingAfterDeposit)} invoiced separately.`,
   });
-  if (discountCents > 0) {
-    await stripe.invoiceItems.create({
-      customer: customerId,
-      invoice: invoice.id,
-      amount: -discountCents,
-      currency: 'usd',
-      description:
-        flatCents > 0
-          ? 'Friends & family discount'
-          : `Friends & family discount (${pct}% off)`,
-    });
-  }
-  if (remainingAfterDeposit > 0) {
-    await stripe.invoiceItems.create({
-      customer: customerId,
-      invoice: invoice.id,
-      amount: -remainingAfterDeposit,
-      currency: 'usd',
-      description: `Balance — invoiced separately closer to the party (deposit due now: ${fmtMoney(depositAmount)})`,
-    });
-  }
+  // Silence unused-var lint until we restore itemized lines if requested
+  void partyDiscountCents;
+  void pct;
+  void flatCents;
 
   const finalized = await stripe.invoices.finalizeInvoice(invoice.id);
   await stripe.invoices.sendInvoice(invoice.id);
