@@ -39,29 +39,30 @@ function PartyVideo() {
   return (
     <section className="bg-cream py-12 md:py-16">
       <div className="mx-auto max-w-sm px-6">
-        <div className="overflow-hidden rounded-3xl bg-slate-900 shadow-card">
-          <video
-            // autoPlay + muted + playsInline is the standard combo that
-            // makes mobile browsers (Safari especially) actually play it.
-            // Loop because we don't want a "Play" CTA at the end on a
-            // marketing surface.
-            autoPlay
-            muted
-            loop
-            playsInline
-            controls
-            preload="metadata"
-            poster={poster}
-            // 9:16 to match a vertical phone-shot video; contain (not cover)
-            // so we never crop, since we control the aspect ratio anyway.
-            className="aspect-[9/16] w-full object-contain"
-          >
-            {/* No type= hint — lets the browser sniff so we accept .mp4
-                or .mov (iPhone exports) without breaking. */}
-            <source src={url} />
-            Your browser doesn&rsquo;t support embedded video.
-          </video>
-        </div>
+        <video
+          // autoPlay + muted + playsInline is the standard combo that
+          // makes mobile browsers (Safari especially) actually play it.
+          // Loop because we don't want a "Play" CTA at the end on a
+          // marketing surface.
+          autoPlay
+          muted
+          loop
+          playsInline
+          controls
+          preload="metadata"
+          poster={poster}
+          // 9:16 to match a vertical phone-shot video; contain (not cover)
+          // so we never crop, since we control the aspect ratio anyway.
+          // rounded-3xl lives on the video itself (not a wrapper with
+          // overflow-hidden) so the native fullscreen button in the top-
+          // right corner of the controls layer doesn't get clipped.
+          className="aspect-[9/16] w-full rounded-3xl bg-slate-900 object-contain shadow-card"
+        >
+          {/* No type= hint — lets the browser sniff so we accept .mp4
+              or .mov (iPhone exports) without breaking. */}
+          <source src={url} />
+          Your browser doesn&rsquo;t support embedded video.
+        </video>
         <p className="mt-4 text-center text-sm text-slate-400">
           A quick peek at what a Wonderland party looks like.
         </p>
