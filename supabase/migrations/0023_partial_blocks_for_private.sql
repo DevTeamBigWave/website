@@ -7,34 +7,40 @@
 -- Conflict detection moves entirely into the booking flow's time-overlap
 -- check, which now also enforces a 30-minute buffer between parties for
 -- setup and cleanup.
+--
+-- Note on the to_jsonb(NEW) dance: the Supabase web SQL editor (especially
+-- on mobile) rewrites bare `new.<col>` tokens as `<new.col>` placeholders
+-- and breaks parsing. Extracting fields via to_jsonb avoids every dotted
+-- record reference so the function body pastes cleanly anywhere.
 -- ============================================================================
 
 create or replace function sync_blocked_dates_from_party()
-returns trigger as $func$
+returns trigger
+language plpgsql
+as $func$
+declare
+  r jsonb := to_jsonb(new);
+  pid uuid := (r->>'id')::uuid;
+  pstatus text := r->>'status';
+  ppackage text := r->>'package';
+  pdate date := (r->>'date')::date;
 begin
-  -- Remove any existing block for this party (handles status changes)
-  delete from blocked_dates where party_id = new.id;
+  delete from blocked_dates where party_id = pid;
 
-  -- Both packages now write a 'partial' block carrying the party's id so the
-  -- booking flow can do time-aware overlap checks. Whole-day 'full' blocks
-  -- are reserved for admin-created closures (plumbing, holidays, etc).
-  if new.status = 'confirmed' and (new.package = 'private' or new.package = 'semi') then
+  if pstatus = 'confirmed' and (ppackage = 'private' or ppackage = 'semi') then
     insert into blocked_dates (date, reason, source, party_id, block_type)
     values (
-      new.date,
-      case
-        when new.package = 'private' then 'Private party booked'
-        else 'Semi-private party scheduled'
-      end,
+      pdate,
+      case when ppackage = 'private' then 'Private party booked' else 'Semi-private party scheduled' end,
       'party',
-      new.id,
+      pid,
       'partial'
     );
   end if;
 
   return new;
 end;
-$func$ language plpgsql;
+$func$;
 
 -- Backfill: any currently-full Private block becomes partial.
 update blocked_dates
