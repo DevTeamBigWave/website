@@ -11,7 +11,7 @@
 // (event deleted or moved out of the sync window).
 //
 // Schedule on cron-job.org:
-//   URL:    https://<domain>/api/cron/sync-calendar-parties
+//   URL:    https://www.wonderlandplayhouse.com/api/cron/sync-calendar-parties
 //   Method: GET
 //   Header: x-cron-secret: <CRON_SECRET>
 //   When:   Every 30 minutes
@@ -33,98 +33,91 @@ export async function GET(req: Request) {
   if (!authed(req)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
-  if (!(await hasCalendarIntegration())) {
-    return NextResponse.json({ skipped: 'no calendar integration' });
-  }
 
-  // 6-month window — matches what we expose on the public booking calendar
-  const from = new Date();
-  from.setHours(0, 0, 0, 0);
-  const to = new Date(from);
-  to.setDate(from.getDate() + 180);
-
-  const events = await listPartyEvents(from, to);
-  const db = supabaseAdmin();
-
-  // Skip events we created ourselves — they're already mirrored by the
-  // parties trigger. Match by google_calendar_event_id.
-  const ourEventIds = new Set<string>();
-  const { data: ownParties } = await db
-    .from('parties')
-    .select('google_calendar_event_id')
-    .not('google_calendar_event_id', 'is', null);
-  for (const row of ownParties ?? []) {
-    if (row.google_calendar_event_id) ourEventIds.add(row.google_calendar_event_id);
-  }
-
-  const externalEvents = events.filter((e) => !ourEventIds.has(e.id));
-
-  // Upsert each external event into blocked_dates. external_event_id has a
-  // unique index so on_conflict updates the existing row in place.
-  const rows = externalEvents.map((e) => ({
-    date: e.date,
-    reason: e.isPrivate
-      ? `Private party (calendar): ${e.summary}`
-      : `Semi-private party (calendar): ${e.summary}`,
-    source: 'party',
-    block_type: 'partial',
-    start_time: e.startTimeSql,
-    duration_minutes: e.durationMinutes,
-    external_event_id: e.id,
-  }));
-
-  let upserted = 0;
-  if (rows.length > 0) {
-    const { error } = await db
-      .from('blocked_dates')
-      .upsert(rows, { onConflict: 'external_event_id' });
-    if (error) {
-      return NextResponse.json(
-        { error: `Upsert failed: ${error.message}` },
-        { status: 500 },
-      );
+  try {
+    if (!(await hasCalendarIntegration())) {
+      return NextResponse.json({ skipped: 'no calendar integration' });
     }
-    upserted = rows.length;
-  }
 
-  // Reconcile: any blocked_dates row with an external_event_id we no longer
-  // see in the calendar window should be deleted (event was cancelled,
-  // deleted, or moved outside the 180-day window).
-  const currentIds = externalEvents.map((e) => e.id);
-  let pruned = 0;
-  if (currentIds.length > 0) {
-    const { data: stale } = await db
+    // 6-month window — matches what we expose on the public booking calendar
+    const from = new Date();
+    from.setHours(0, 0, 0, 0);
+    const to = new Date(from);
+    to.setDate(from.getDate() + 180);
+
+    const events = await listPartyEvents(from, to);
+    const db = supabaseAdmin();
+
+    // Skip events we created ourselves — they're already mirrored by the
+    // parties trigger. Match by google_calendar_event_id.
+    const ourEventIds = new Set<string>();
+    const { data: ownParties, error: ownErr } = await db
+      .from('parties')
+      .select('google_calendar_event_id')
+      .not('google_calendar_event_id', 'is', null);
+    if (ownErr) throw new Error(`parties read failed: ${ownErr.message}`);
+    for (const row of ownParties ?? []) {
+      if (row.google_calendar_event_id) ourEventIds.add(row.google_calendar_event_id);
+    }
+
+    const externalEvents = events.filter((e) => !ourEventIds.has(e.id));
+    const externalIds = new Set(externalEvents.map((e) => e.id));
+
+    // Upsert by external_event_id. The unique index from migration 0026
+    // makes onConflict deterministic.
+    let upserted = 0;
+    if (externalEvents.length > 0) {
+      const rows = externalEvents.map((e) => ({
+        date: e.date,
+        reason: e.isPrivate
+          ? `Private party (calendar): ${e.summary}`
+          : `Semi-private party (calendar): ${e.summary}`,
+        source: 'party',
+        block_type: 'partial',
+        start_time: e.startTimeSql,
+        duration_minutes: e.durationMinutes,
+        external_event_id: e.id,
+      }));
+      const { error: upsertErr } = await db
+        .from('blocked_dates')
+        .upsert(rows, { onConflict: 'external_event_id' });
+      if (upsertErr) throw new Error(`upsert failed: ${upsertErr.message}`);
+      upserted = rows.length;
+    }
+
+    // Reconcile: fetch every block that has an external_event_id, then
+    // delete in JS those whose id isn't in the current event set.
+    // (Avoids PostgREST's awkward .not(...).in(...) string quoting.)
+    const { data: existing, error: existErr } = await db
       .from('blocked_dates')
       .select('id, external_event_id')
-      .not('external_event_id', 'is', null)
-      .not('external_event_id', 'in', `(${currentIds.map((id) => `"${id}"`).join(',')})`);
-    pruned = stale?.length ?? 0;
-    if (pruned > 0) {
-      await db
-        .from('blocked_dates')
-        .delete()
-        .in('id', (stale ?? []).map((r: any) => r.id));
-    }
-  } else {
-    // No external events in window — anything with external_event_id is stale
-    const { data: stale } = await db
-      .from('blocked_dates')
-      .select('id')
       .not('external_event_id', 'is', null);
-    pruned = stale?.length ?? 0;
-    if (pruned > 0) {
-      await db
+    if (existErr) throw new Error(`existing read failed: ${existErr.message}`);
+
+    const staleIds = (existing ?? [])
+      .filter((r: any) => r.external_event_id && !externalIds.has(r.external_event_id))
+      .map((r: any) => r.id);
+
+    let pruned = 0;
+    if (staleIds.length > 0) {
+      const { error: delErr } = await db
         .from('blocked_dates')
         .delete()
-        .in('id', (stale ?? []).map((r: any) => r.id));
+        .in('id', staleIds);
+      if (delErr) throw new Error(`prune failed: ${delErr.message}`);
+      pruned = staleIds.length;
     }
-  }
 
-  return NextResponse.json({
-    ok: true,
-    scanned: events.length,
-    ours_skipped: events.length - externalEvents.length,
-    upserted,
-    pruned,
-  });
+    return NextResponse.json({
+      ok: true,
+      scanned: events.length,
+      ours_skipped: events.length - externalEvents.length,
+      upserted,
+      pruned,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('sync-calendar-parties failed:', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 }
