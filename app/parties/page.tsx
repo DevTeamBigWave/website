@@ -15,6 +15,7 @@ export default function PartiesPage() {
       <AnnouncementBar />
       <Header />
       <Hero />
+      <PartyVideo />
       <Packages />
       <Difference />
       <OneStopShop />
@@ -25,6 +26,43 @@ export default function PartiesPage() {
       <FinalCta />
       <Footer />
     </>
+  );
+}
+
+// Video lives in a public Supabase Storage bucket so it can be swapped
+// without a code change. If the env var isn't set the section renders
+// nothing — the page degrades cleanly.
+function PartyVideo() {
+  const url = process.env.NEXT_PUBLIC_PARTY_VIDEO_URL;
+  if (!url) return null;
+  const poster = process.env.NEXT_PUBLIC_PARTY_VIDEO_POSTER_URL;
+  return (
+    <section className="bg-cream py-12 md:py-16">
+      <div className="mx-auto max-w-5xl px-6">
+        <div className="overflow-hidden rounded-3xl bg-slate-900 shadow-card">
+          <video
+            // autoPlay + muted + playsInline is the standard combo that
+            // makes mobile browsers (Safari especially) actually play it.
+            // Loop because we don't want a "Play" CTA at the end on a
+            // marketing surface.
+            autoPlay
+            muted
+            loop
+            playsInline
+            controls
+            preload="metadata"
+            poster={poster}
+            className="aspect-video w-full object-cover"
+          >
+            <source src={url} type="video/mp4" />
+            Your browser doesn&rsquo;t support embedded video.
+          </video>
+        </div>
+        <p className="mt-4 text-center text-sm text-slate-400">
+          A quick peek at what a Wonderland party looks like.
+        </p>
+      </div>
+    </section>
   );
 }
 
