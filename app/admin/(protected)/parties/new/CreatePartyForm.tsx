@@ -76,6 +76,24 @@ export function CreatePartyForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Custom (non-catalog) add-ons added by the owner. Mirrors the existing-
+  // party AddOnsEditor's custom item flow. Persisted with the party at
+  // submit time and treated identically to catalog items downstream.
+  type CustomAddOn = {
+    name: string;
+    priceDollars: string;
+    qty: string;
+    notes: string;
+  };
+  const [customAddOns, setCustomAddOns] = useState<CustomAddOn[]>([]);
+  const [customDraft, setCustomDraft] = useState<CustomAddOn>({
+    name: '',
+    priceDollars: '',
+    qty: '1',
+    notes: '',
+  });
+  const [customOpen, setCustomOpen] = useState(false);
+
   // Time slots depend on package
   const timeOptions = pkg === 'private' ? PRIVATE_PARTY_TIMES : SEMI_PARTY_TIMES;
 
@@ -87,20 +105,27 @@ export function CreatePartyForm() {
     }, {});
   }, []);
 
-  // Selected add-ons (only meaningful for 'full' invoices)
-  const selectedAddOns = useMemo(
-    () =>
-      ADD_ON_CATALOG.filter((c) => addOnRows[c.id]?.checked).map((c) => {
-        const r = addOnRows[c.id];
-        return {
-          catalog_id: c.id,
-          name: c.name,
-          unit_price_cents: Math.round(parseFloat(r.priceDollars || '0') * 100) || 0,
-          qty: parseInt(r.qty || '1', 10) || 1,
-        };
-      }),
-    [addOnRows],
-  );
+  // Selected add-ons (only meaningful for 'full' invoices). Catalog items
+  // come from the grid, custom items from the expander below it. The API
+  // schema accepts both shapes (catalog_id is optional).
+  const selectedAddOns = useMemo(() => {
+    const catalogItems = ADD_ON_CATALOG.filter((c) => addOnRows[c.id]?.checked).map((c) => {
+      const r = addOnRows[c.id];
+      return {
+        catalog_id: c.id,
+        name: c.name,
+        unit_price_cents: Math.round(parseFloat(r.priceDollars || '0') * 100) || 0,
+        qty: parseInt(r.qty || '1', 10) || 1,
+      };
+    });
+    const customItems = customAddOns.map((c) => ({
+      name: c.name.trim(),
+      unit_price_cents: Math.round(parseFloat(c.priceDollars || '0') * 100) || 0,
+      qty: parseInt(c.qty || '1', 10) || 1,
+      ...(c.notes.trim() ? { notes: c.notes.trim() } : {}),
+    }));
+    return [...catalogItems, ...customItems];
+  }, [addOnRows, customAddOns]);
 
   const addOnsTotalCents = selectedAddOns.reduce(
     (s, a) => s + a.unit_price_cents * a.qty,
@@ -512,6 +537,37 @@ export function CreatePartyForm() {
               : 'Optional. Saved on the party — invoiced with the balance later, not on this deposit.'
           }
         >
+          {customAddOns.length > 0 && (
+            <div className="mb-4 space-y-1.5 rounded-xl border border-slate-200 bg-cream-deep p-3">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                Custom items
+              </p>
+              {customAddOns.map((c, i) => (
+                <div
+                  key={`${c.name}-${i}`}
+                  className="flex items-center justify-between gap-2 rounded-lg bg-white px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-slate-700">{c.name}</p>
+                    {c.notes && <p className="truncate text-xs text-slate-400">{c.notes}</p>}
+                  </div>
+                  <div className="flex flex-none items-center gap-2 text-sm">
+                    <span className="font-semibold text-coral">
+                      ${parseFloat(c.priceDollars || '0').toFixed(2)} × {c.qty}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCustomAddOns((arr) => arr.filter((_, j) => j !== i))}
+                      className="rounded-full px-2 py-0.5 text-xs text-slate-400 hover:bg-slate-100 hover:text-coral"
+                      aria-label={`Remove ${c.name}`}
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="divide-y divide-slate-100">
             {Object.entries(grouped).map(([category, list]) => (
               <div key={category} className="py-3 first:pt-0 last:pb-0">
@@ -580,6 +636,106 @@ export function CreatePartyForm() {
               </div>
             ))}
           </div>
+
+          {/* Custom item — mirrors the existing-party AddOnsEditor expander
+              so Gaby can add ad-hoc items (e.g. specialty cake, character
+              from a non-standard vendor) at booking creation. */}
+          <details
+            open={customOpen}
+            onToggle={(e) => setCustomOpen((e.currentTarget as HTMLDetailsElement).open)}
+            className="mt-4 rounded-xl border border-slate-200 bg-white"
+          >
+            <summary className="cursor-pointer px-4 py-3 text-sm font-bold text-slate-700">
+              + Custom item (not in catalog)
+            </summary>
+            <div className="space-y-3 border-t border-slate-100 px-4 py-4">
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
+                <label className="block">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Name on invoice
+                  </span>
+                  <input
+                    type="text"
+                    value={customDraft.name}
+                    onChange={(e) =>
+                      setCustomDraft((d) => ({ ...d, name: e.target.value }))
+                    }
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Price (USD)
+                  </span>
+                  <input
+                    type="number"
+                    onFocus={(e) => e.currentTarget.select()}
+                    step="0.01"
+                    min="0"
+                    value={customDraft.priceDollars}
+                    onChange={(e) =>
+                      setCustomDraft((d) => ({ ...d, priceDollars: e.target.value }))
+                    }
+                    className="mt-1 w-24 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Qty
+                  </span>
+                  <input
+                    type="number"
+                    onFocus={(e) => e.currentTarget.select()}
+                    min="1"
+                    value={customDraft.qty}
+                    onChange={(e) =>
+                      setCustomDraft((d) => ({ ...d, qty: e.target.value }))
+                    }
+                    className="mt-1 w-20 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
+                  />
+                </label>
+              </div>
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Notes (optional)
+                </span>
+                <input
+                  type="text"
+                  value={customDraft.notes}
+                  onChange={(e) =>
+                    setCustomDraft((d) => ({ ...d, notes: e.target.value }))
+                  }
+                  placeholder="e.g. Lactose-free, specific flavor"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  const name = customDraft.name.trim();
+                  const priceCents = Math.round(
+                    parseFloat(customDraft.priceDollars || '0') * 100,
+                  );
+                  const qty = parseInt(customDraft.qty || '1', 10) || 1;
+                  if (!name) {
+                    setError('Custom item needs a name.');
+                    return;
+                  }
+                  if (!Number.isFinite(priceCents) || priceCents < 0) {
+                    setError('Custom item needs a price.');
+                    return;
+                  }
+                  setError(null);
+                  setCustomAddOns((arr) => [...arr, { ...customDraft, qty: String(qty) }]);
+                  setCustomDraft({ name: '', priceDollars: '', qty: '1', notes: '' });
+                  setCustomOpen(false);
+                }}
+                className="rounded-full bg-slate-700 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-slate-600"
+              >
+                Add custom item
+              </button>
+            </div>
+          </details>
         </Card>
       </div>
 
