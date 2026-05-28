@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { PRIVATE_PARTY_TIMES, SEMI_PARTY_TIMES } from '@/lib/pricing';
+import { PRIVATE_PARTY_TIMES } from '@/lib/pricing';
 
 // "10:00 AM" → "10:00"
 function to24h(slot: string): string {
@@ -48,9 +48,11 @@ export function RescheduleCard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const slots = (partyPackage === 'private' ? PRIVATE_PARTY_TIMES : SEMI_PARTY_TIMES).map(
-    (s) => ({ value: to24h(s), label: s }),
-  );
+  // Admin reschedule offers the full hourly grid for both packages —
+  // semi-private parties can be moved to any time Gaby negotiates with
+  // the family, not just the customer-facing 1pm/2pm defaults.
+  const slots = PRIVATE_PARTY_TIMES.map((s) => ({ value: to24h(s), label: s }));
+  void partyPackage; // accepted as prop but unused for slot list now
 
   const submit = async () => {
     setError(null);

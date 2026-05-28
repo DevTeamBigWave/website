@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import {
   PACKAGES,
   PRIVATE_PARTY_TIMES,
-  SEMI_PARTY_TIMES,
   calculatePartyPricing,
   type PackageId,
 } from '@/lib/pricing';
@@ -102,7 +101,10 @@ export function CreatePartyForm() {
   const [customOpen, setCustomOpen] = useState(false);
 
   // Time slots depend on package
-  const timeOptions = pkg === 'private' ? PRIVATE_PARTY_TIMES : SEMI_PARTY_TIMES;
+  // Admin can override the customer-facing semi-private slot restriction
+  // (the public /book flow only offers 1pm/2pm for semi). Showing every
+  // hourly slot here so Gaby can take whatever time the family negotiates.
+  const timeOptions = PRIVATE_PARTY_TIMES;
 
   // Grouped catalog for the grid
   const grouped = useMemo(() => {
@@ -296,7 +298,10 @@ export function CreatePartyForm() {
                 onChange={(e) => {
                   const next = e.target.value as PackageId;
                   setPkg(next);
-                  setStartTime(to24h((next === 'private' ? PRIVATE_PARTY_TIMES : SEMI_PARTY_TIMES)[0]));
+                  // Admin uses the hourly grid for both packages — keep
+                  // whatever time is already chosen instead of forcing
+                  // semi back to 1pm.
+                  if (!startTime) setStartTime(to24h(PRIVATE_PARTY_TIMES[0]));
                   setHeadcount(String(PACKAGES[next].includedKids));
                 }}
                 className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"

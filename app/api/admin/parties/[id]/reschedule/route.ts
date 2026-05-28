@@ -11,7 +11,7 @@ import { z } from 'zod';
 import { requireOwner } from '@/lib/admin';
 import { supabaseAdmin } from '@/lib/supabase';
 import {
-  partyTimesFor,
+  PRIVATE_PARTY_TIMES,
   calculatePartyPricing,
   PACKAGES,
   type PackageId,
@@ -96,12 +96,15 @@ export async function POST(
     );
   }
 
-  // Validate the slot is allowed for the party's package
-  const validSlots = partyTimesFor(party.package as PackageId).map(to24h);
+  // Admin can reschedule to any hourly slot for either package — the
+  // semi-private 1pm/2pm restriction is a customer-facing default only.
+  // We allow the full hourly grid here so Gaby can move a booking to
+  // whatever time the family negotiates.
+  const validSlots = PRIVATE_PARTY_TIMES.map(to24h);
   if (!validSlots.includes(body.new_start_time)) {
     return NextResponse.json(
       {
-        error: `Time slot is not valid for ${party.package === 'private' ? 'Private' : 'Semi-Private'} parties.`,
+        error: `Time slot must be on the hour between 10:00 AM and 6:00 PM.`,
       },
       { status: 400 },
     );
