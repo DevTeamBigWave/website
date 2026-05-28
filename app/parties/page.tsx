@@ -402,17 +402,17 @@ function AddOns() {
 }
 
 function Entertainment() {
-  // OpenMoji codepoints — illustrated SVGs that render identically across devices
+  // Prices mirror lib/add-ons.ts — keep them in sync if catalog changes.
   const acts = [
-    { name: 'Character meet & greet', price: '$150', note: '+$150 if mascot', icon: '1F9DA' /* fairy */ },
-    { name: 'Face painting', price: '$200', icon: '1F3A8' /* palette */ },
-    { name: 'Glitter tattoos', price: '$100', icon: '2728' /* sparkles */ },
-    { name: 'Balloon twisting', price: '$125', icon: '1F388' /* balloon */ },
-    { name: 'Dance party & games', price: '$200', icon: '1F483' /* dancing */ },
-    { name: 'Candy-filled piñata', price: '$150', icon: '1FA85' /* piñata */ },
-    { name: 'DIY slime station', price: '$250', icon: '1F308' /* rainbow */ },
-    { name: 'DIY bracelet making station', price: '$200', icon: '1F48E' /* gem */ },
-    { name: 'Glam spa day', price: '$200', icon: '1F485' /* nail polish */ },
+    { name: 'Character meet & greet', price: '$150', note: '+$150 if mascot' },
+    { name: 'Face painting', price: '$200' },
+    { name: 'Glitter tattoos', price: '$100' },
+    { name: 'Balloon twisting', price: '$125' },
+    { name: 'Dance party & games', price: '$200' },
+    { name: 'Candy-filled piñata', price: '$150' },
+    { name: 'DIY slime station', price: '$250' },
+    { name: 'DIY bracelet making station', price: '$200' },
+    { name: 'Glam spa day', price: '$200' },
   ];
 
   return (
@@ -427,27 +427,24 @@ function Entertainment() {
           party size. <strong className="text-slate-700">Bubble dance party included with every option.</strong>
         </p>
 
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-10 grid gap-3 sm:grid-cols-2">
           {acts.map((act) => (
             <div
               key={act.name}
-              className="rounded-2xl border-2 border-sky-200 bg-sky-50 p-5"
+              className="flex items-start justify-between gap-3 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`https://cdn.jsdelivr.net/npm/openmoji@15.1.0/color/svg/${act.icon}.svg`}
-                alt=""
-                aria-hidden
-                width={56}
-                height={56}
-                className="h-14 w-14"
-                loading="lazy"
-              />
-              <p className="mt-3 font-display text-lg text-slate-700">{act.name}</p>
-              <p className="mt-2 font-display text-2xl text-coral">{act.price}</p>
-              {act.note && (
-                <p className="mt-1 text-xs text-slate-500">{act.note}</p>
-              )}
+              <div className="flex items-start gap-3">
+                <span aria-hidden className="text-xl leading-none">🎈</span>
+                <div>
+                  <p className="text-sm font-semibold text-slate-700">{act.name}</p>
+                  {act.note && (
+                    <p className="mt-0.5 text-xs text-slate-400">{act.note}</p>
+                  )}
+                </div>
+              </div>
+              <p className="whitespace-nowrap font-display text-sm text-coral">
+                {act.price}
+              </p>
             </div>
           ))}
         </div>
