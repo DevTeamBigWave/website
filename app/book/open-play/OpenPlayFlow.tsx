@@ -297,7 +297,7 @@ export function OpenPlayFlow({ cancelled }: { cancelled: boolean }) {
                   </span>
                   <span className="inline-flex items-center gap-1.5">
                     <span className="inline-block h-2.5 w-2.5 rounded-sm border border-coral-200 bg-coral-50" />
-                    Open play paused during a private party (window shown)
+                    Private party booked (open play paused part of the day)
                   </span>
                 </p>
                 <div className="space-y-6">
@@ -348,17 +348,6 @@ export function OpenPlayFlow({ cancelled }: { cancelled: boolean }) {
                                   Closed
                                 </p>
                               )}
-                              {partial &&
-                                closures.map((c) => (
-                                  <p
-                                    key={c}
-                                    className={`mt-0.5 text-[9px] font-bold tracking-tight ${
-                                      selected ? 'text-white/90' : 'text-coral-700'
-                                    }`}
-                                  >
-                                    {c}
-                                  </p>
-                                ))}
                             </button>
                           );
                         })}
@@ -367,9 +356,9 @@ export function OpenPlayFlow({ cancelled }: { cancelled: boolean }) {
                   ))}
                 </div>
                 <p className="mt-3 text-xs text-slate-400">
-                  Days marked &ldquo;closed&rdquo; are fully unavailable. Days with a
-                  time range mean a private party is booked then — open play is paused
-                  during that window only, and you&rsquo;re welcome before or after.
+                  Days marked &ldquo;closed&rdquo; are fully unavailable. Coral-tinted
+                  days have a private party booked — open play is paused only during
+                  that window. Pick the day to see the exact time.
                 </p>
 
                 {date && closureWindowsFor(date).length > 0 && (
