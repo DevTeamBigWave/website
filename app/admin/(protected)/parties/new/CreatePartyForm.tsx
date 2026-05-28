@@ -123,12 +123,22 @@ export function CreatePartyForm() {
     }
   }, [pkg, date, startTime, extension60, headcount]);
 
-  // Manual friends-&-family discount = percent of (party total + add-ons)
-  const preDiscountFull = (pricing?.totalCents ?? 0) + addOnsTotalCents;
-  const manualDiscountCents = Math.round((preDiscountFull * manualDiscount) / 100);
-  const fullAfterDiscount = preDiscountFull - manualDiscountCents;
-  // For deposit-only, discount the grand-total then take 50%
-  const depositAfterDiscount = Math.round(fullAfterDiscount / 2);
+  // Mirror the server pricing math so every amount displayed here matches
+  // what the customer is actually about to be invoiced.
+  //
+  // - Full invoice → grand total (party + add-ons) minus F&F discount on the
+  //   whole grand total. Same formula as computePartyFinancials.
+  // - Deposit only → 50% of (party − F&F discount on party only). Matches the
+  //   customer-side /book deposit, which never bills add-ons up front.
+  // - Custom deposit → typed amount, capped at the all-inclusive grand total.
+  const partyTotalCents = pricing?.totalCents ?? 0;
+  const grandPreDiscount = partyTotalCents + addOnsTotalCents;
+  const grandManualDiscount = Math.round((grandPreDiscount * manualDiscount) / 100);
+  const fullAfterDiscount = grandPreDiscount - grandManualDiscount;
+
+  const partyManualDiscount = Math.round((partyTotalCents * manualDiscount) / 100);
+  const partyAfterDiscount = partyTotalCents - partyManualDiscount;
+  const depositAfterDiscount = Math.round(partyAfterDiscount / 2);
 
   // Custom deposit amount: parse whatever the owner typed. Empty / invalid
   // falls back to the standard 50%, so the "what we'll invoice" pill never
@@ -384,14 +394,14 @@ export function CreatePartyForm() {
               onClick={() => setInvoiceType('deposit_only')}
               title="Deposit only (50%)"
               blurb="Lock the date. Add-ons + balance get invoiced later."
-              amount={pricing ? fmt(pricing.depositCents) : null}
+              amount={pricing ? fmt(depositAfterDiscount) : null}
             />
             <ChoiceCard
               checked={invoiceType === 'full'}
               onClick={() => setInvoiceType('full')}
               title="Full payment"
               blurb="One invoice for the whole thing — party + add-ons + tax."
-              amount={pricing ? fmt(pricing.totalCents + addOnsTotalCents) : null}
+              amount={pricing ? fmt(fullAfterDiscount) : null}
             />
             <ChoiceCard
               checked={invoiceType === 'custom_deposit'}
@@ -598,16 +608,20 @@ export function CreatePartyForm() {
               <Row label="Tax (8.875%)" value={fmt(pricing.taxCents)} />
               <hr className="border-slate-100" />
               <Row label="Party total" value={<strong>{fmt(pricing.totalCents)}</strong>} />
-              {invoiceType === 'full' && addOnsTotalCents > 0 && (
+              {addOnsTotalCents > 0 && (
                 <Row label="Add-ons" value={fmt(addOnsTotalCents)} />
               )}
               {manualDiscount > 0 && (
                 <Row
                   label={`Friends & family ${manualDiscount}% off`}
-                  value={`−${fmt(manualDiscountCents)}`}
+                  value={`−${fmt(grandManualDiscount)}`}
                   accent
                 />
               )}
+              <Row
+                label="Grand total"
+                value={<strong>{fmt(fullAfterDiscount)}</strong>}
+              />
               <hr className="border-slate-100" />
               <div className="flex items-baseline justify-between pt-1">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
@@ -617,9 +631,9 @@ export function CreatePartyForm() {
                   {fmt(invoiceAmountCents)}
                 </span>
               </div>
-              {invoiceType === 'deposit_only' && (
+              {invoiceType !== 'full' && fullAfterDiscount - invoiceAmountCents > 0 && (
                 <p className="text-xs text-slate-400">
-                  Balance of {fmt(pricing.totalCents - pricing.depositCents)} invoiced later.
+                  Balance of {fmt(fullAfterDiscount - invoiceAmountCents)} invoiced later.
                 </p>
               )}
             </dl>

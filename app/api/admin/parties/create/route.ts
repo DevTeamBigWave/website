@@ -119,16 +119,34 @@ export async function POST(request: Request) {
   // what we're actually invoicing the customer (post-discount).
   const isFullInvoice = body.invoice_type === 'full';
   const isCustomDeposit = body.invoice_type === 'custom_deposit';
-  const _addOnsTotal = isFullInvoice
-    ? body.add_ons.reduce((s, a) => s + a.unit_price_cents * a.qty, 0)
-    : 0;
+
+  // GRAND TOTAL — always includes add-ons and applies the manual discount
+  // to (party + add-ons), matching computePartyFinancials. This is the
+  // canonical future amount the customer will eventually owe, used to:
+  //   - validate the custom_deposit cap
+  //   - show the real "balance due" on the deposit invoice description
+  // The two existing modes (deposit_only / full) still compute their
+  // invoice amounts the way they always did to stay consistent with the
+  // customer-side /book flow (50% of party-only, no add-ons-on-deposit).
+  const _allAddOnsCents = body.add_ons.reduce((s, a) => s + a.unit_price_cents * a.qty, 0);
+  const _grandPreDiscount = pricing.totalCents + _allAddOnsCents;
+  const _grandManualDiscount = Math.round(
+    (_grandPreDiscount * body.manual_discount_percent) / 100,
+  );
+  const _grandAfterDiscount = _grandPreDiscount - _grandManualDiscount;
+
+  // Legacy compatibles for full / deposit_only modes (party-only basis,
+  // matching the customer /book flow):
+  const _addOnsTotal = isFullInvoice ? _allAddOnsCents : 0;
   const _preDiscountFull = pricing.totalCents + _addOnsTotal;
   const _manualDiscount = Math.round((_preDiscountFull * body.manual_discount_percent) / 100);
   const _fullAfterDiscount = _preDiscountFull - _manualDiscount;
   const _depositAfterDiscount = Math.round(_fullAfterDiscount / 2);
 
-  // Custom deposit: validate against the actual computed grand total. Front-
-  // end checks this too but the API can't trust client math.
+  // Custom deposit: validate against the all-inclusive grand total (the
+  // amount the customer will actually owe in full, not just the party
+  // portion). Front-end checks the same boundary; server re-validates so
+  // we don't trust client math.
   if (isCustomDeposit) {
     if (body.custom_deposit_cents == null) {
       return NextResponse.json(
@@ -136,9 +154,9 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    if (body.custom_deposit_cents > _fullAfterDiscount) {
+    if (body.custom_deposit_cents > _grandAfterDiscount) {
       return NextResponse.json(
-        { error: 'Custom deposit cannot exceed the grand total.' },
+        { error: 'Custom deposit cannot exceed the grand total (party + add-ons − discount).' },
         { status: 400 },
       );
     }
@@ -233,7 +251,10 @@ export async function POST(request: Request) {
     : isCustomDeposit
       ? _customDeposit
       : depositAfterDiscount;
-  const balanceAfterDeposit = fullAfterDiscount - invoiceAmountCents;
+  // Balance message uses the real all-inclusive future total so the
+  // customer sees what they'll actually owe (party + add-ons − discount
+  // − deposit they're about to pay), not just the party-only remainder.
+  const balanceAfterDeposit = _grandAfterDiscount - invoiceAmountCents;
 
   const invoice = await stripe.invoices.create({
     customer: customerId,
@@ -254,10 +275,22 @@ export async function POST(request: Request) {
     },
   });
 
-  // Line items — for deposit-only, just a single line for the 50% (post-discount).
-  // For full-pay, itemize: party, each add-on, then a negative discount line so the
-  // customer can see the courtesy break out cleanly.
-  if (isFull) {
+  // Line items vary by invoice type:
+  //   - Full: itemize party, every add-on, then a negative discount line.
+  //   - Custom deposit: a single line for the agreed deposit amount.
+  //     Avoids the awkward case where the custom amount exceeds the
+  //     party-after-discount and the "balance credit" math goes negative.
+  //   - Deposit-only (standard 50%): itemize the party + discount, then a
+  //     "balance" credit so the net pulls down to the deposit.
+  if (isCustomDeposit) {
+    await stripe.invoiceItems.create({
+      customer: customerId,
+      invoice: invoice.id,
+      amount: invoiceAmountCents,
+      currency: 'usd',
+      description: `Deposit for ${body.child_name}'s ${body.package === 'private' ? 'Private' : 'Semi-Private'} party — ${formatDateLong(body.date)}. Balance of ${fmtMoney(balanceAfterDeposit)} invoiced separately.`,
+    });
+  } else if (isFull) {
     await stripe.invoiceItems.create({
       customer: customerId,
       invoice: invoice.id,
