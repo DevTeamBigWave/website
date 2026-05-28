@@ -354,7 +354,6 @@ function AddOns() {
   const items = [
     { name: '1-hour extension', price: '$500 private · $250 semi-private' },
     { name: 'Outside food fee (incl. tableware for adults)', price: '$85' },
-    { name: 'Case of 24 Fiji water bottles', price: '$40' },
     { name: 'Upgrade included pizzas to kosher', price: '+$30' },
     { name: 'Additional regular pizza pie', price: '$25' },
     { name: 'Additional kosher pizza pie', price: '$40' },
