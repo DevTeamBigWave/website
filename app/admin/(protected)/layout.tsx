@@ -42,11 +42,19 @@ export default async function ProtectedAdminLayout({
     <div className="min-h-screen bg-slate-50">
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3">
-          <div className="flex min-w-0 items-center gap-6">
+          <div className="flex min-w-0 flex-1 items-center gap-6">
             <Link href="/admin" className="whitespace-nowrap font-display text-lg text-slate-700">
               <span className="text-coral">Wonderland</span> Admin
             </Link>
-            <nav className="hidden gap-1 xl:flex">
+            <nav
+              className="hidden min-w-0 flex-1 gap-1 overflow-x-auto xl:flex"
+              style={{
+                maskImage:
+                  'linear-gradient(to right, black 0, black calc(100% - 24px), transparent 100%)',
+                WebkitMaskImage:
+                  'linear-gradient(to right, black 0, black calc(100% - 24px), transparent 100%)',
+              }}
+            >
               {nav.map((item) => (
                 <Link
                   key={item.href}
