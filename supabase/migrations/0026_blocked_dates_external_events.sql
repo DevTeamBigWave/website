@@ -29,13 +29,19 @@ create unique index if not exists blocked_dates_external_event_idx
   where external_event_id is not null;
 
 -- Backfill: pull start_time + duration into blocked_dates rows that came
--- from a parties row, so the API can read them without a JOIN.
+-- from a parties row, so the API can read them without a JOIN. Aliased to
+-- dodge the Supabase web SQL editor's `<table>.id` placeholder rewrite.
 update blocked_dates
-   set start_time = parties.start_time,
-       duration_minutes = coalesce(parties.duration_minutes, 120)
-                          + coalesce(parties.extension_minutes, 0)
-  from parties
- where blocked_dates.party_id = parties.id
+   set start_time = sub.start_time,
+       duration_minutes = sub.dur
+  from (
+    select id as pid,
+           start_time,
+           coalesce(duration_minutes, 120)
+             + coalesce(extension_minutes, 0) as dur
+      from parties
+  ) sub
+ where blocked_dates.party_id = sub.pid
    and blocked_dates.start_time is null;
 
 -- Updated trigger: also write start_time + duration_minutes into the block
