@@ -54,7 +54,9 @@ function PartyVideo() {
             poster={poster}
             className="aspect-video w-full object-cover"
           >
-            <source src={url} type="video/mp4" />
+            {/* No type= hint — lets the browser sniff so we accept .mp4
+                or .mov (iPhone exports) without breaking. */}
+            <source src={url} />
             Your browser doesn&rsquo;t support embedded video.
           </video>
         </div>
