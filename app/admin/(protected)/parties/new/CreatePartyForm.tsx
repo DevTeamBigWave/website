@@ -53,7 +53,11 @@ export function CreatePartyForm() {
   const [notes, setNotes] = useState('');
 
   // Invoice settings
-  const [invoiceType, setInvoiceType] = useState<'full' | 'deposit_only'>('deposit_only');
+  const [invoiceType, setInvoiceType] = useState<'full' | 'deposit_only' | 'custom_deposit'>('deposit_only');
+  // Custom deposit amount in dollars (string for the input). Only honored
+  // when invoiceType === 'custom_deposit'. Falls back to standard 50% if
+  // empty or invalid.
+  const [customDepositDollars, setCustomDepositDollars] = useState('');
   const [theme, setTheme] = useState<InvoiceThemeSlug>('wonderland');
   const [manualDiscount, setManualDiscount] = useState<0 | 10 | 15 | 20>(0);
 
@@ -126,8 +130,21 @@ export function CreatePartyForm() {
   // For deposit-only, discount the grand-total then take 50%
   const depositAfterDiscount = Math.round(fullAfterDiscount / 2);
 
+  // Custom deposit amount: parse whatever the owner typed. Empty / invalid
+  // falls back to the standard 50%, so the "what we'll invoice" pill never
+  // displays NaN while they're still typing.
+  const customDepositCents = (() => {
+    const n = parseFloat(customDepositDollars);
+    if (!Number.isFinite(n) || n <= 0) return 0;
+    return Math.round(n * 100);
+  })();
+
   const invoiceAmountCents =
-    invoiceType === 'full' ? fullAfterDiscount : depositAfterDiscount;
+    invoiceType === 'full'
+      ? fullAfterDiscount
+      : invoiceType === 'custom_deposit'
+        ? customDepositCents || depositAfterDiscount
+        : depositAfterDiscount;
 
   const toggleAddOn = (id: string) => {
     setAddOnRows((r) => ({ ...r, [id]: { ...r[id], checked: !r[id].checked } }));
@@ -147,8 +164,23 @@ export function CreatePartyForm() {
       setError('Pricing is not ready — check the date.');
       return;
     }
+    if (invoiceType === 'custom_deposit') {
+      if (customDepositCents < 50) {
+        setError('Custom deposit must be at least $0.50.');
+        return;
+      }
+      if (customDepositCents > fullAfterDiscount) {
+        setError('Custom deposit cannot exceed the grand total.');
+        return;
+      }
+    }
 
-    const verb = invoiceType === 'full' ? 'Send full invoice' : 'Send deposit invoice';
+    const verb =
+      invoiceType === 'full'
+        ? 'Send full invoice'
+        : invoiceType === 'custom_deposit'
+          ? 'Send custom deposit invoice'
+          : 'Send deposit invoice';
     if (
       !confirm(
         `${verb} of ${fmt(invoiceAmountCents)} to ${email}? This creates the party and emails the invoice immediately.`,
@@ -176,6 +208,9 @@ export function CreatePartyForm() {
           phone: phone.trim(),
           invoice_theme: theme,
           invoice_type: invoiceType,
+          ...(invoiceType === 'custom_deposit'
+            ? { custom_deposit_cents: customDepositCents }
+            : {}),
           manual_discount_percent: manualDiscount,
           add_ons: selectedAddOns,
         }),
@@ -343,7 +378,7 @@ export function CreatePartyForm() {
 
         {/* Invoice type */}
         <Card title="What to invoice">
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid gap-2 sm:grid-cols-3">
             <ChoiceCard
               checked={invoiceType === 'deposit_only'}
               onClick={() => setInvoiceType('deposit_only')}
@@ -358,7 +393,52 @@ export function CreatePartyForm() {
               blurb="One invoice for the whole thing — party + add-ons + tax."
               amount={pricing ? fmt(pricing.totalCents + addOnsTotalCents) : null}
             />
+            <ChoiceCard
+              checked={invoiceType === 'custom_deposit'}
+              onClick={() => setInvoiceType('custom_deposit')}
+              title="Custom deposit"
+              blurb="Pick the exact deposit amount. Balance is the remainder."
+              amount={
+                invoiceType === 'custom_deposit' && customDepositCents > 0
+                  ? fmt(customDepositCents)
+                  : null
+              }
+            />
           </div>
+
+          {invoiceType === 'custom_deposit' && (
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-cream-deep p-4">
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Deposit amount
+                </span>
+                <div className="mt-1 flex items-center gap-2">
+                  <span className="font-display text-2xl text-slate-400">$</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    autoFocus
+                    value={customDepositDollars}
+                    onChange={(e) =>
+                      setCustomDepositDollars(e.target.value.replace(/[^0-9.]/g, ''))
+                    }
+                    placeholder={pricing ? (pricing.depositCents / 100).toFixed(0) : '0'}
+                    className="w-32 rounded-xl border border-slate-200 bg-white px-3 py-2 font-display text-2xl text-slate-700 focus:border-coral focus:outline-none"
+                  />
+                  {pricing && (
+                    <span className="text-xs text-slate-400">
+                      of {fmt(fullAfterDiscount)} total
+                    </span>
+                  )}
+                </div>
+              </label>
+              <p className="mt-2 text-xs text-slate-500">
+                Use this for legacy parties, smaller-deposit arrangements, or
+                anything outside the standard 50% rule. Balance shows as owed
+                once the deposit is recorded.
+              </p>
+            </div>
+          )}
         </Card>
 
         {/* Friends & family discount */}

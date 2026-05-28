@@ -42,7 +42,11 @@ const CreateSchema = z.object({
   email: z.string().email().max(160),
   phone: z.string().min(7).max(40),
   invoice_theme: z.string().refine((v): v is InvoiceThemeSlug => v in INVOICE_THEMES),
-  invoice_type: z.enum(['full', 'deposit_only']),
+  invoice_type: z.enum(['full', 'deposit_only', 'custom_deposit']),
+  // Required only when invoice_type === 'custom_deposit'. The Stripe floor
+  // is $0.50, the upper bound is enforced server-side against the actual
+  // grand total once it's been computed.
+  custom_deposit_cents: z.coerce.number().int().min(50).max(2_000_000).optional(),
   manual_discount_percent: z.union([z.literal(0), z.literal(10), z.literal(15), z.literal(20)]).default(0),
   add_ons: z.array(AddOnSchema).max(40).default([]),
 });
@@ -114,6 +118,7 @@ export async function POST(request: Request) {
   // Compute invoice-side amounts up front so deposit_cents on the row matches
   // what we're actually invoicing the customer (post-discount).
   const isFullInvoice = body.invoice_type === 'full';
+  const isCustomDeposit = body.invoice_type === 'custom_deposit';
   const _addOnsTotal = isFullInvoice
     ? body.add_ons.reduce((s, a) => s + a.unit_price_cents * a.qty, 0)
     : 0;
@@ -121,6 +126,30 @@ export async function POST(request: Request) {
   const _manualDiscount = Math.round((_preDiscountFull * body.manual_discount_percent) / 100);
   const _fullAfterDiscount = _preDiscountFull - _manualDiscount;
   const _depositAfterDiscount = Math.round(_fullAfterDiscount / 2);
+
+  // Custom deposit: validate against the actual computed grand total. Front-
+  // end checks this too but the API can't trust client math.
+  if (isCustomDeposit) {
+    if (body.custom_deposit_cents == null) {
+      return NextResponse.json(
+        { error: 'Custom deposit amount is required when invoice_type is custom_deposit.' },
+        { status: 400 },
+      );
+    }
+    if (body.custom_deposit_cents > _fullAfterDiscount) {
+      return NextResponse.json(
+        { error: 'Custom deposit cannot exceed the grand total.' },
+        { status: 400 },
+      );
+    }
+  }
+
+  const _customDeposit = isCustomDeposit ? (body.custom_deposit_cents ?? 0) : 0;
+  const _persistedDeposit = isFullInvoice
+    ? _fullAfterDiscount
+    : isCustomDeposit
+      ? _customDeposit
+      : _depositAfterDiscount;
 
   const { data: created, error: insertErr } = await db
     .from('parties')
@@ -142,9 +171,10 @@ export async function POST(request: Request) {
       discount_cents: pricing.discountCents,
       tax_cents: pricing.taxCents,
       total_cents: pricing.totalCents,
-      // For full-pay we already credit the whole thing (deposit = full discounted),
-      // for deposit-only we credit the 50% slice (also post-discount).
-      deposit_cents: isFullInvoice ? _fullAfterDiscount : _depositAfterDiscount,
+      // For full-pay we credit the whole thing (deposit = full discounted),
+      // for deposit-only we credit the 50% slice, and for custom we credit
+      // whatever the owner specified. All values are post-discount.
+      deposit_cents: _persistedDeposit,
       status: 'confirmed',
       weekday_discount_applied: pricing.discountApplied,
       invoice_theme: body.invoice_theme,
@@ -198,7 +228,12 @@ export async function POST(request: Request) {
   const manualDiscountCents = _manualDiscount;
   const fullAfterDiscount = _fullAfterDiscount;
   const depositAfterDiscount = _depositAfterDiscount;
-  const invoiceAmountCents = isFull ? fullAfterDiscount : depositAfterDiscount;
+  const invoiceAmountCents = isFull
+    ? fullAfterDiscount
+    : isCustomDeposit
+      ? _customDeposit
+      : depositAfterDiscount;
+  const balanceAfterDeposit = fullAfterDiscount - invoiceAmountCents;
 
   const invoice = await stripe.invoices.create({
     customer: customerId,
@@ -207,7 +242,7 @@ export async function POST(request: Request) {
     auto_advance: false,
     description: isFull
       ? `Full payment for ${body.child_name}'s ${body.package} party on ${formatDateLong(body.date)} at ${formatTime(body.start_time)}.`
-      : `Deposit to confirm ${body.child_name}'s ${body.package} party on ${formatDateLong(body.date)} at ${formatTime(body.start_time)}. Balance of ${fmtMoney(pricing.totalCents - pricing.depositCents)} due 7 days before the party.`,
+      : `Deposit to confirm ${body.child_name}'s ${body.package} party on ${formatDateLong(body.date)} at ${formatTime(body.start_time)}. Balance of ${fmtMoney(balanceAfterDeposit)} due 7 days before the party.`,
     footer: [
       'Wonderland Playhouse · 3830 Nostrand Ave, Brooklyn NY 11235 · (718) 889-1777 · info@wonderlandplayhouse.com',
       '',
