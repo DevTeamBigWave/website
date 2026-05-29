@@ -14,13 +14,19 @@ import { sendManualPaymentReceived, sendOwnerNotification } from '@/lib/email';
 
 const Schema = z.object({
   kind: z.enum(['deposit', 'balance']),
-  method: z.enum(['zelle', 'cash', 'clover']),
+  method: z.enum(['zelle', 'cash', 'clover', 'groupon']),
   // Custom amount — only honored when kind='deposit'. Overrides the
   // stored deposit_cents (overwrite even if already paid). Used for
   // legacy parties and any time the owner negotiates a non-standard
   // deposit amount.
   amount_cents: z.coerce.number().int().min(50).max(2_000_000).optional(),
 });
+
+// Standing Groupon offer: $499 covers a semi-private party in full
+// (the base package portion, inclusive of NYC tax). Extras + add-ons
+// stay billable. If Groupon ever changes the deal we update here.
+const GROUPON_SEMI_CENTS = 49900;
+const TAX_RATE = 0.08875;
 
 export async function POST(
   request: Request,
@@ -47,28 +53,74 @@ export async function POST(
   if (!party) return NextResponse.json({ error: 'Party not found' }, { status: 404 });
 
   if (body.kind === 'deposit') {
-    // Custom-amount deposits CAN overwrite a previously-marked paid deposit
-    // (owner is correcting a mistake or restating the agreed amount).
-    // Standard deposits (no custom amount) keep the "already paid" guard.
-    if (party.deposit_paid_at && body.amount_cents == null) {
-      return NextResponse.json(
-        { error: 'Deposit already marked paid.' },
-        { status: 409 },
-      );
+    // Groupon special case: the customer paid $499 to Groupon, which
+    // covers the entire base party portion (incl. NYC tax) for a
+    // semi-private. We apply a F&F-style discount to bring the party-only
+    // grand total to $499, then record $499 as the deposit. Extras and
+    // add-ons remain billable normally — Gaby invoices the diff later.
+    if (body.method === 'groupon') {
+      if (party.package !== 'semi') {
+        return NextResponse.json(
+          { error: 'Groupon offer only applies to Semi-Private parties.' },
+          { status: 400 },
+        );
+      }
+      if (party.deposit_paid_at) {
+        return NextResponse.json(
+          { error: 'Deposit already marked paid.' },
+          { status: 409 },
+        );
+      }
+      // Compute the discount that, when applied to the base package
+      // pre-tax, brings the post-tax party total down to $499.
+      const basePrice = 65000; // Semi-Private list price, pre-tax
+      const baseAfterMonThu = party.weekday_discount_applied
+        ? Math.round(basePrice * 0.8)
+        : basePrice;
+      // Solve: taxable + round(taxable * TAX_RATE) === GROUPON_SEMI_CENTS
+      let taxable = Math.round(GROUPON_SEMI_CENTS / (1 + TAX_RATE));
+      while (taxable + Math.round(taxable * TAX_RATE) > GROUPON_SEMI_CENTS) taxable--;
+      while (taxable + Math.round(taxable * TAX_RATE) < GROUPON_SEMI_CENTS) taxable++;
+      const groupOnDiscount = Math.max(0, baseAfterMonThu - taxable);
+
+      await db
+        .from('parties')
+        .update({
+          deposit_paid_at: new Date().toISOString(),
+          deposit_payment_method: 'groupon',
+          deposit_cents: GROUPON_SEMI_CENTS,
+          // Groupon discount stored as a flat-$ override — wins over any
+          // existing manual_discount_percent (matches computePartyFinancials).
+          manual_discount_cents: groupOnDiscount,
+          manual_discount_percent: 0,
+          status: 'confirmed',
+          hold_expires_at: null,
+        })
+        .eq('id', partyId);
+    } else {
+      // Custom-amount deposits CAN overwrite a previously-marked paid deposit
+      // (owner is correcting a mistake or restating the agreed amount).
+      // Standard deposits (no custom amount) keep the "already paid" guard.
+      if (party.deposit_paid_at && body.amount_cents == null) {
+        return NextResponse.json(
+          { error: 'Deposit already marked paid.' },
+          { status: 409 },
+        );
+      }
+      const depositUpdates: Record<string, unknown> = {
+        deposit_paid_at: new Date().toISOString(),
+        deposit_payment_method: body.method,
+        // Recording a deposit is the contractual signal that the party is
+        // happening — promote out of 'hold' so the blocked_dates trigger
+        // fires and the slot stops looking available to everyone else.
+        status: 'confirmed',
+        hold_expires_at: null,
+      };
+      if (body.amount_cents != null) {
+        depositUpdates.deposit_cents = body.amount_cents;
+      }
+      await db.from('parties').update(depositUpdates).eq('id', partyId);
     }
-    const depositUpdates: Record<string, unknown> = {
-      deposit_paid_at: new Date().toISOString(),
-      deposit_payment_method: body.method,
-      // Recording a deposit is the contractual signal that the party is
-      // happening — promote out of 'hold' so the blocked_dates trigger
-      // fires and the slot stops looking available to everyone else.
-      status: 'confirmed',
-      hold_expires_at: null,
-    };
-    if (body.amount_cents != null) {
-      depositUpdates.deposit_cents = body.amount_cents;
-    }
-    await db.from('parties').update(depositUpdates).eq('id', partyId);
   } else {
     const fin = computePartyFinancials(party as any);
     const amount = fin.balance_due_cents;
@@ -180,7 +232,10 @@ export async function POST(
         ? (fullParty.deposit_cents as number)
         : amountClosedCents || fin.balance_due_cents;
     const methodLabel =
-      body.method === 'zelle' ? 'Zelle' : body.method === 'cash' ? 'Cash' : 'Clover';
+      body.method === 'zelle' ? 'Zelle'
+      : body.method === 'cash' ? 'Cash'
+      : body.method === 'groupon' ? 'Groupon'
+      : 'Clover';
     const subject = `💵 Payment recorded · $${(amt / 100).toFixed(2)} ${methodLabel} · ${fullParty.child_name ?? 'party'}`;
     await sendOwnerNotification({
       subject,

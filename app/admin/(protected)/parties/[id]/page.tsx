@@ -185,6 +185,7 @@ export default async function PartyDetailPage({
           >
             <ManualPaymentRecorder
               partyId={party.id}
+              partyPackage={party.package as 'private' | 'semi'}
               depositCents={party.deposit_cents}
               depositPaidAt={party.deposit_paid_at}
               depositMethod={(party as any).deposit_payment_method ?? null}

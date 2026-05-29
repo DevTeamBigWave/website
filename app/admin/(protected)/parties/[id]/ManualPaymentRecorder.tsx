@@ -3,17 +3,19 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-type Method = 'zelle' | 'cash' | 'clover';
+type Method = 'zelle' | 'cash' | 'clover' | 'groupon';
 const METHODS: Array<{ value: Method; label: string }> = [
   { value: 'zelle', label: 'Zelle' },
   { value: 'cash', label: 'Cash' },
   { value: 'clover', label: 'Clover' },
 ];
 
+const GROUPON_SEMI_CENTS = 49900;
 const fmt = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
 export function ManualPaymentRecorder({
   partyId,
+  partyPackage,
   depositCents,
   depositPaidAt,
   depositMethod,
@@ -24,6 +26,9 @@ export function ManualPaymentRecorder({
   hasCalendarEvent,
 }: {
   partyId: string;
+  // Drives whether the Groupon shortcut is shown — Groupon's offer is
+  // semi-private only.
+  partyPackage: 'private' | 'semi';
   depositCents: number;
   depositPaidAt: string | null;
   depositMethod: string | null;
@@ -131,10 +136,48 @@ export function ManualPaymentRecorder({
       >
         <div className="space-y-2">
           {!depositPaidAt && (
-            <ButtonGroup
-              onPick={(method) => submit('deposit', method)}
-              busyKey={busy?.startsWith('deposit-') ? busy.replace('deposit-', '') : null}
-            />
+            <>
+              <ButtonGroup
+                onPick={(method) => submit('deposit', method)}
+                busyKey={busy?.startsWith('deposit-') ? busy.replace('deposit-', '') : null}
+              />
+              {partyPackage === 'semi' && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (busy) return;
+                    if (
+                      !confirm(
+                        `Apply Groupon voucher? This records ${fmt(GROUPON_SEMI_CENTS)} as the deposit (paid via Groupon), discounts the base semi-private price to ${fmt(GROUPON_SEMI_CENTS)} inclusive of tax, and ${hasCalendarEvent ? 'updates the calendar event' : 'creates the calendar event'}. Add-ons + extras will still be billable.`,
+                      )
+                    ) return;
+                    setBusy('deposit-groupon');
+                    setError(null);
+                    try {
+                      const res = await fetch(`/api/admin/parties/${partyId}/mark-paid`, {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json' },
+                        body: JSON.stringify({ kind: 'deposit', method: 'groupon' }),
+                      });
+                      if (!res.ok) {
+                        const data = await res.json().catch(() => ({}));
+                        setError(data.error ?? `Could not mark paid (${res.status})`);
+                        return;
+                      }
+                      router.refresh();
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : 'Network error');
+                    } finally {
+                      setBusy(null);
+                    }
+                  }}
+                  disabled={busy !== null}
+                  className="w-full rounded-full border-2 border-sky-200 bg-sky-50 px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-700 transition hover:border-sky-400 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {busy === 'deposit-groupon' ? '…' : `Groupon · ${fmt(GROUPON_SEMI_CENTS)}`}
+                </button>
+              )}
+            </>
           )}
           {!customOpen ? (
             <button

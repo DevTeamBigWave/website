@@ -1223,14 +1223,17 @@ export async function sendManualPaymentReceived(args: {
   child_name: string | null;
   date: string;
   kind: 'deposit' | 'balance';
-  method: 'zelle' | 'cash' | 'clover';
+  method: 'zelle' | 'cash' | 'clover' | 'groupon';
   amount_cents: number;
   remaining_balance_cents: number;
 }) {
   const firstName = args.parent_name.split(' ')[0] || args.parent_name;
   const child = args.child_name ?? 'your';
   const methodLabel =
-    args.method === 'zelle' ? 'Zelle' : args.method === 'cash' ? 'cash' : 'Clover';
+    args.method === 'zelle' ? 'Zelle'
+    : args.method === 'cash' ? 'cash'
+    : args.method === 'groupon' ? 'Groupon voucher'
+    : 'Clover';
   const kindLabel = args.kind === 'deposit' ? 'deposit' : 'balance';
   const fullyPaid = args.remaining_balance_cents <= 0;
 
