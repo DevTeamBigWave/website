@@ -17,7 +17,12 @@ import { stripe } from '@/lib/stripe';
 import { calculatePartyPricing, type PackageId, type ExtensionId } from '@/lib/pricing';
 import { partyTimeConflict } from '@/lib/parties';
 import { INVOICE_THEMES, type InvoiceThemeSlug } from '@/lib/invoice-themes';
-import { sendCreatedPartyInvoice } from '@/lib/email';
+import {
+  sendCreatedPartyInvoice,
+  sendOwnerNotification,
+  sendPartyConfirmation,
+} from '@/lib/email';
+import { createPartyEvent } from '@/lib/google-calendar';
 
 export const maxDuration = 60;
 
@@ -42,7 +47,7 @@ const CreateSchema = z.object({
   email: z.string().email().max(160),
   phone: z.string().min(7).max(40),
   invoice_theme: z.string().refine((v): v is InvoiceThemeSlug => v in INVOICE_THEMES),
-  invoice_type: z.enum(['full', 'deposit_only', 'custom_deposit']),
+  invoice_type: z.enum(['full', 'deposit_only', 'custom_deposit', 'groupon_prepaid']),
   // Required only when invoice_type === 'custom_deposit'. The Stripe floor
   // is $0.50, the upper bound is enforced server-side against the actual
   // grand total once it's been computed.
@@ -122,6 +127,18 @@ export async function POST(request: Request) {
   // what we're actually invoicing the customer (post-discount).
   const isFullInvoice = body.invoice_type === 'full';
   const isCustomDeposit = body.invoice_type === 'custom_deposit';
+  // Groupon-prepaid: customer already paid $499 via Groupon. We skip the
+  // Stripe invoice flow entirely — just create the party with the deposit
+  // already recorded and the Groupon discount applied so the party
+  // portion zeroes out. Add-ons + extras stay billable.
+  const isGroupon = body.invoice_type === 'groupon_prepaid';
+  if (isGroupon && body.package !== 'semi') {
+    return NextResponse.json(
+      { error: 'Groupon offer only applies to Semi-Private parties.' },
+      { status: 400 },
+    );
+  }
+  const GROUPON_SEMI_CENTS = 49900;
 
   // GRAND TOTAL — matches lib/parties.ts computePartyFinancials exactly:
   //   combined_pre_tax = party_pre_tax + add_ons_pre_tax
@@ -130,6 +147,19 @@ export async function POST(request: Request) {
   //   grand           = taxable + tax     (add-ons are taxed too)
   // Custom-$ wins over percent.
   const TAX_RATE = 0.08875;
+  // For Groupon-prepaid bookings, override the F&F discount so the party
+  // post-tax total comes out exactly to $499. Add-ons + extras get layered
+  // on top untouched (they bill normally on the eventual balance invoice).
+  if (isGroupon) {
+    let taxable = Math.round(GROUPON_SEMI_CENTS / (1 + TAX_RATE));
+    while (taxable + Math.round(taxable * TAX_RATE) > GROUPON_SEMI_CENTS) taxable--;
+    while (taxable + Math.round(taxable * TAX_RATE) < GROUPON_SEMI_CENTS) taxable++;
+    const baseAfterMonThu = pricing.discountApplied
+      ? Math.round(65000 * 0.8)
+      : 65000;
+    body.manual_discount_cents = Math.max(0, baseAfterMonThu - taxable);
+    body.manual_discount_percent = 0;
+  }
   const _customDiscountCents = body.manual_discount_cents ?? 0;
   const _allAddOnsCents = body.add_ons.reduce((s, a) => s + a.unit_price_cents * a.qty, 0);
   const _combinedPreTax = pricing.subtotalCents + _allAddOnsCents;
@@ -185,7 +215,9 @@ export async function POST(request: Request) {
     ? _fullAfterDiscount
     : isCustomDeposit
       ? _customDeposit
-      : _depositAfterDiscount;
+      : isGroupon
+        ? GROUPON_SEMI_CENTS
+        : _depositAfterDiscount;
 
   const { data: created, error: insertErr } = await db
     .from('parties')
@@ -211,6 +243,15 @@ export async function POST(request: Request) {
       // for deposit-only we credit the 50% slice, and for custom we credit
       // whatever the owner specified. All values are post-discount.
       deposit_cents: _persistedDeposit,
+      // Groupon-prepaid: the customer paid Groupon already, so the deposit
+      // is locked in the moment the party is created. Other invoice types
+      // wait for the Stripe webhook to flip deposit_paid_at.
+      ...(isGroupon
+        ? {
+            deposit_paid_at: new Date().toISOString(),
+            deposit_payment_method: 'groupon',
+          }
+        : {}),
       status: 'confirmed',
       weekday_discount_applied: pricing.discountApplied,
       invoice_theme: body.invoice_theme,
@@ -245,6 +286,53 @@ export async function POST(request: Request) {
     if (addOnErr) {
       console.error('Add-on insert failed (party still created):', addOnErr);
     }
+  }
+
+  // Groupon-prepaid: party row is fully set up (deposit recorded, discount
+  // applied). Fire the standard confirmation email + calendar event + owner
+  // notification — same as Stripe's deposit-paid webhook would do — and
+  // return. No Stripe invoice gets sent because Groupon already collected.
+  if (isGroupon) {
+    const { data: fullParty } = await db
+      .from('parties')
+      .select('*')
+      .eq('id', partyId)
+      .maybeSingle();
+    if (fullParty) {
+      const siteUrl =
+        process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.wonderlandplayhouse.com';
+      try {
+        await sendPartyConfirmation(fullParty as any, body.add_ons as any);
+      } catch (err) {
+        console.error('Groupon: confirmation email failed:', err);
+      }
+      try {
+        await sendOwnerNotification({
+          subject: `🎟️ Groupon party created · ${body.child_name} · ${formatDateLong(body.date)}`,
+          party: fullParty,
+          addOns: body.add_ons as any,
+        });
+      } catch (err) {
+        console.error('Groupon: owner notification failed:', err);
+      }
+      try {
+        const eventId = await createPartyEvent(fullParty as any, siteUrl);
+        if (eventId) {
+          await db
+            .from('parties')
+            .update({ google_calendar_event_id: eventId })
+            .eq('id', partyId);
+        }
+      } catch (err) {
+        console.error('Groupon: calendar event creation failed:', err);
+      }
+    }
+    return NextResponse.json({
+      ok: true,
+      partyId,
+      groupon: true,
+      amountCents: GROUPON_SEMI_CENTS,
+    });
   }
 
   // Build the Stripe Invoice
