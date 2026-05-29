@@ -215,7 +215,7 @@ function Faq() {
   const faqs = [
     {
       q: 'What does "excludes private parties" mean?',
-      a: 'When the whole space is booked for a private birthday party, we close to open play that day. Members get a heads-up text the morning of any closed day.',
+      a: 'Memberships are valid during regular open play hours only. When the facility is reserved for a private birthday party, open play is temporarily unavailable during the party time. Members will receive a text notification on any day that includes a private party closure.',
     },
     {
       q: 'Can I cancel anytime?',
