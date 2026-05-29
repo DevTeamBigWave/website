@@ -316,6 +316,9 @@ function OneStopShop() {
           <PhotoPlaceholder src="/photos/decor-02.jpeg" alt="Custom party decor at Wonderland" className="aspect-square" />
           <PhotoPlaceholder src="/photos/decor-05.jpeg" alt="Themed birthday party setup" className="aspect-square" />
           <PhotoPlaceholder src="/photos/decor-08.jpeg" alt="Balloon arrangement" className="aspect-square" />
+          <PhotoPlaceholder src="/photos/decor-01.jpeg" alt="Sesame Street themed party decor" className="aspect-square" />
+          <PhotoPlaceholder src="/photos/space-02.jpeg" alt="Pink balloon backdrop party room" className="aspect-square" />
+          <PhotoPlaceholder src="/photos/space-03.jpeg" alt="Custom themed cupcake display" className="aspect-square" />
           <PhotoPlaceholder src="/photos/decor-04.jpeg" alt="Decor detail" className="aspect-square" />
           <PhotoPlaceholder src="/photos/decor-06.jpeg" alt="Party styling" className="aspect-square" />
           <PhotoPlaceholder src="/photos/decor-09.jpeg" alt="Themed setup" className="aspect-square" />

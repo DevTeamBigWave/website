@@ -73,15 +73,12 @@ function TheSpace() {
           />
         </div>
 
-        <div className="mt-10 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <PhotoPlaceholder src="/photos/space-01.jpeg" alt="Kids playing at Wonderland" className="aspect-square" />
-          <PhotoPlaceholder src="/photos/space-02.jpeg" alt="Inside the play space" className="aspect-square" />
-          <PhotoPlaceholder src="/photos/space-03.jpeg" alt="Kids at Wonderland" className="aspect-square" />
-          <PhotoPlaceholder src="/photos/space-04.jpeg" alt="The playhouse interior" className="aspect-square" />
-          <PhotoPlaceholder src="/photos/space-06.jpeg" alt="A moment at Wonderland" className="aspect-square" />
-          <PhotoPlaceholder src="/photos/space-07.jpeg" alt="Happy kids playing" className="aspect-square" />
-          <PhotoPlaceholder src="/photos/space-08.jpeg" alt="Inside Wonderland" className="aspect-square" />
-          <PhotoPlaceholder src="/photos/decor-01.jpeg" alt="Custom party setup" className="aspect-square" />
+        <div className="mt-10 grid grid-cols-2 gap-3 md:grid-cols-5">
+          <PhotoPlaceholder src="/photos/space-01.jpeg" alt="Wonderland Playhouse signage" className="aspect-square" />
+          <PhotoPlaceholder src="/photos/space-04.jpeg" alt="Kids playing together at Wonderland" className="aspect-square" />
+          <PhotoPlaceholder src="/photos/space-06.jpeg" alt="A calm moment at Wonderland" className="aspect-square" />
+          <PhotoPlaceholder src="/photos/space-07.jpeg" alt="Kid climbing the soft play structure" className="aspect-square" />
+          <PhotoPlaceholder src="/photos/space-08.jpeg" alt="Happy kid inside the play space" className="aspect-square" />
         </div>
       </div>
     </section>
