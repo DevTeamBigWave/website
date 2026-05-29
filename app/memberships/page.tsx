@@ -16,6 +16,7 @@ export default function MembershipsPage() {
       <Hero />
       <Plan />
       <HowItWorks />
+      <Highlights />
       <Compare />
       <Faq />
       <FinalCta />
@@ -142,6 +143,72 @@ function Step({ n, title, blurb }: { n: string; title: string; blurb: string }) 
       <h3 className="mt-3 font-display text-2xl text-slate-700">{title}</h3>
       <p className="mt-2 text-sm text-slate-600">{blurb}</p>
     </div>
+  );
+}
+
+function Highlights() {
+  // OpenMoji codepoints — same illustrated-SVG family we use on /parties so
+  // the brand feels consistent across pages.
+  const cards = [
+    {
+      icon: '1F6DD' /* playground slide */,
+      title: 'Big slide, bigger giggles',
+      blurb: 'A real slide they can climb again and again. Members are regulars — they know exactly which step to skip.',
+    },
+    {
+      icon: '1F388' /* balloon — playful stand-in for ball pit */,
+      title: 'Ball pit + soft play',
+      blurb: 'A whole zone of squishy, climbable, dive-able play. Designed for ages 0–8, padded everywhere.',
+    },
+    {
+      icon: '2728' /* sparkles — calm + magical */,
+      title: 'Calm, curated, low-stim',
+      blurb: 'Warm lighting, gentle music, sightlines designed so adults can actually rest. Aesthetic enough for the photos.',
+    },
+    {
+      icon: '2615' /* hot beverage */,
+      title: 'Sit, sip, watch',
+      blurb: 'Cozy seating and easy sightlines mean you can pour a coffee, chat with a friend, and still keep an eye on your kid.',
+    },
+  ];
+
+  return (
+    <section className="bg-cream py-20">
+      <div className="mx-auto max-w-5xl px-6">
+        <p className="mb-2 text-xs font-bold uppercase tracking-wider text-coral">
+          Why members love it
+        </p>
+        <h2 className="font-display text-4xl text-slate-700 sm:text-5xl">
+          The space, the vibe, the rhythm.
+        </h2>
+        <p className="mt-3 max-w-2xl text-slate-500">
+          Membership pays for itself in convenience — same trusted space, same
+          calm atmosphere, anytime you need a reset.
+        </p>
+
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {cards.map((c) => (
+            <div
+              key={c.title}
+              className="rounded-2xl border-2 border-sky-200 bg-sky-50 p-5"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`https://cdn.jsdelivr.net/npm/openmoji@15.1.0/color/svg/${c.icon}.svg`}
+                alt=""
+                aria-hidden
+                width={56}
+                height={56}
+                className="h-14 w-14"
+                loading="lazy"
+              />
+              <p className="mt-3 font-display text-lg text-slate-700">{c.title}</p>
+              <p className="mt-1.5 text-sm text-slate-500">{c.blurb}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
