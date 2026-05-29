@@ -21,8 +21,10 @@ import {
   sendCreatedPartyInvoice,
   sendOwnerNotification,
   sendPartyConfirmation,
+  sendBalanceInvoiceReady,
 } from '@/lib/email';
 import { createPartyEvent } from '@/lib/google-calendar';
+import { createOrUpdateBalanceInvoice } from '@/lib/party-invoice';
 
 export const maxDuration = 60;
 
@@ -325,6 +327,57 @@ export async function POST(request: Request) {
         }
       } catch (err) {
         console.error('Groupon: calendar event creation failed:', err);
+      }
+
+      // If she picked add-ons or there are extras (extra kids / extension),
+      // the party portion is covered by $499 but the rest still needs to be
+      // collected. Auto-fire a Stripe balance invoice so the customer gets
+      // a single hosted-invoice link to pay the difference. Without this
+      // Gaby would have to click "Send balance invoice" on the party page
+      // as a follow-up step.
+      try {
+        // Refetch with the calendar event id baked in so the balance invoice
+        // helper sees a fully populated row.
+        const { data: refreshed } = await db
+          .from('parties')
+          .select('*')
+          .eq('id', partyId)
+          .maybeSingle();
+        const partyForInvoice = refreshed ?? fullParty;
+        const { data: addOnRows } = await db
+          .from('party_add_ons')
+          .select('id, name, unit_price_cents, qty, notes')
+          .eq('party_id', partyId)
+          .order('created_at', { ascending: true });
+
+        const result = await createOrUpdateBalanceInvoice(
+          partyForInvoice as any,
+          (addOnRows ?? []) as any,
+        ).catch((err) => {
+          // No-balance-owed throws — that's the no-add-ons case, totally
+          // normal for Groupon parties without extras. Anything else logs.
+          if (err instanceof Error && /no balance/i.test(err.message)) return null;
+          throw err;
+        });
+
+        if (result) {
+          await sendBalanceInvoiceReady({
+            parent_name: partyForInvoice.parent_name,
+            email: partyForInvoice.email,
+            child_name: partyForInvoice.child_name,
+            date: partyForInvoice.date,
+            balance_cents: result.balanceDueCents,
+            hosted_invoice_url: result.hostedUrl,
+            add_ons: (addOnRows ?? []).map((a: any) => ({
+              name: a.name,
+              qty: a.qty,
+              unit_price_cents: a.unit_price_cents,
+            })),
+            theme: partyForInvoice.invoice_theme ?? null,
+          });
+        }
+      } catch (err) {
+        console.error('Groupon: add-on balance invoice failed:', err);
       }
     }
     return NextResponse.json({
