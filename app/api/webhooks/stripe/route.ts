@@ -7,9 +7,14 @@ import {
   sendGiftCardToRecipient,
   sendGiftCardPurchaserReceipt,
   sendOwnerSaleNotification,
+  sendManualPaymentReceived,
+  sendOwnerNotification,
 } from '@/lib/email';
 import { finalizeParty, finalizeOpenPlay } from '@/lib/finalize-booking';
 import { createPartyEvent, syncPartyEventByPartyId } from '@/lib/google-calendar';
+import { computePartyFinancials } from '@/lib/parties';
+
+const fmtMoneyShort = (c: number) => `$${(c / 100).toFixed(2)}`;
 
 // Stripe sends raw bodies — App Router gives us req.text() which preserves them
 export async function POST(request: Request) {
@@ -161,22 +166,29 @@ export async function POST(request: Request) {
       if ((type === 'party_full' || type === 'party_deposit_admin') && partyId) {
         const updates: Record<string, unknown> = {
           deposit_paid_at: new Date().toISOString(),
+          // Tag the method so admin card + calendar event description show
+          // "Deposit paid · $X · Stripe ✓" instead of an unlabeled credit.
+          deposit_payment_method: 'stripe',
         };
         // For party_full the single invoice covers everything, so mirror the
         // balance-paid timestamp too (lets the admin UI show "paid in full")
         if (type === 'party_full') {
           updates.balance_paid_at = new Date().toISOString();
+          updates.balance_paid_amount_cents = invoice.amount_paid ?? 0;
+          updates.balance_payment_method = 'stripe';
         }
         await supabase.from('parties').update(updates).eq('id', partyId);
 
         // Create the Google Calendar event now that the deposit's confirmed.
         // Skip if already created (idempotent across duplicate webhooks).
+        let partyForEmails: any = null;
         try {
           const { data: party } = await supabase
             .from('parties')
-            .select('id, date, start_time, package, child_name, child_age, parent_name, email, phone, headcount, notes, total_cents, deposit_cents, deposit_paid_at, deposit_payment_method, promo_code_id, balance_paid_at, balance_paid_amount_cents, manual_discount_percent, manual_discount_cents, add_ons_total_cents, inspiration_image_urls, duration_minutes, extension_minutes, weekday_discount_applied, google_calendar_event_id')
+            .select('*')
             .eq('id', partyId)
             .maybeSingle();
+          partyForEmails = party;
           if (party && !party.google_calendar_event_id) {
             const siteUrl =
               process.env.NEXT_PUBLIC_SITE_URL ?? 'https://wonderlandplayhouse.com';
@@ -191,6 +203,36 @@ export async function POST(request: Request) {
         } catch (err) {
           console.error('Calendar event creation failed (party still paid):', err);
         }
+
+        // Customer + owner notifications — the original /admin/parties/new
+        // flow sends "your invoice is on the way", but until now there was
+        // no email when the customer actually paid the Stripe invoice.
+        if (partyForEmails) {
+          const fin = computePartyFinancials(partyForEmails);
+          const kind: 'deposit' | 'balance' = type === 'party_full' ? 'balance' : 'deposit';
+          try {
+            await sendManualPaymentReceived({
+              parent_name: partyForEmails.parent_name,
+              email: partyForEmails.email,
+              child_name: partyForEmails.child_name,
+              date: partyForEmails.date,
+              kind,
+              method: 'stripe',
+              amount_cents: invoice.amount_paid ?? 0,
+              remaining_balance_cents: fin.balance_due_cents,
+            });
+          } catch (err) {
+            console.error('Stripe-paid customer receipt failed:', err);
+          }
+          try {
+            await sendOwnerNotification({
+              subject: `💳 Stripe ${kind} paid · ${fmtMoneyShort(invoice.amount_paid ?? 0)} · ${partyForEmails.child_name ?? 'party'}`,
+              party: partyForEmails,
+            });
+          } catch (err) {
+            console.error('Stripe-paid owner notification failed:', err);
+          }
+        }
       }
 
       // Balance invoice paid — accumulate so multiple round trips (initial
@@ -198,17 +240,61 @@ export async function POST(request: Request) {
       if (type === 'party_balance' && partyId) {
         const { data: current } = await supabase
           .from('parties')
-          .select('balance_paid_amount_cents')
+          .select('balance_paid_amount_cents, balance_payment_method')
           .eq('id', partyId)
           .maybeSingle();
         const priorPaid = current?.balance_paid_amount_cents ?? 0;
+        // Append 'stripe' to the payment-method list so the admin card shows
+        // "Last paid · Stripe" alongside any prior Zelle/cash/Clover entries.
+        const priorMethods = current?.balance_payment_method
+          ? current.balance_payment_method.split(',').map((s: string) => s.trim()).filter(Boolean)
+          : [];
+        const methods = Array.from(new Set([...priorMethods, 'stripe'])).join(', ');
         await supabase
           .from('parties')
           .update({
             balance_paid_at: new Date().toISOString(),
             balance_paid_amount_cents: priorPaid + (invoice.amount_paid ?? 0),
+            balance_payment_method: methods,
           })
           .eq('id', partyId);
+
+        // Customer receipt + owner notification — match what mark-paid does
+        // for manual payments so the customer knows we got their money.
+        try {
+          const { data: party } = await supabase
+            .from('parties')
+            .select('*')
+            .eq('id', partyId)
+            .maybeSingle();
+          if (party) {
+            const fin = computePartyFinancials(party);
+            try {
+              await sendManualPaymentReceived({
+                parent_name: party.parent_name,
+                email: party.email,
+                child_name: party.child_name,
+                date: party.date,
+                kind: 'balance',
+                method: 'stripe',
+                amount_cents: invoice.amount_paid ?? 0,
+                remaining_balance_cents: fin.balance_due_cents,
+              });
+            } catch (err) {
+              console.error('Stripe balance customer receipt failed:', err);
+            }
+            try {
+              await sendOwnerNotification({
+                subject: `💳 Stripe balance paid · ${fmtMoneyShort(invoice.amount_paid ?? 0)} · ${party.child_name ?? 'party'}`,
+                party,
+              });
+            } catch (err) {
+              console.error('Stripe balance owner notification failed:', err);
+            }
+          }
+        } catch (err) {
+          console.error('Stripe balance email lookup failed:', err);
+        }
       }
 
       // Any party-related payment closes the loop on the calendar event

@@ -15,6 +15,21 @@ import type { InvoiceThemeSlug } from '@/lib/invoice-themes';
 export const dynamic = 'force-dynamic';
 
 const fmtMoney = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+// Pretty-prints stored payment-method strings (which can be comma-separated
+// for balance payments collected across multiple rounds).
+function methodLabel(raw: string): string {
+  const map: Record<string, string> = {
+    stripe: 'Stripe',
+    zelle: 'Zelle',
+    cash: 'Cash',
+    clover: 'Clover',
+    groupon: 'Groupon',
+  };
+  return raw
+    .split(',')
+    .map((m) => map[m.trim().toLowerCase()] ?? m.trim())
+    .join(' · ');
+}
 const fmtDate = (d: string) =>
   new Date(d + 'T00:00:00').toLocaleDateString('en-US', {
     weekday: 'long',
@@ -224,12 +239,30 @@ export default async function PartyDetailPage({
               <Row label="NYC tax (8.875%)" value={fmtMoney(financials.tax_cents)} />
               <hr className="border-slate-100" />
               <Row label="Grand total" value={<strong>{fmtMoney(financials.grand_total_cents)}</strong>} />
-              <Row label="Deposit paid" value={`−${fmtMoney(financials.deposit_paid_cents)}`} accent />
+              {financials.deposit_paid_cents > 0 && (
+                <Row
+                  label={
+                    (party as any).deposit_payment_method
+                      ? `Deposit paid · ${methodLabel((party as any).deposit_payment_method)}`
+                      : 'Deposit paid'
+                  }
+                  value={`−${fmtMoney(financials.deposit_paid_cents)}`}
+                  accent
+                />
+              )}
               {financials.gift_card_applied_cents > 0 && (
                 <Row label="Gift card applied" value={`−${fmtMoney(financials.gift_card_applied_cents)}`} accent />
               )}
               {financials.balance_paid_cents > 0 && (
-                <Row label="Balance paid" value={`−${fmtMoney(financials.balance_paid_cents)}`} accent />
+                <Row
+                  label={
+                    (party as any).balance_payment_method
+                      ? `Balance paid · ${methodLabel((party as any).balance_payment_method)}`
+                      : 'Balance paid'
+                  }
+                  value={`−${fmtMoney(financials.balance_paid_cents)}`}
+                  accent
+                />
               )}
               <hr className="border-slate-100" />
               <div className="flex items-baseline justify-between pt-1">

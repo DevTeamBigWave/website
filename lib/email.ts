@@ -1223,7 +1223,7 @@ export async function sendManualPaymentReceived(args: {
   child_name: string | null;
   date: string;
   kind: 'deposit' | 'balance';
-  method: 'zelle' | 'cash' | 'clover' | 'groupon';
+  method: 'zelle' | 'cash' | 'clover' | 'groupon' | 'stripe';
   amount_cents: number;
   remaining_balance_cents: number;
 }) {
@@ -1233,6 +1233,7 @@ export async function sendManualPaymentReceived(args: {
     args.method === 'zelle' ? 'Zelle'
     : args.method === 'cash' ? 'cash'
     : args.method === 'groupon' ? 'Groupon voucher'
+    : args.method === 'stripe' ? 'card (Stripe)'
     : 'Clover';
   const kindLabel = args.kind === 'deposit' ? 'deposit' : 'balance';
   const fullyPaid = args.remaining_balance_cents <= 0;
