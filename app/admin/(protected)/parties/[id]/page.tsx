@@ -24,6 +24,7 @@ function methodLabel(raw: string): string {
     cash: 'Cash',
     clover: 'Clover',
     groupon: 'Groupon',
+    gift_card: 'Gift card',
   };
   return raw
     .split(',')

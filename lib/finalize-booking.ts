@@ -36,6 +36,16 @@ export async function finalizeParty(partyId: string, opts: FinalizePartyOptions 
   };
   if (!opts.skipDeposit) {
     updates.deposit_paid_at = new Date().toISOString();
+    // Label the method so the admin Financials card + calendar event
+    // description show how the deposit landed. paymentIntent === Stripe
+    // checkout completed (even if a gift card partly covered the charge);
+    // no paymentIntent but a gift card === gift card fully covered the
+    // deposit and finalizeParty was called directly (no Stripe round trip).
+    updates.deposit_payment_method = opts.paymentIntent
+      ? 'stripe'
+      : opts.giftCardId
+        ? 'gift_card'
+        : 'stripe';
   }
   if (opts.promoCodeId) updates.promo_code_id = opts.promoCodeId;
   if (opts.paymentIntent) updates.stripe_deposit_payment_intent = opts.paymentIntent;
