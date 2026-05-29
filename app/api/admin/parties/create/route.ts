@@ -123,42 +123,43 @@ export async function POST(request: Request) {
   const isFullInvoice = body.invoice_type === 'full';
   const isCustomDeposit = body.invoice_type === 'custom_deposit';
 
-  // GRAND TOTAL — always includes add-ons and applies the manual discount
-  // to (party + add-ons), matching computePartyFinancials. This is the
-  // canonical future amount the customer will eventually owe, used to:
-  //   - validate the custom_deposit cap
-  //   - show the real "balance due" on the deposit invoice description
-  // The two existing modes (deposit_only / full) still compute their
-  // invoice amounts the way they always did to stay consistent with the
-  // customer-side /book flow (50% of party-only, no add-ons-on-deposit).
-  // Custom-$ wins over percent (matches computePartyFinancials).
+  // GRAND TOTAL — matches lib/parties.ts computePartyFinancials exactly:
+  //   combined_pre_tax = party_pre_tax + add_ons_pre_tax
+  //   taxable         = combined − F&F discount
+  //   tax             = 8.875% × taxable
+  //   grand           = taxable + tax     (add-ons are taxed too)
+  // Custom-$ wins over percent.
+  const TAX_RATE = 0.08875;
   const _customDiscountCents = body.manual_discount_cents ?? 0;
   const _allAddOnsCents = body.add_ons.reduce((s, a) => s + a.unit_price_cents * a.qty, 0);
-  const _grandPreDiscount = pricing.totalCents + _allAddOnsCents;
+  const _combinedPreTax = pricing.subtotalCents + _allAddOnsCents;
   const _grandManualDiscount = Math.min(
-    _grandPreDiscount,
+    _combinedPreTax,
     _customDiscountCents > 0
       ? _customDiscountCents
-      : Math.round((_grandPreDiscount * body.manual_discount_percent) / 100),
+      : Math.round((_combinedPreTax * body.manual_discount_percent) / 100),
   );
-  const _grandAfterDiscount = _grandPreDiscount - _grandManualDiscount;
+  const _taxableSubtotal = _combinedPreTax - _grandManualDiscount;
+  const _grandTaxCents = Math.round(_taxableSubtotal * TAX_RATE);
+  const _grandAfterDiscount = _taxableSubtotal + _grandTaxCents; // canonical grand total
 
-  // Legacy compatibles for full / deposit_only modes (party-only basis,
-  // matching the customer /book flow).
-  // For custom-$ discount on deposit_only mode, prorate the flat discount
-  // across the party portion (since add-ons aren't on this invoice).
-  const _addOnsTotal = isFullInvoice ? _allAddOnsCents : 0;
-  const _preDiscountFull = pricing.totalCents + _addOnsTotal;
-  const _manualDiscount = Math.min(
-    _preDiscountFull,
-    _customDiscountCents > 0
-      ? Math.round(
-          (_customDiscountCents * _preDiscountFull) / Math.max(1, _grandPreDiscount),
-        )
-      : Math.round((_preDiscountFull * body.manual_discount_percent) / 100),
+  // Deposit-only basis: 50% of (party portion incl. its share of the
+  // discounted, taxed subtotal). Mirrors the customer /book deposit.
+  const _partyPreTaxAfterFF = Math.max(
+    0,
+    pricing.subtotalCents -
+      Math.min(
+        pricing.subtotalCents,
+        _customDiscountCents > 0
+          ? Math.round((_customDiscountCents * pricing.subtotalCents) / Math.max(1, _combinedPreTax))
+          : Math.round((pricing.subtotalCents * body.manual_discount_percent) / 100),
+      ),
   );
-  const _fullAfterDiscount = _preDiscountFull - _manualDiscount;
-  const _depositAfterDiscount = Math.round(_fullAfterDiscount / 2);
+  const _partyTaxShare = Math.round(_partyPreTaxAfterFF * TAX_RATE);
+  const _partyAfterDiscount = _partyPreTaxAfterFF + _partyTaxShare;
+  const _depositAfterDiscount = Math.round(_partyAfterDiscount / 2);
+  // For full-invoice mode the customer pays the canonical grand total.
+  const _fullAfterDiscount = _grandAfterDiscount;
 
   // Custom deposit: validate against the all-inclusive grand total (the
   // amount the customer will actually owe in full, not just the party
@@ -261,17 +262,26 @@ export async function POST(request: Request) {
   }
 
   const isFull = isFullInvoice;
-  const manualDiscountCents = _manualDiscount;
-  const fullAfterDiscount = _fullAfterDiscount;
+  const fullAfterDiscount = _fullAfterDiscount; // canonical grand total
   const depositAfterDiscount = _depositAfterDiscount;
+  // F&F discount the customer will see on THIS invoice. For deposit-only
+  // we show the party-portion share so the deposit-side math reconciles
+  // line-by-line; for full we show the whole F&F.
+  const partyFFShareCents = Math.min(
+    pricing.subtotalCents,
+    _customDiscountCents > 0
+      ? Math.round((_customDiscountCents * pricing.subtotalCents) / Math.max(1, _combinedPreTax))
+      : Math.round((pricing.subtotalCents * body.manual_discount_percent) / 100),
+  );
+  const invoiceFFCents = isFull ? _grandManualDiscount : partyFFShareCents;
   const invoiceAmountCents = isFull
     ? fullAfterDiscount
     : isCustomDeposit
       ? _customDeposit
       : depositAfterDiscount;
   // Balance message uses the real all-inclusive future total so the
-  // customer sees what they'll actually owe (party + add-ons − discount
-  // − deposit they're about to pay), not just the party-only remainder.
+  // customer sees what they'll actually owe — party + add-ons − discount
+  // + tax-on-everything − deposit they're about to pay.
   const balanceAfterDeposit = _grandAfterDiscount - invoiceAmountCents;
 
   const invoice = await stripe.invoices.create({
@@ -309,12 +319,15 @@ export async function POST(request: Request) {
       description: `Deposit for ${body.child_name}'s ${body.package === 'private' ? 'Private' : 'Semi-Private'} party — ${formatDateLong(body.date)}. Balance of ${fmtMoney(balanceAfterDeposit)} invoiced separately.`,
     });
   } else if (isFull) {
+    // Itemize the whole thing pre-tax, then apply F&F as a negative line,
+    // then add a single NYC tax line so add-ons get taxed alongside the
+    // party (the fix for the bug Gaby caught).
     await stripe.invoiceItems.create({
       customer: customerId,
       invoice: invoice.id,
-      amount: pricing.totalCents,
+      amount: pricing.subtotalCents,
       currency: 'usd',
-      description: `${body.package === 'private' ? 'Private' : 'Semi-Private'} party (incl. tax) — ${formatDateLong(body.date)}`,
+      description: `${body.package === 'private' ? 'Private' : 'Semi-Private'} party — ${formatDateLong(body.date)}`,
     });
     for (const a of body.add_ons) {
       await stripe.invoiceItems.create({
@@ -328,35 +341,45 @@ export async function POST(request: Request) {
             : `${a.name}${a.notes ? ` — ${a.notes}` : ''}`,
       });
     }
-    if (manualDiscountCents > 0) {
+    if (invoiceFFCents > 0) {
       await stripe.invoiceItems.create({
         customer: customerId,
         invoice: invoice.id,
-        amount: -manualDiscountCents,
+        amount: -invoiceFFCents,
         currency: 'usd',
         description:
           _customDiscountCents > 0
             ? 'Friends & family discount'
             : `Friends & family discount (${body.manual_discount_percent}% off)`,
+      });
+    }
+    if (_grandTaxCents > 0) {
+      await stripe.invoiceItems.create({
+        customer: customerId,
+        invoice: invoice.id,
+        amount: _grandTaxCents,
+        currency: 'usd',
+        description: 'NYC sales tax (8.875%)',
       });
     }
   } else {
-    // Deposit-only: itemize the party (so the customer sees what they're
-    // committing to — party + tax + any friends-&-family discount), then
-    // add a "balance — invoiced separately" credit line that pulls the
-    // invoice total down to the deposit amount.
+    // Deposit-only: itemize the party portion pre-tax, the F&F share that
+    // applies to the party, the tax on the party-after-F&F, then a
+    // "balance — invoiced separately" credit pulling the total down to
+    // the deposit amount. Add-ons are NOT on this invoice — they'll be
+    // billed (with tax) on the balance invoice.
     await stripe.invoiceItems.create({
       customer: customerId,
       invoice: invoice.id,
-      amount: pricing.totalCents,
+      amount: pricing.subtotalCents,
       currency: 'usd',
-      description: `${body.package === 'private' ? 'Private' : 'Semi-Private'} party (incl. tax) — ${formatDateLong(body.date)}`,
+      description: `${body.package === 'private' ? 'Private' : 'Semi-Private'} party — ${formatDateLong(body.date)}`,
     });
-    if (manualDiscountCents > 0) {
+    if (invoiceFFCents > 0) {
       await stripe.invoiceItems.create({
         customer: customerId,
         invoice: invoice.id,
-        amount: -manualDiscountCents,
+        amount: -invoiceFFCents,
         currency: 'usd',
         description:
           _customDiscountCents > 0
@@ -364,7 +387,16 @@ export async function POST(request: Request) {
             : `Friends & family discount (${body.manual_discount_percent}% off)`,
       });
     }
-    const remaining = pricing.totalCents - manualDiscountCents - depositAfterDiscount;
+    if (_partyTaxShare > 0) {
+      await stripe.invoiceItems.create({
+        customer: customerId,
+        invoice: invoice.id,
+        amount: _partyTaxShare,
+        currency: 'usd',
+        description: 'NYC sales tax (8.875%)',
+      });
+    }
+    const remaining = _partyAfterDiscount - depositAfterDiscount;
     if (remaining > 0) {
       await stripe.invoiceItems.create({
         customer: customerId,

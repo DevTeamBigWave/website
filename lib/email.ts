@@ -171,7 +171,7 @@ export async function sendPartyConfirmation(party: any, addOns: AddOnLite[] = []
   // page + Stripe invoice use.
   const moneyRows: Array<[string, string]> = [];
   moneyRows.push(['Package', party.package === 'private' ? 'Private' : 'Semi-Private']);
-  moneyRows.push(['Party total (incl. tax)', fmtMoney(fin.base_total_cents)]);
+  moneyRows.push(['Party', fmtMoney(fin.party_pre_tax_cents)]);
   if (fin.add_ons_total_cents > 0) {
     moneyRows.push(['Add-ons', fmtMoney(fin.add_ons_total_cents)]);
   }
@@ -183,6 +183,7 @@ export async function sendPartyConfirmation(party: any, addOns: AddOnLite[] = []
       `<span style="color:#ff7783;">−${fmtMoney(fin.manual_discount_cents)}</span>`,
     ]);
   }
+  moneyRows.push(['NYC tax (8.875%)', fmtMoney(fin.tax_cents)]);
   moneyRows.push(['Grand total', `<strong>${fmtMoney(fin.grand_total_cents)}</strong>`]);
   if (depositPaid) {
     moneyRows.push(['Deposit paid', `<span style="color:#7C8E5C;">−${fmtMoney(fin.deposit_paid_cents)} ✓</span>`]);
@@ -928,7 +929,7 @@ export async function sendOwnerNotification({
   const rows: Array<[string, string]> = [
     ['Date', `${fmtDate(party.date)} at ${party.start_time}`],
     ['Package', party.package === 'private' ? 'Private' : 'Semi-Private'],
-    ['Party total (incl. tax)', fmtMoney(fin.base_total_cents)],
+    ['Party', fmtMoney(fin.party_pre_tax_cents)],
   ];
   if (fin.add_ons_total_cents > 0) {
     rows.push(['Add-ons', fmtMoney(fin.add_ons_total_cents)]);
@@ -941,6 +942,7 @@ export async function sendOwnerNotification({
       `<span style="color:#ff7783;">−${fmtMoney(fin.manual_discount_cents)}</span>`,
     ]);
   }
+  rows.push(['NYC tax (8.875%)', fmtMoney(fin.tax_cents)]);
   rows.push(['Grand total', `<strong>${fmtMoney(fin.grand_total_cents)}</strong>`]);
   if (depositPaid) {
     rows.push(['Deposit paid', `<span style="color:#7C8E5C;">${fmtMoney(fin.deposit_paid_cents)} ✓</span>`]);

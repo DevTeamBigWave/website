@@ -1,19 +1,41 @@
 // Party balance arithmetic — single source of truth for what's owed.
+//
+// Tax model (8.875% NYC sales tax):
+//   - Mon-Thu 20% private discount is applied PRE-tax inside calculatePartyPricing
+//     and baked into parties.subtotal_cents.
+//   - Friends-&-family discount is applied PRE-tax here, on the combined
+//     subtotal (party + add-ons). It reduces the taxable amount.
+//   - Tax is calculated on the post-F&F subtotal — which means ADD-ONS
+//     ARE TAXED. (Previously the stored parties.tax_cents only covered the
+//     party itself, leaving add-ons untaxed — fixed now.)
+
+const TAX_RATE = 0.08875;
 
 export type PartyFinancials = {
-  base_total_cents: number;          // parties.total_cents (party + tax, before add-ons)
-  add_ons_total_cents: number;       // sum of add-on rows
-  manual_discount_percent: number;   // 0 / 10 / 15 / 20
-  manual_discount_cents: number;     // percent of (base + add-ons)
-  gift_card_applied_cents: number;   // already redeemed at deposit time
-  deposit_paid_cents: number;        // deposit captured at booking
-  balance_paid_cents: number;        // any payment of the balance invoice already received
-  grand_total_cents: number;         // base + add-ons − manual discount
-  balance_due_cents: number;         // grand_total − deposit − balance_paid − gift_card
+  // Pre-tax breakdown
+  party_pre_tax_cents: number;       // parties.subtotal_cents (party post-Mon-Thu, pre-tax)
+  add_ons_total_cents: number;       // sum of add-on rows (pre-tax)
+  combined_pre_tax_cents: number;    // party + add-ons, pre-F&F
+  manual_discount_percent: number;
+  manual_discount_cents: number;     // resolved discount amount in $
+  taxable_subtotal_cents: number;    // combined − F&F (what tax is applied to)
+  tax_cents: number;                 // 8.875% of taxable_subtotal
+  grand_total_cents: number;         // taxable_subtotal + tax
+  // Payments
+  gift_card_applied_cents: number;
+  deposit_paid_cents: number;
+  balance_paid_cents: number;
+  balance_due_cents: number;
+  // Legacy alias — kept so older callers that read base_total_cents
+  // (admin party detail "Party total" label) keep working. Now refers
+  // to the party-portion-incl-its-own-tax-share for display purposes:
+  // party_pre_tax + tax * (party / combined).
+  base_total_cents: number;
 };
 
 export type PartyRowForFinancials = {
-  total_cents: number;
+  subtotal_cents: number;            // party post-Mon-Thu, pre-tax (now canonical)
+  total_cents?: number | null;       // legacy: party + tax-on-party — used only for safety fallback
   add_ons_total_cents?: number | null;
   gift_card_applied_cents?: number | null;
   deposit_cents: number;
@@ -24,7 +46,7 @@ export type PartyRowForFinancials = {
 };
 
 export function computePartyFinancials(p: PartyRowForFinancials): PartyFinancials {
-  const baseTotal = p.total_cents;
+  const partyPreTax = p.subtotal_cents;
   const addOnsTotal = p.add_ons_total_cents ?? 0;
   const giftCard = p.gift_card_applied_cents ?? 0;
   // Only count the deposit as paid if the webhook has actually confirmed it.
@@ -35,25 +57,40 @@ export function computePartyFinancials(p: PartyRowForFinancials): PartyFinancial
   const pct = p.manual_discount_percent ?? 0;
   const flatCents = p.manual_discount_cents ?? 0;
 
-  const preDiscountTotal = baseTotal + addOnsTotal;
+  const combinedPreTax = partyPreTax + addOnsTotal;
   // Custom-$ takes precedence over %. The discount endpoint zeroes the other
-  // when one is set, but we defend here too. Cap at preDiscountTotal so we
-  // can't produce a negative grand total.
-  const rawDiscount = flatCents > 0 ? flatCents : Math.round((preDiscountTotal * pct) / 100);
-  const manualDiscount = Math.min(rawDiscount, preDiscountTotal);
-  const grandTotal = preDiscountTotal - manualDiscount;
+  // when one is set, but we defend here too. Cap at combinedPreTax so we
+  // can't produce a negative subtotal.
+  const rawDiscount = flatCents > 0 ? flatCents : Math.round((combinedPreTax * pct) / 100);
+  const manualDiscount = Math.min(rawDiscount, combinedPreTax);
+
+  const taxableSubtotal = combinedPreTax - manualDiscount;
+  const taxCents = Math.round(taxableSubtotal * TAX_RATE);
+  const grandTotal = taxableSubtotal + taxCents;
   const balanceDue = Math.max(0, grandTotal - depositPaid - balancePaid - giftCard);
 
+  // Legacy "base_total_cents" — party portion incl. its proportional share
+  // of the post-discount tax. Used by displays that show "Party total" as
+  // a single line. When add-ons are zero this collapses to partyPreTax + tax.
+  const partyTaxShare = combinedPreTax > 0
+    ? Math.round((partyPreTax * taxCents) / combinedPreTax)
+    : taxCents;
+  const baseTotalLegacy = partyPreTax + partyTaxShare;
+
   return {
-    base_total_cents: baseTotal,
+    party_pre_tax_cents: partyPreTax,
     add_ons_total_cents: addOnsTotal,
+    combined_pre_tax_cents: combinedPreTax,
     manual_discount_percent: flatCents > 0 ? 0 : pct,
     manual_discount_cents: manualDiscount,
+    taxable_subtotal_cents: taxableSubtotal,
+    tax_cents: taxCents,
+    grand_total_cents: grandTotal,
     gift_card_applied_cents: giftCard,
     deposit_paid_cents: depositPaid,
     balance_paid_cents: balancePaid,
-    grand_total_cents: grandTotal,
     balance_due_cents: balanceDue,
+    base_total_cents: baseTotalLegacy,
   };
 }
 

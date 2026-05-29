@@ -201,15 +201,13 @@ export default async function PartyDetailPage({
         <aside className="space-y-6">
           <Card title="Financials">
             <dl className="space-y-2 text-sm">
-              <Row label="Subtotal" value={fmtMoney(party.subtotal_cents ?? 0)} />
+              <Row label="Party (pre-tax)" value={fmtMoney(financials.party_pre_tax_cents)} />
               {party.discount_cents > 0 && (
-                <Row label="Mon–Thu 20% off" value={`−${fmtMoney(party.discount_cents)}`} accent />
+                <Row label="Mon–Thu 20% off (included)" value={`−${fmtMoney(party.discount_cents)}`} accent />
               )}
-              {(party.tax_cents ?? 0) > 0 && (
-                <Row label="Tax" value={fmtMoney(party.tax_cents)} />
+              {financials.add_ons_total_cents > 0 && (
+                <Row label="Add-ons" value={fmtMoney(financials.add_ons_total_cents)} />
               )}
-              <Row label="Party total" value={fmtMoney(financials.base_total_cents)} />
-              <Row label="Add-ons" value={fmtMoney(financials.add_ons_total_cents)} />
               {financials.manual_discount_cents > 0 && (
                 <Row
                   label={
@@ -221,6 +219,8 @@ export default async function PartyDetailPage({
                   accent
                 />
               )}
+              <Row label="Taxable subtotal" value={fmtMoney(financials.taxable_subtotal_cents)} />
+              <Row label="NYC tax (8.875%)" value={fmtMoney(financials.tax_cents)} />
               <hr className="border-slate-100" />
               <Row label="Grand total" value={<strong>{fmtMoney(financials.grand_total_cents)}</strong>} />
               <Row label="Deposit paid" value={`−${fmtMoney(financials.deposit_paid_cents)}`} accent />

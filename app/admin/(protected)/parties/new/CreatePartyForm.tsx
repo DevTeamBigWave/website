@@ -157,33 +157,41 @@ export function CreatePartyForm() {
     }
   }, [pkg, date, startTime, extension60, headcount]);
 
-  // Mirror the server pricing math so every amount displayed here matches
-  // what the customer is actually about to be invoiced.
+  // Mirror computePartyFinancials exactly so every amount displayed here
+  // matches what the customer is actually about to be invoiced.
   //
-  // - Full invoice → grand total (party + add-ons) minus F&F discount on the
-  //   whole grand total. Same formula as computePartyFinancials.
-  // - Deposit only → 50% of (party − F&F discount on party only). Matches the
-  //   customer-side /book deposit, which never bills add-ons up front.
-  // - Custom deposit → typed amount, capped at the all-inclusive grand total.
-  const partyTotalCents = pricing?.totalCents ?? 0;
-  const grandPreDiscount = partyTotalCents + addOnsTotalCents;
-  // Custom-$ wins over percent — matches computePartyFinancials.
+  // Tax model: F&F discount applies pre-tax on the combined subtotal
+  // (party + add-ons). NYC 8.875% tax is applied on the post-discount
+  // subtotal — and that means add-ons get taxed too (not just the party).
+  //
+  // - Full invoice → grand total = combined pre-tax − F&F + tax(8.875%)
+  // - Deposit only → 50% of (party pre-tax − F&F-share-of-party + tax)
+  //   so the customer's /book deposit and this admin deposit match.
+  // - Custom deposit → typed amount, capped at the all-inclusive grand.
+  const TAX_RATE = 0.08875;
+  const partyPreTax = pricing?.subtotalCents ?? 0;
+  const combinedPreTax = partyPreTax + addOnsTotalCents;
+  // Custom-$ wins over percent.
   const grandManualDiscount = Math.min(
-    grandPreDiscount,
+    combinedPreTax,
     discountCents > 0
       ? discountCents
-      : Math.round((grandPreDiscount * discountPercent) / 100),
+      : Math.round((combinedPreTax * discountPercent) / 100),
   );
-  const fullAfterDiscount = grandPreDiscount - grandManualDiscount;
+  const taxableSubtotal = combinedPreTax - grandManualDiscount;
+  const taxCents = Math.round(taxableSubtotal * TAX_RATE);
+  const fullAfterDiscount = taxableSubtotal + taxCents; // = grand total
 
-  // Deposit-only path discounts the party portion only (matches /book).
+  // Deposit-only: 50% of party portion incl. its share of the post-F&F tax.
   const partyManualDiscount = Math.min(
-    partyTotalCents,
+    partyPreTax,
     discountCents > 0
-      ? Math.round((discountCents * partyTotalCents) / Math.max(1, grandPreDiscount))
-      : Math.round((partyTotalCents * discountPercent) / 100),
+      ? Math.round((discountCents * partyPreTax) / Math.max(1, combinedPreTax))
+      : Math.round((partyPreTax * discountPercent) / 100),
   );
-  const partyAfterDiscount = partyTotalCents - partyManualDiscount;
+  const partyAfterFFPreTax = partyPreTax - partyManualDiscount;
+  const partyTaxShare = Math.round(partyAfterFFPreTax * TAX_RATE);
+  const partyAfterDiscount = partyAfterFFPreTax + partyTaxShare; // party + own tax
   const depositAfterDiscount = Math.round(partyAfterDiscount / 2);
 
   // Custom deposit amount: parse whatever the owner typed. Empty / invalid
@@ -875,9 +883,7 @@ export function CreatePartyForm() {
                   accent
                 />
               )}
-              <Row label="Tax (8.875%)" value={fmt(pricing.taxCents)} />
-              <hr className="border-slate-100" />
-              <Row label="Party total" value={<strong>{fmt(pricing.totalCents)}</strong>} />
+              <Row label="Party (pre-tax)" value={fmt(partyPreTax)} />
               {addOnsTotalCents > 0 && (
                 <Row label="Add-ons" value={fmt(addOnsTotalCents)} />
               )}
@@ -892,6 +898,9 @@ export function CreatePartyForm() {
                   accent
                 />
               )}
+              <Row label="Taxable subtotal" value={fmt(taxableSubtotal)} />
+              <Row label="NYC tax (8.875%)" value={fmt(taxCents)} />
+              <hr className="border-slate-100" />
               <Row
                 label="Grand total"
                 value={<strong>{fmt(fullAfterDiscount)}</strong>}

@@ -19,7 +19,8 @@ type PartyForInvoice = {
   start_time: string;
   package: string;
   child_name: string | null;
-  total_cents: number;
+  subtotal_cents: number;       // party post-Mon-Thu, pre-tax (canonical)
+  total_cents: number;          // legacy: party + party-only tax
   deposit_cents: number;
   deposit_paid_at: string | null;
   add_ons_total_cents: number | null;
@@ -27,6 +28,7 @@ type PartyForInvoice = {
   balance_paid_amount_cents: number | null;
   balance_invoice_id: string | null;
   manual_discount_percent: number | null;
+  manual_discount_cents: number | null;
 };
 
 type AddOnRow = {
@@ -95,15 +97,16 @@ export async function createOrUpdateBalanceInvoice(
     },
   });
 
-  // Always include a base line for the party package + tax (post-discount), with the deposit + gift card as a clear credit note.
-  // We collapse into one "Party balance" line for clarity, then itemize add-ons separately.
-
+  // Itemize pre-tax: party portion, every add-on, then F&F discount,
+  // then a single NYC tax line on the post-discount subtotal. This is
+  // what reconciles "add-ons get taxed too" with the canonical
+  // computePartyFinancials math.
   await stripe.invoiceItems.create({
     customer: customerId,
     invoice: invoice.id,
-    amount: party.total_cents,
+    amount: financials.party_pre_tax_cents,
     currency: 'usd',
-    description: `${packageLabel(party.package)} party (incl. tax) — ${formatDateLong(party.date)}`,
+    description: `${packageLabel(party.package)} party — ${formatDateLong(party.date)}`,
   });
 
   for (const item of addOns) {
@@ -114,12 +117,12 @@ export async function createOrUpdateBalanceInvoice(
       currency: 'usd',
       description:
         item.qty > 1
-          ? `${item.name} × ${item.qty}${item.notes ? ` — ${item.notes}` : ''}`
-          : `${item.name}${item.notes ? ` — ${item.notes}` : ''}`,
+          ? `${item.name} × ${item.qty}${item.notes ? ` − ${item.notes}` : ''}`
+          : `${item.name}${item.notes ? ` − ${item.notes}` : ''}`,
     });
   }
 
-  // Friends & family discount, applied to (party + add-ons)
+  // Friends & family discount, applied to (party + add-ons) PRE-tax
   if (financials.manual_discount_cents > 0) {
     await stripe.invoiceItems.create({
       customer: customerId,
@@ -130,6 +133,17 @@ export async function createOrUpdateBalanceInvoice(
         financials.manual_discount_percent > 0
           ? `Friends & family discount (${financials.manual_discount_percent}% off)`
           : `Friends & family discount`,
+    });
+  }
+
+  // NYC sales tax on the post-discount subtotal — taxes add-ons too.
+  if (financials.tax_cents > 0) {
+    await stripe.invoiceItems.create({
+      customer: customerId,
+      invoice: invoice.id,
+      amount: financials.tax_cents,
+      currency: 'usd',
+      description: 'NYC sales tax (8.875%)',
     });
   }
 

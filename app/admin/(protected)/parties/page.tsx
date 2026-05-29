@@ -24,6 +24,8 @@ type PartyRow = {
   gift_card_applied_cents: number | null;
   balance_paid_amount_cents: number | null;
   manual_discount_percent: number | null;
+  manual_discount_cents: number | null;
+  subtotal_cents: number;
 };
 
 type TimeFilter = 'upcoming' | 'past' | 'all';
@@ -53,7 +55,7 @@ export default async function AdminPartiesPage({
   const { data: parties = [] } = await db
     .from('parties')
     .select(
-      'id, date, start_time, package, status, child_name, child_age, parent_name, email, phone, headcount, total_cents, deposit_cents, deposit_paid_at, add_ons_total_cents, gift_card_applied_cents, balance_paid_amount_cents, manual_discount_percent',
+      'id, date, start_time, package, status, child_name, child_age, parent_name, email, phone, headcount, total_cents, subtotal_cents, deposit_cents, deposit_paid_at, add_ons_total_cents, gift_card_applied_cents, balance_paid_amount_cents, manual_discount_percent, manual_discount_cents',
     )
     .order('date', { ascending: false })
     .limit(500);
