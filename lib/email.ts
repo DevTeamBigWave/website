@@ -304,6 +304,133 @@ export async function sendPartyRescheduled(args: {
 }
 
 // ---------------------------------------------------------------------------
+// Customer: party total changed after the deposit was already paid (Gaby
+// added or removed an add-on, applied or cleared a F&F discount, etc).
+// Sends the new grand total + balance owed so the customer isn't surprised
+// later. We deliberately don't include a Stripe payment link — Gaby is
+// usually still editing; a fresh balance invoice will follow when she's
+// done.
+// ---------------------------------------------------------------------------
+export async function sendPartyBalanceUpdated(args: {
+  party: any;
+  changeNote: string; // e.g. "We added a custom cake (+$250)" or "F&F discount applied"
+}) {
+  const { party, changeNote } = args;
+  const fin = computePartyFinancials(party);
+  const firstName = party.parent_name.split(' ')[0] || party.parent_name;
+
+  const moneyRows: Array<[string, string]> = [
+    ['Party', fmtMoney(fin.party_pre_tax_cents)],
+  ];
+  if (fin.add_ons_total_cents > 0) {
+    moneyRows.push(['Add-ons', fmtMoney(fin.add_ons_total_cents)]);
+  }
+  if (fin.manual_discount_cents > 0) {
+    moneyRows.push([
+      fin.manual_discount_percent > 0
+        ? `Friends & family ${fin.manual_discount_percent}% off`
+        : 'Friends & family discount',
+      `<span style="color:#ff7783;">−${fmtMoney(fin.manual_discount_cents)}</span>`,
+    ]);
+  }
+  moneyRows.push(['NYC tax (8.875%)', fmtMoney(fin.tax_cents)]);
+  moneyRows.push(['Grand total', `<strong>${fmtMoney(fin.grand_total_cents)}</strong>`]);
+  if (fin.deposit_paid_cents > 0) {
+    moneyRows.push(['Deposit paid', `<span style="color:#7C8E5C;">−${fmtMoney(fin.deposit_paid_cents)} ✓</span>`]);
+  }
+  if (fin.balance_paid_cents > 0) {
+    moneyRows.push(['Balance paid', `<span style="color:#7C8E5C;">−${fmtMoney(fin.balance_paid_cents)} ✓</span>`]);
+  }
+  if (fin.gift_card_applied_cents > 0) {
+    moneyRows.push(['Gift card applied', `<span style="color:#7C8E5C;">−${fmtMoney(fin.gift_card_applied_cents)} 🎁</span>`]);
+  }
+  moneyRows.push([
+    'Balance due',
+    `<strong>${fmtMoney(fin.balance_due_cents)}</strong>`,
+  ]);
+
+  const body = `
+    <p style="margin:0 0 16px; line-height:1.65;">Hi ${escapeHtml(firstName)},</p>
+    <p style="margin:0 0 16px; line-height:1.65;">A quick update on ${escapeHtml(party.child_name ?? 'your party')} on ${fmtDate(party.date)} — ${escapeHtml(changeNote)}. Here are the new totals:</p>
+
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse; margin:18px 0;">
+      ${moneyRows
+        .map(
+          ([k, v], i) => `
+        <tr>
+          <td style="padding:8px 0; border-top:${i === 0 ? '0' : '1px solid #F0EDE9'}; color:#3D4659;">${escapeHtml(k)}</td>
+          <td style="padding:8px 0; border-top:${i === 0 ? '0' : '1px solid #F0EDE9'}; text-align:right; color:#3D4659;">${v}</td>
+        </tr>`,
+        )
+        .join('')}
+    </table>
+
+    ${
+      fin.balance_due_cents > 0
+        ? `<p style="margin:0 0 16px; line-height:1.65; color:#3D4659;">We'll send the updated invoice in a separate email when everything's set. No action needed right now.</p>`
+        : `<p style="margin:0 0 16px; line-height:1.65; color:#3D4659;">You're paid in full — no balance owed. We're set!</p>`
+    }
+
+    <p style="margin:0 0 16px; line-height:1.65;">Questions? Just reply to this email or text the playhouse at (718) 889-1777.</p>
+    <p style="margin:0; line-height:1.65;">— Wonderland Playhouse</p>
+  `;
+
+  const html = brandedShell(
+    {
+      heroEyebrow: 'Balance updated',
+      title: 'Quick update on your party.',
+      subtitle: `${escapeHtml(party.child_name ?? 'Your child')}'s ${party.package === 'private' ? 'private' : 'semi-private'} party · ${fmtDate(party.date)}`,
+    },
+    body,
+  );
+
+  return resend().emails.send({
+    from: FROM,
+    to: party.email,
+    subject: `Updated total for ${escapeHtml(party.child_name ?? 'your')} party — ${fmtMoney(fin.grand_total_cents)}`,
+    html,
+  });
+}
+
+// Customer: party cancelled (admin cancelled or hold expired without payment).
+// ---------------------------------------------------------------------------
+export async function sendPartyCancelled(args: {
+  party: any;
+  reason?: string;
+}) {
+  const { party, reason } = args;
+  const firstName = party.parent_name.split(' ')[0] || party.parent_name;
+  const body = `
+    <p style="margin:0 0 16px; line-height:1.65;">Hi ${escapeHtml(firstName)},</p>
+    <p style="margin:0 0 16px; line-height:1.65;">${escapeHtml(party.child_name ?? "Your child")}'s ${party.package === 'private' ? 'private' : 'semi-private'} party on ${fmtDate(party.date)} has been cancelled${reason ? ` — ${escapeHtml(reason)}` : ''}.</p>
+
+    ${
+      party.deposit_paid_at
+        ? `<p style="margin:0 0 16px; line-height:1.65;">If you paid a deposit, Gaby (the playhouse owner) will be in touch about refund or transfer. Otherwise, nothing else for you to do.</p>`
+        : `<p style="margin:0 0 16px; line-height:1.65;">No deposit was collected, so there's nothing to refund. The date has been released and is open for other bookings.</p>`
+    }
+
+    <p style="margin:0 0 16px; line-height:1.65;">If you'd like to rebook for a different date, our calendar is at <a href="https://www.wonderlandplayhouse.com/book" style="color:#ff7783;">wonderlandplayhouse.com/book</a>, or call (718) 889-1777.</p>
+    <p style="margin:0; line-height:1.65;">— Wonderland Playhouse</p>
+  `;
+
+  const html = brandedShell(
+    {
+      heroEyebrow: 'Cancelled',
+      title: "Your party's been cancelled.",
+      subtitle: `${escapeHtml(party.child_name ?? 'Party')} · ${fmtDate(party.date)}`,
+    },
+    body,
+  );
+
+  return resend().emails.send({
+    from: FROM,
+    to: party.email,
+    subject: `Cancellation: ${escapeHtml(party.child_name ?? 'party')} · ${fmtDate(party.date)}`,
+    html,
+  });
+}
+
 // Customer: open play paid
 // ---------------------------------------------------------------------------
 export async function sendOpenPlayConfirmation(ticket: any) {
@@ -345,7 +472,10 @@ export async function sendOpenPlayConfirmation(ticket: any) {
 // Customer: 7-day-out reminder (sent by cron)
 // ---------------------------------------------------------------------------
 export async function sendPartySevenDayReminder(party: any) {
-  const balance = party.total_cents - party.deposit_cents;
+  // Read balance from the canonical helper so the reminder matches every
+  // other surface (admin card, calendar event, balance invoice) — the old
+  // total - deposit math silently ignored add-ons + tax-on-add-ons.
+  const balance = computePartyFinancials(party).balance_due_cents;
   const firstName = party.parent_name.split(' ')[0] || party.parent_name;
   const body = `
     <p style="margin:0 0 16px; line-height:1.65;">Hi ${escapeHtml(firstName)},</p>

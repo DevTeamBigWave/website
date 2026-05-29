@@ -19,6 +19,7 @@
 
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { deletePartyEvent } from '@/lib/google-calendar';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -42,7 +43,7 @@ export async function GET(req: Request) {
   // Find every party still in 'hold' whose 30-min window has passed.
   const { data: stale, error: findErr } = await db
     .from('parties')
-    .select('id, child_name, date, start_time')
+    .select('id, child_name, date, start_time, google_calendar_event_id')
     .eq('status', 'hold')
     .not('hold_expires_at', 'is', null)
     .lt('hold_expires_at', nowISO);
@@ -69,6 +70,21 @@ export async function GET(req: Request) {
     console.error('expire-holds: cancel update failed:', updErr.message);
     return NextResponse.json({ error: updErr.message }, { status: 500 });
   }
+
+  // Remove the Google Calendar event for any expired hold so we don't
+  // leave orphans on Gaby's calendar. No customer email — they abandoned
+  // checkout themselves, a "your hold expired" message would just be noise.
+  await Promise.allSettled(
+    stale
+      .filter((p) => p.google_calendar_event_id)
+      .map(async (p) => {
+        try {
+          await deletePartyEvent(p.google_calendar_event_id as string);
+        } catch (err) {
+          console.warn(`expire-holds: calendar delete failed for ${p.id}:`, err);
+        }
+      }),
+  );
 
   return NextResponse.json({
     ok: true,

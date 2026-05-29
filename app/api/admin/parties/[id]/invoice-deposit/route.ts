@@ -13,7 +13,7 @@ import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin';
 import { supabaseAdmin } from '@/lib/supabase';
 import { stripe } from '@/lib/stripe';
-import { sendCreatedPartyInvoice } from '@/lib/email';
+import { sendCreatedPartyInvoice, sendOwnerNotification } from '@/lib/email';
 import { computePartyFinancials } from '@/lib/parties';
 
 export const maxDuration = 60;
@@ -168,6 +168,12 @@ export async function POST(
   } catch (err) {
     console.error('Themed wrapper email failed (Stripe email still sent):', err);
   }
+
+  // Owner paper trail.
+  sendOwnerNotification({
+    subject: `📨 Deposit invoice sent · ${party.child_name ?? 'party'} · ${fmtMoney(depositAmount)}`,
+    party,
+  }).catch((err) => console.error('Owner notification failed:', err));
 
   return NextResponse.json({
     ok: true,

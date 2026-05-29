@@ -8,6 +8,9 @@ import { z } from 'zod';
 import { requireOwner } from '@/lib/admin';
 import { supabaseAdmin } from '@/lib/supabase';
 import { syncPartyEventByPartyId } from '@/lib/google-calendar';
+import { afterMoneyChange } from '@/lib/after-money-change';
+
+const fmt = (c: number) => `$${(c / 100).toFixed(2)}`;
 
 const Schema = z.union([
   z.object({
@@ -51,5 +54,17 @@ export async function PATCH(
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   void syncPartyEventByPartyId(partyId);
+
+  // Customer + owner notifications, voids stale balance invoice if any.
+  const changeNote =
+    typeof body.percent === 'number'
+      ? body.percent > 0
+        ? `we applied a ${body.percent}% Friends & family discount`
+        : 'we cleared the Friends & family discount'
+      : (body.amount_cents ?? 0) > 0
+        ? `we applied a ${fmt(body.amount_cents ?? 0)} Friends & family discount`
+        : 'we cleared the Friends & family discount';
+  void afterMoneyChange(partyId, changeNote);
+
   return NextResponse.json({ ok: true, ...updates });
 }

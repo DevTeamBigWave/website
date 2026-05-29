@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin';
 import { supabaseAdmin } from '@/lib/supabase';
 import { createOrUpdateBalanceInvoice } from '@/lib/party-invoice';
-import { sendBalanceInvoiceReady } from '@/lib/email';
+import { sendBalanceInvoiceReady, sendOwnerNotification } from '@/lib/email';
+
+const fmt = (c: number) => `$${(c / 100).toFixed(2)}`;
 
 export const maxDuration = 60;
 
@@ -52,6 +54,13 @@ export async function POST(
     }).catch((err) => {
       console.error('Branded invoice email failed (Stripe email still sent):', err);
     });
+
+    // Owner paper trail.
+    sendOwnerNotification({
+      subject: `📨 Balance invoice sent · ${party.child_name ?? 'party'} · ${fmt(balanceDueCents)}`,
+      party,
+      addOns: (addOns ?? []) as any,
+    }).catch((err) => console.error('Owner notification failed:', err));
 
     return NextResponse.json({
       ok: true,
