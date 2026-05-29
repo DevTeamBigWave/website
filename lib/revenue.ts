@@ -110,43 +110,57 @@ export async function getRevenue(range: DateRange): Promise<RevenueSummary> {
   const fromISO = range.from.toISOString();
   const toISO = range.to.toISOString();
 
-  // Party deposits (collected via Stripe — gift card credit doesn't count as cash)
+  // Party deposits (collected via Stripe — gift card credit doesn't count as cash).
+  // We exclude rows where the deposit was recorded with method='clover' —
+  // those payments are already picked up by the Clover device sync below,
+  // and counting both would double the revenue. The "Clover" button on the
+  // admin mark-paid flow is intentionally a no-op for revenue purposes;
+  // it's there for paper-trail / payment-method labeling only.
   const { data: depParties = [] } = await db
     .from('parties')
-    .select('deposit_cents, gift_card_applied_cents, deposit_paid_at')
+    .select('deposit_cents, gift_card_applied_cents, deposit_paid_at, deposit_payment_method')
     .gte('deposit_paid_at', fromISO)
     .lte('deposit_paid_at', toISO)
     .not('deposit_paid_at', 'is', null);
 
+  const depPartiesNonClover = (depParties ?? []).filter(
+    (p: any) => p.deposit_payment_method !== 'clover',
+  );
+
   const partyDeposits: RevenueLine = {
     source: 'party_deposits',
     label: 'Party deposits',
-    amount_cents: (depParties ?? []).reduce(
+    amount_cents: depPartiesNonClover.reduce(
       (s: number, p: any) =>
         s + Math.max(0, (p.deposit_cents ?? 0) - (p.gift_card_applied_cents ?? 0)),
       0,
     ),
-    txn_count: (depParties ?? []).filter(
+    txn_count: depPartiesNonClover.filter(
       (p: any) => (p.deposit_cents ?? 0) - (p.gift_card_applied_cents ?? 0) > 0,
     ).length,
   };
 
-  // Party balances (collected via Stripe invoice)
+  // Party balances (collected via Stripe invoice or manual recording).
+  // Same Clover exclusion as deposits.
   const { data: balParties = [] } = await db
     .from('parties')
-    .select('balance_paid_amount_cents, balance_paid_at')
+    .select('balance_paid_amount_cents, balance_paid_at, balance_payment_method')
     .gte('balance_paid_at', fromISO)
     .lte('balance_paid_at', toISO)
     .not('balance_paid_at', 'is', null);
 
+  const balPartiesNonClover = (balParties ?? []).filter(
+    (p: any) => !(p.balance_payment_method ?? '').toLowerCase().includes('clover'),
+  );
+
   const partyBalance: RevenueLine = {
     source: 'party_balance',
     label: 'Party balance payments',
-    amount_cents: (balParties ?? []).reduce(
+    amount_cents: balPartiesNonClover.reduce(
       (s: number, p: any) => s + (p.balance_paid_amount_cents ?? 0),
       0,
     ),
-    txn_count: (balParties ?? []).filter(
+    txn_count: balPartiesNonClover.filter(
       (p: any) => (p.balance_paid_amount_cents ?? 0) > 0,
     ).length,
   };
@@ -221,11 +235,11 @@ export async function getRevenue(range: DateRange): Promise<RevenueSummary> {
   const addDaily = (date: string, amt: number) => {
     dailyMap.set(date, (dailyMap.get(date) ?? 0) + amt);
   };
-  (depParties ?? []).forEach((p: any) => {
+  depPartiesNonClover.forEach((p: any) => {
     const d = ymd(new Date(p.deposit_paid_at));
     addDaily(d, Math.max(0, (p.deposit_cents ?? 0) - (p.gift_card_applied_cents ?? 0)));
   });
-  (balParties ?? []).forEach((p: any) => {
+  balPartiesNonClover.forEach((p: any) => {
     const d = ymd(new Date(p.balance_paid_at));
     addDaily(d, p.balance_paid_amount_cents ?? 0);
   });
