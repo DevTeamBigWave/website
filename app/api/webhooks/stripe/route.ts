@@ -170,12 +170,13 @@ export async function POST(request: Request) {
           // "Deposit paid · $X · Stripe ✓" instead of an unlabeled credit.
           deposit_payment_method: 'stripe',
         };
-        // For party_full the single invoice covers everything, so mirror the
-        // balance-paid timestamp too (lets the admin UI show "paid in full")
+        // For party_full the single Stripe invoice covers everything. We
+        // stamp balance_paid_at so the admin UI shows "paid in full", but
+        // intentionally don't set balance_paid_amount_cents — otherwise
+        // revenue.ts would count the same charge twice (once under Party
+        // deposits via deposit_cents, once under Party balance).
         if (type === 'party_full') {
           updates.balance_paid_at = new Date().toISOString();
-          updates.balance_paid_amount_cents = invoice.amount_paid ?? 0;
-          updates.balance_payment_method = 'stripe';
         }
         await supabase.from('parties').update(updates).eq('id', partyId);
 

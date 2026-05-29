@@ -149,9 +149,15 @@ export async function getRevenue(range: DateRange): Promise<RevenueSummary> {
     .lte('balance_paid_at', toISO)
     .not('balance_paid_at', 'is', null);
 
-  const balPartiesNonClover = (balParties ?? []).filter(
-    (p: any) => !(p.balance_payment_method ?? '').toLowerCase().includes('clover'),
-  );
+  // Only exclude rows whose balance method is purely 'clover' — those are
+  // already counted by the Clover sync. Multi-method rows like "stripe,
+  // clover" stay in (excluding them would lose the Stripe portion entirely
+  // since we don't track per-method amounts). Mild over-count on the
+  // Clover portion of mixed rows is acceptable; lost Stripe revenue isn't.
+  const balPartiesNonClover = (balParties ?? []).filter((p: any) => {
+    const m = (p.balance_payment_method ?? '').toLowerCase().trim();
+    return m !== 'clover';
+  });
 
   const partyBalance: RevenueLine = {
     source: 'party_balance',
