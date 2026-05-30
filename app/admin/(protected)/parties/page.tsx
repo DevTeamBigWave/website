@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { supabaseAdmin } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/admin';
 import { computePartyFinancials } from '@/lib/parties';
+import { PhoneLink } from './PhoneLink';
 
 export const dynamic = 'force-dynamic';
 
@@ -186,16 +187,10 @@ function PartyCard({ party: p, today }: { party: PartyRow; today: string }) {
             {p.phone && (
               // Phone front-and-center so Gaby can match an inbound text
               // to the right party without scrolling into the detail page.
-              // stopPropagation so tapping the number opens the dialer
-              // instead of navigating into the party.
+              // PhoneLink is a client component so stopPropagation can keep
+              // the tap on the number from navigating into the party.
               <p className="truncate text-xs font-semibold text-coral">
-                <a
-                  href={`tel:${p.phone.replace(/[^\d+]/g, '')}`}
-                  onClick={(e) => e.stopPropagation()}
-                  className="hover:underline"
-                >
-                  📞 {formatPhone(p.phone)}
-                </a>
+                <PhoneLink phone={p.phone} />
               </p>
             )}
           </div>
@@ -284,15 +279,4 @@ function fmtTime(t: string) {
   const period = h >= 12 ? 'PM' : 'AM';
   const display = ((h + 11) % 12) + 1;
   return `${display}:${String(m).padStart(2, '0')} ${period}`;
-}
-
-// Pretty-print a US phone for display. Strips non-digits, then formats as
-// (XXX) XXX-XXXX. Falls back to the raw value for anything that doesn't
-// look like a 10-digit US number so international / non-standard inputs
-// still render something readable.
-function formatPhone(raw: string): string {
-  const digits = raw.replace(/\D/g, '');
-  const d = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits;
-  if (d.length !== 10) return raw;
-  return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
 }
