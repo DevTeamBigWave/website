@@ -16,6 +16,16 @@ const FROM = process.env.RESEND_FROM_EMAIL!;
 const OWNER = process.env.OWNER_NOTIFY_EMAIL!;
 const SITE = process.env.NEXT_PUBLIC_SITE_URL!;
 
+// Balance for any party (deposit-only / custom / Groupon-with-add-ons) is
+// due 3 calendar days before the party. Anything that quotes the deadline
+// to the customer uses this single helper so the language never drifts.
+export const BALANCE_DUE_DAYS_BEFORE = 3;
+export function balanceDueDateFor(partyDate: string | Date): Date {
+  const d = new Date(partyDate);
+  d.setDate(d.getDate() - BALANCE_DUE_DAYS_BEFORE);
+  return d;
+}
+
 const fmtDate = (d: string | Date) =>
   new Date(d).toLocaleDateString('en-US', {
     weekday: 'long',
@@ -136,8 +146,7 @@ function ctaButton(label: string, href: string): string {
 type AddOnLite = { name: string; unit_price_cents: number; qty: number; notes?: string | null };
 
 export async function sendPartyConfirmation(party: any, addOns: AddOnLite[] = []) {
-  const balanceDueDate = new Date(party.date);
-  balanceDueDate.setDate(balanceDueDate.getDate() - 7);
+  const balanceDueDate = balanceDueDateFor(party.date);
   const firstName = party.parent_name.split(' ')[0] || party.parent_name;
   // Promo-code path: no deposit was actually paid; show the full total as
   // owed and skip the "deposit paid ✓" language entirely.
@@ -484,8 +493,8 @@ export async function sendPartySevenDayReminder(party: any) {
     ${
       balance > 0
         ? `<div style="background:#FFF4F5; border-radius:12px; padding:18px 20px; margin:20px 0;">
-             <p style="margin:0 0 4px; font-size:11px; text-transform:uppercase; letter-spacing:1.5px; color:#ff7783; font-weight:800;">Balance due</p>
-             <p style="margin:0; line-height:1.65;"><strong>${fmtMoney(balance)}</strong> — we'll send a payment link a few days before, or you can pay at the playhouse.</p>
+             <p style="margin:0 0 4px; font-size:11px; text-transform:uppercase; letter-spacing:1.5px; color:#ff7783; font-weight:800;">Balance due in 4 days</p>
+             <p style="margin:0; line-height:1.65;"><strong>${fmtMoney(balance)}</strong> is due by <strong>${fmtDate(balanceDueDateFor(party.date))}</strong> (3 days before the party). We'll send a payment link as the deadline approaches — paying ahead keeps check-in smooth on party day.</p>
            </div>`
         : ''
     }
@@ -556,6 +565,107 @@ export async function sendPartyTwentyFourHourReminder(party: any) {
     from: FROM,
     to: party.email,
     subject: `🎉 Tomorrow's ${party.child_name}'s party — quick reminders`,
+    html,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Customer: balance due today (3 calendar days before the party).
+// Soft-firm tone. Reads balance freshly from computePartyFinancials so any
+// add-ons / extras / discounts that landed between booking and now are
+// reflected. payLink is the hosted Stripe invoice URL the cron mints
+// (or refreshes) just before sending — always present so the CTA works.
+// ---------------------------------------------------------------------------
+export async function sendBalanceDueReminder(args: {
+  party: any;
+  payLink: string | null;
+}) {
+  const { party, payLink } = args;
+  const fin = computePartyFinancials(party);
+  const firstName = party.parent_name.split(' ')[0] || party.parent_name;
+  const child = party.child_name ?? 'your child';
+
+  const body = `
+    <p style="margin:0 0 16px; line-height:1.65;">Hi ${escapeHtml(firstName)},</p>
+    <p style="margin:0 0 16px; line-height:1.65;">Just a heads-up — the balance for ${escapeHtml(child)}'s ${party.package === 'private' ? 'private' : 'semi-private'} party on <strong>${fmtDate(party.date)}</strong> is due today. Settling up ahead of time means we can focus on the kids on party day instead of payments at check-in.</p>
+
+    <div style="background:#FFF4F5; border-radius:14px; padding:22px 24px; margin:24px 0; text-align:center;">
+      <p style="margin:0 0 6px; font-size:11px; text-transform:uppercase; letter-spacing:2px; color:#ff7783; font-weight:800;">Balance due today</p>
+      <p style="margin:0; font-size:32px; font-weight:800; color:#2C4253;">${fmtMoney(fin.balance_due_cents)}</p>
+    </div>
+
+    ${payLink
+      ? ctaButton('Pay balance now', payLink)
+      : `<p style="margin:0 0 16px; line-height:1.65;">We're prepping the payment link — Gaby will send it within the next few hours. Watch for it.</p>`}
+
+    <p style="margin:24px 0 16px; line-height:1.65; font-size:14px;">If today doesn't work, please text or call us at <a href="tel:+17188891777" style="color:#ff7783; font-weight:600;">(718) 889-1777</a> — we'd rather coordinate now than have a surprise at the door.</p>
+
+    <p style="margin:0; line-height:1.65;">Thanks!<br/>— Wonderland Playhouse</p>
+  `;
+
+  const html = brandedShell(
+    {
+      heroEyebrow: 'Balance due today',
+      title: `${fmtMoney(fin.balance_due_cents)} due for ${escapeHtml(child)}'s party.`,
+      subtitle: `${fmtDate(party.date)} at ${party.start_time}`,
+    },
+    body,
+  );
+
+  return resend().emails.send({
+    from: FROM,
+    to: party.email,
+    subject: `Balance due today — ${escapeHtml(child)}'s party on ${fmtDate(party.date)}`,
+    html,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Customer: balance still owed 24h before the party. Slightly firmer than
+// the 3-day reminder — they didn't pay then, party is tomorrow, this is
+// the last automated nudge before they show up at the door.
+// ---------------------------------------------------------------------------
+export async function sendBalanceOverdueReminder(args: {
+  party: any;
+  payLink: string | null;
+}) {
+  const { party, payLink } = args;
+  const fin = computePartyFinancials(party);
+  const firstName = party.parent_name.split(' ')[0] || party.parent_name;
+  const child = party.child_name ?? 'your child';
+
+  const body = `
+    <p style="margin:0 0 16px; line-height:1.65;">Hi ${escapeHtml(firstName)},</p>
+    <p style="margin:0 0 16px; line-height:1.65;">The balance for ${escapeHtml(child)}'s party <strong>tomorrow</strong> (${fmtDate(party.date)}) is still outstanding. Please settle it using the link below before you arrive — check-in is so much smoother when the payment side is handled in advance.</p>
+
+    <div style="background:#FEF3C7; border-radius:14px; padding:22px 24px; margin:24px 0; text-align:center; border:2px solid #F59E0B;">
+      <p style="margin:0 0 6px; font-size:11px; text-transform:uppercase; letter-spacing:2px; color:#B45309; font-weight:800;">Outstanding balance</p>
+      <p style="margin:0; font-size:32px; font-weight:800; color:#2C4253;">${fmtMoney(fin.balance_due_cents)}</p>
+    </div>
+
+    ${payLink
+      ? ctaButton('Pay balance now', payLink)
+      : `<p style="margin:0 0 16px; line-height:1.65;">Please text Gaby at <a href="tel:+17188891777" style="color:#ff7783; font-weight:600;">(718) 889-1777</a> for the payment link.</p>`}
+
+    <p style="margin:24px 0 16px; line-height:1.65; font-size:14px;">If something's blocking the payment, please text us at <a href="tel:+17188891777" style="color:#ff7783; font-weight:600;">(718) 889-1777</a> today and we'll work it out together. We just want to make sure tomorrow goes smoothly for ${escapeHtml(child)}.</p>
+
+    <p style="margin:0; line-height:1.65;">See you tomorrow!<br/>— Wonderland Playhouse</p>
+  `;
+
+  const html = brandedShell(
+    {
+      heroEyebrow: 'Last call · balance overdue',
+      title: `${fmtMoney(fin.balance_due_cents)} still owed for tomorrow's party.`,
+      subtitle: `${fmtDate(party.date)} at ${party.start_time}`,
+      heroBg: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+    },
+    body,
+  );
+
+  return resend().emails.send({
+    from: FROM,
+    to: party.email,
+    subject: `Last call — balance overdue for tomorrow's party`,
     html,
   });
 }
@@ -1247,8 +1357,12 @@ export async function sendManualPaymentReceived(args: {
       <p style="margin:8px 0 0; font-size:32px; font-weight:800; color:#2C4253;">${fmtMoney(args.amount_cents)}</p>
       ${fullyPaid
         ? `<p style="margin:10px 0 0; font-size:13px; color:#15803d; font-weight:600;">Paid in full — you're all set ✓</p>`
-        : `<p style="margin:10px 0 0; font-size:13px; color:#6B7C8E;">Remaining balance: <strong>${fmtMoney(args.remaining_balance_cents)}</strong></p>`}
+        : `<p style="margin:10px 0 0; font-size:13px; color:#6B7C8E;">Remaining balance: <strong>${fmtMoney(args.remaining_balance_cents)}</strong> · due by ${fmtDate(balanceDueDateFor(args.date))}</p>`}
     </div>
+
+    ${!fullyPaid && args.kind === 'deposit'
+      ? `<p style="margin:0 0 16px; line-height:1.65; font-size:14px;">A quick heads-up: your remaining balance of <strong>${fmtMoney(args.remaining_balance_cents)}</strong> is due <strong>3 days before the party</strong> (by ${fmtDate(balanceDueDateFor(args.date))}). We'll send a payment link as the date gets closer — paying ahead means check-in is a breeze on party day.</p>`
+      : ''}
 
     <p style="margin:24px 0 0; line-height:1.65; font-size:14px; color:#6B7C8E;">Questions? Reply to this email or call <a href="tel:+17188891777" style="color:#6B7C8E;">(718) 889-1777</a>.</p>
   `;

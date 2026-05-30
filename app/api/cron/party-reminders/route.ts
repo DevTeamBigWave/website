@@ -4,7 +4,11 @@ import {
   sendPartySevenDayReminder,
   sendPartyTwentyFourHourReminder,
   sendBalanceInvoiceReady,
+  sendBalanceDueReminder,
+  sendBalanceOverdueReminder,
+  BALANCE_DUE_DAYS_BEFORE,
 } from '@/lib/email';
+import { stripe } from '@/lib/stripe';
 import { createOrUpdateBalanceInvoice } from '@/lib/party-invoice';
 import { computePartyFinancials } from '@/lib/parties';
 
@@ -55,14 +59,54 @@ export async function GET(request: Request) {
   const today = isoDateNYC(0);
   const sevenDaysOut = isoDateNYC(7);
   const oneDayOut = isoDateNYC(1);
+  const balanceDueDay = isoDateNYC(BALANCE_DUE_DAYS_BEFORE);
   const invoiceLeadDate = isoDateNYC(INVOICE_LEAD_DAYS);
 
   const results = {
     ran_for_date: today,
     auto_invoice: { found: 0, sent: 0, skipped: 0, errors: [] as string[] },
     seven_day: { found: 0, sent: 0, skipped: 0, errors: [] as string[] },
+    balance_due: { found: 0, sent: 0, skipped: 0, errors: [] as string[] },
     one_day: { found: 0, sent: 0, skipped: 0, errors: [] as string[] },
+    balance_overdue: { found: 0, sent: 0, skipped: 0, errors: [] as string[] },
   };
+
+  // Shared helper: each balance-related reminder needs a working pay link.
+  // Returns the hosted Stripe URL for an existing OPEN balance invoice on
+  // the party, or mints a fresh one for the current balance. Null if Stripe
+  // is down or there's no balance to invoice — the email gracefully degrades
+  // ("Gaby will send the link") in that case.
+  async function freshPayLink(party: any): Promise<string | null> {
+    const fin = computePartyFinancials(party);
+    if (fin.balance_due_cents < 50) return null;
+
+    if (party.balance_invoice_id) {
+      try {
+        const existing = await stripe.invoices.retrieve(party.balance_invoice_id);
+        if (existing.status === 'open' && existing.hosted_invoice_url) {
+          return existing.hosted_invoice_url;
+        }
+      } catch (err) {
+        console.warn('balance invoice retrieve failed:', err);
+      }
+    }
+
+    try {
+      const { data: addOns = [] } = await db
+        .from('party_add_ons')
+        .select('id, name, unit_price_cents, qty, notes')
+        .eq('party_id', party.id)
+        .order('created_at', { ascending: true });
+      const { hostedUrl } = await createOrUpdateBalanceInvoice(
+        party as any,
+        (addOns ?? []) as any,
+      );
+      return hostedUrl;
+    } catch (err) {
+      console.error('Mint balance invoice failed:', err);
+      return null;
+    }
+  }
 
   // 1. Auto-send balance invoice 14 days out
   const { data: invoiceTargets = [] } = await db
@@ -137,7 +181,44 @@ export async function GET(request: Request) {
     }
   }
 
-  // 3. 24-hour reminders
+  // 3. Balance-due reminders — fires 3 days before the party (= the deadline
+  //    day) for any party that still owes money. Skips fully-paid parties.
+  const { data: balanceDue = [] } = await db
+    .from('parties')
+    .select('*')
+    .eq('status', 'confirmed')
+    .eq('date', balanceDueDay)
+    .is('balance_due_reminder_sent_at', null);
+
+  results.balance_due.found = (balanceDue ?? []).length;
+  for (const party of balanceDue ?? []) {
+    const fin = computePartyFinancials(party as any);
+    if (fin.balance_due_cents <= 0) {
+      results.balance_due.skipped += 1;
+      // Tag the column so we don't keep re-checking this party tomorrow
+      // if they get a tiny add-on added — it'll have moved into the
+      // overdue bucket by then anyway.
+      await db
+        .from('parties')
+        .update({ balance_due_reminder_sent_at: new Date().toISOString() })
+        .eq('id', party.id);
+      continue;
+    }
+    try {
+      const payLink = await freshPayLink(party);
+      await sendBalanceDueReminder({ party, payLink });
+      await db
+        .from('parties')
+        .update({ balance_due_reminder_sent_at: new Date().toISOString() })
+        .eq('id', party.id);
+      results.balance_due.sent += 1;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'unknown';
+      results.balance_due.errors.push(`${party.id}: ${msg}`);
+    }
+  }
+
+  // 4. 24-hour reminders
   const { data: oneDay = [] } = await db
     .from('parties')
     .select('*')
@@ -157,6 +238,41 @@ export async function GET(request: Request) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'unknown';
       results.one_day.errors.push(`${party.id}: ${msg}`);
+    }
+  }
+
+  // 5. Balance overdue — 24h out and still owes money. Only fires if the
+  //    customer didn't pay between the 3-day reminder and today. Skips
+  //    parties that paid in full.
+  const { data: balanceOverdue = [] } = await db
+    .from('parties')
+    .select('*')
+    .eq('status', 'confirmed')
+    .eq('date', oneDayOut)
+    .is('balance_overdue_reminder_sent_at', null);
+
+  results.balance_overdue.found = (balanceOverdue ?? []).length;
+  for (const party of balanceOverdue ?? []) {
+    const fin = computePartyFinancials(party as any);
+    if (fin.balance_due_cents <= 0) {
+      results.balance_overdue.skipped += 1;
+      await db
+        .from('parties')
+        .update({ balance_overdue_reminder_sent_at: new Date().toISOString() })
+        .eq('id', party.id);
+      continue;
+    }
+    try {
+      const payLink = await freshPayLink(party);
+      await sendBalanceOverdueReminder({ party, payLink });
+      await db
+        .from('parties')
+        .update({ balance_overdue_reminder_sent_at: new Date().toISOString() })
+        .eq('id', party.id);
+      results.balance_overdue.sent += 1;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'unknown';
+      results.balance_overdue.errors.push(`${party.id}: ${msg}`);
     }
   }
 
