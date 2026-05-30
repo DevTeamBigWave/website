@@ -12,6 +12,7 @@ import {
 } from '@/lib/email';
 import { createPartyEvent } from '@/lib/google-calendar';
 import { redeemFromCard } from '@/lib/gift-cards';
+import { maybeSendPlanningCallInvite } from '@/lib/planning-call';
 
 type FinalizePartyOptions = {
   paymentIntent?: string;
@@ -115,6 +116,13 @@ export async function finalizeParty(partyId: string, opts: FinalizePartyOptions 
     }),
     createPartyEvent(party, siteUrl),
   ]);
+
+  // Auto-fire the planning-call invite the moment the deposit is recorded
+  // (skips if a promo party didn't pay one — they'll get it when the
+  // balance lands or when admin records a payment).
+  if (party.deposit_paid_at) {
+    void maybeSendPlanningCallInvite(party);
+  }
 
   if (calendarResult.status === 'fulfilled' && calendarResult.value) {
     await supabase

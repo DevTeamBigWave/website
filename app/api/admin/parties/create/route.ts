@@ -25,6 +25,7 @@ import {
 } from '@/lib/email';
 import { createPartyEvent } from '@/lib/google-calendar';
 import { createOrUpdateBalanceInvoice } from '@/lib/party-invoice';
+import { maybeSendPlanningCallInvite } from '@/lib/planning-call';
 
 export const maxDuration = 60;
 
@@ -308,6 +309,9 @@ export async function POST(request: Request) {
       } catch (err) {
         console.error('Groupon: confirmation email failed:', err);
       }
+      // Auto-fire the planning-call invite — Groupon parties just paid
+      // their $499 "deposit", so this is exactly when it should go out.
+      void maybeSendPlanningCallInvite(fullParty as any);
       try {
         await sendOwnerNotification({
           subject: `🎟️ Groupon party created · ${body.child_name} · ${formatDateLong(body.date)}`,

@@ -11,6 +11,7 @@ import { stripe } from '@/lib/stripe';
 import { createPartyEvent, syncPartyEventByPartyId } from '@/lib/google-calendar';
 import { computePartyFinancials } from '@/lib/parties';
 import { sendManualPaymentReceived, sendOwnerNotification } from '@/lib/email';
+import { maybeSendPlanningCallInvite } from '@/lib/planning-call';
 
 const Schema = z.object({
   kind: z.enum(['deposit', 'balance']),
@@ -244,6 +245,13 @@ export async function POST(
     });
   } catch (err) {
     console.error('Manual-payment owner email failed:', err);
+  }
+
+  // For deposit payments, auto-fire the planning-call invite if it hasn't
+  // gone out yet (Stripe webhook does the same — whichever happens first
+  // wins via the planning_call_email_sent_at idempotency check).
+  if (body.kind === 'deposit') {
+    void maybeSendPlanningCallInvite(fullParty as any);
   }
 
   return NextResponse.json({ ok: true });

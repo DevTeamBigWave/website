@@ -14,6 +14,11 @@ function resend(): Resend {
 
 const FROM = process.env.RESEND_FROM_EMAIL!;
 const OWNER = process.env.OWNER_NOTIFY_EMAIL!;
+// Customer-facing emails that the owner has no other visibility into
+// (cron reminders, planning call invite, open play receipts, etc) BCC the
+// owner so Gaby gets a copy in her inbox. Emails that already trigger a
+// separate sendOwnerNotification call skip the BCC to avoid two-of-everything.
+const BCC_OWNER = OWNER;
 const SITE = process.env.NEXT_PUBLIC_SITE_URL!;
 
 // Balance for any party (deposit-only / custom / Groupon-with-add-ons) is
@@ -472,6 +477,7 @@ export async function sendOpenPlayConfirmation(ticket: any) {
   return resend().emails.send({
     from: FROM,
     to: ticket.email,
+    bcc: BCC_OWNER,
     subject: `Your open play ticket — ${fmtDate(ticket.date)}`,
     html,
   });
@@ -520,6 +526,7 @@ export async function sendPartySevenDayReminder(party: any) {
   return resend().emails.send({
     from: FROM,
     to: party.email,
+    bcc: BCC_OWNER,
     subject: `1 week until ${party.child_name}'s party at Wonderland`,
     html,
   });
@@ -564,6 +571,7 @@ export async function sendPartyTwentyFourHourReminder(party: any) {
   return resend().emails.send({
     from: FROM,
     to: party.email,
+    bcc: BCC_OWNER,
     subject: `🎉 Tomorrow's ${party.child_name}'s party — quick reminders`,
     html,
   });
@@ -615,6 +623,7 @@ export async function sendBalanceDueReminder(args: {
   return resend().emails.send({
     from: FROM,
     to: party.email,
+    bcc: BCC_OWNER,
     subject: `Balance due today — ${escapeHtml(child)}'s party on ${fmtDate(party.date)}`,
     html,
   });
@@ -665,6 +674,7 @@ export async function sendBalanceOverdueReminder(args: {
   return resend().emails.send({
     from: FROM,
     to: party.email,
+    bcc: BCC_OWNER,
     subject: `Last call — balance overdue for tomorrow's party`,
     html,
   });
@@ -783,16 +793,31 @@ export async function sendPartyPlanningCallInvite(party: {
   email: string;
   child_name: string | null;
   date: string;
+  // If passed and > 0, the customer has already picked add-ons — soften
+  // the language so the call reads as optional ("looks like you're set,
+  // here's the link if you want to chat anyway") instead of required.
+  add_ons_total_cents?: number | null;
 }) {
   const firstName = party.parent_name.split(' ')[0] || party.parent_name;
-  const body = `
+  const hasAddOns = (party.add_ons_total_cents ?? 0) > 0;
+  const body = hasAddOns
+    ? `
+    <p style="margin:0 0 16px; line-height:1.65;">Hi ${escapeHtml(firstName)},</p>
+    <p style="margin:0 0 16px; line-height:1.65;">Your deposit is in and the date is locked. We see you've picked some add-ons — looks like you're already set! If everything's exactly how you want it, no need to do anything else; the planning call below is optional.</p>
+    <p style="margin:0 0 8px; line-height:1.65;">If you'd like to chat through theme details, decor specifics, timing, or anything else, grab a 30-minute slot:</p>
+
+    ${ctaButton('Schedule planning call (optional)', `${SITE}/inquire`)}
+
+    <p style="margin:24px 0 0; line-height:1.6; font-size:14px; color:#6B7C8E;">Prefer to skip the call? Just reply to this email and let us know — or call (718) 889-1777 with any quick questions.</p>
+  `
+    : `
     <p style="margin:0 0 16px; line-height:1.65;">Hi ${escapeHtml(firstName)},</p>
     <p style="margin:0 0 16px; line-height:1.65;">Your deposit is in and the date is locked. Now the fun part — let's nail down the theme, cake, food, entertainment, and any other add-ons.</p>
     <p style="margin:0 0 8px; line-height:1.65;">Grab a 30-minute slot that works for you:</p>
 
     ${ctaButton('Schedule planning call', `${SITE}/inquire`)}
 
-    <p style="margin:24px 0 0; line-height:1.6; font-size:14px; color:#6B7C8E;">Prefer to chat by text? Reply to this email or call (718) 889-1777.</p>
+    <p style="margin:24px 0 0; line-height:1.6; font-size:14px; color:#6B7C8E;">Already know exactly what you want? Reply to this email with the details and we can skip the call — or text (718) 889-1777.</p>
   `;
   const html = brandedShell(
     {
@@ -805,6 +830,7 @@ export async function sendPartyPlanningCallInvite(party: {
   return resend().emails.send({
     from: FROM,
     to: party.email,
+    bcc: BCC_OWNER,
     subject: `Let's plan ${party.child_name ?? 'the'} party — schedule a quick call`,
     html,
   });
@@ -1015,6 +1041,7 @@ export async function sendCreatedPartyInvoice(args: {
   return resend().emails.send({
     from: FROM,
     to: args.email,
+    bcc: BCC_OWNER,
     subject: isFull
       ? `${child}'s ${theme.subjectFlavor} — ${fmtMoney(args.amount_cents)} invoice`
       : `${child}'s ${theme.subjectFlavor} — deposit of ${fmtMoney(args.amount_cents)} to confirm`,

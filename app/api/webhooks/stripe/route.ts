@@ -13,6 +13,7 @@ import {
 import { finalizeParty, finalizeOpenPlay } from '@/lib/finalize-booking';
 import { createPartyEvent, syncPartyEventByPartyId } from '@/lib/google-calendar';
 import { computePartyFinancials } from '@/lib/parties';
+import { maybeSendPlanningCallInvite } from '@/lib/planning-call';
 
 const fmtMoneyShort = (c: number) => `$${(c / 100).toFixed(2)}`;
 
@@ -233,6 +234,10 @@ export async function POST(request: Request) {
           } catch (err) {
             console.error('Stripe-paid owner notification failed:', err);
           }
+          // Auto-fire planning-call invite if not already sent. Idempotent
+          // via planning_call_email_sent_at — if mark-paid beat us to it
+          // this is a no-op.
+          void maybeSendPlanningCallInvite(partyForEmails as any);
         }
       }
 
