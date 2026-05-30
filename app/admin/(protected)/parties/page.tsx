@@ -186,8 +186,13 @@ function PartyCard({ party: p, today }: { party: PartyRow; today: string }) {
           </div>
           <div className="text-right">
             <p className={`font-display text-base ${isPast ? 'text-slate-500' : 'text-slate-700'}`}>
-              {fmtMoney(p.total_cents)}
+              {fmtMoney(fin.grand_total_cents)}
             </p>
+            {fin.add_ons_total_cents > 0 && (
+              <p className="text-[10px] uppercase tracking-wider text-slate-400">
+                incl. add-ons
+              </p>
+            )}
           </div>
         </div>
       </Link>
