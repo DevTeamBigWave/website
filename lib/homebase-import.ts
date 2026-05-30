@@ -4,9 +4,15 @@
 // extract the labor numbers + per-employee breakdown with Claude (resilient
 // to format changes), upsert into daily_labor.
 //
-// Date semantics: a "Daily Report for ... on 05/23" email is sent the morning
-// of 05/23 and the "Yesterday's Summary" section refers to 05/22. We store
-// the labor for 05/22 (the date the work happened).
+// Date semantics: each morning's Homebase email has TWO sections we care
+// about:
+//   - "What's Happening Today"  → today's EXPECTED (scheduled) labor
+//   - "Yesterday's Summary"     → yesterday's ACTUAL labor
+// One email therefore touches two daily_labor rows. The today row gets
+// expected_* populated; the yesterday row gets total_* (actual). When
+// tomorrow's email arrives it fills in the actual_* on today's row.
+// Net effect: today's row exists the morning it begins (expected only,
+// actual = TBD), and fills in the next morning.
 
 import Anthropic from '@anthropic-ai/sdk';
 import { supabaseAdmin } from '@/lib/supabase';
@@ -118,12 +124,24 @@ function extractBodyText(message: GmailMessage): string {
   return '';
 }
 
+type EmployeeShift = { name: string; scheduled: string | null; actual: string | null };
 type ParsedLabor = {
-  labor_date: string; // YYYY-MM-DD, the date the labor happened (= report's "yesterday")
-  total_cost_cents: number;
-  total_hours: number;
-  overtime_hours: number;
-  per_employee: Array<{ name: string; scheduled: string | null; actual: string | null }>;
+  // Report date from the email subject (= today, the date the email was sent)
+  report_date: string;
+  // Today's EXPECTED labor — extracted from "What's Happening Today"
+  expected: {
+    cost_cents: number | null;
+    hours: number | null;
+    per_employee: EmployeeShift[];
+  };
+  // Yesterday's ACTUAL labor — extracted from "Yesterday's Summary"
+  actual: {
+    labor_date: string; // = report_date − 1
+    cost_cents: number | null;
+    hours: number | null;
+    overtime_hours: number | null;
+    per_employee: EmployeeShift[];
+  };
 };
 
 async function parseEmailWithClaude(bodyText: string, subject: string): Promise<ParsedLabor> {
@@ -136,25 +154,39 @@ Email subject: ${subject}
 Email body (text/stripped):
 ${bodyText.slice(0, 6000)}
 
-The email's subject contains a date — "Daily Report for Wonderland Playhouse on MM/DD/YYYY". That's the date the report was generated. The "Yesterday's Summary" section contains labor data for the day BEFORE the report date.
+The email's subject contains a date — "Daily Report for Wonderland Playhouse on MM/DD/YYYY". That's the report date.
 
-Extract these fields from the "Yesterday's Summary" section:
+The email has TWO sections we need to extract:
 
-- labor_date: the date the labor happened (= report date minus 1 day), as YYYY-MM-DD
-- total_cost_cents: "Est. Labor $" as integer cents (e.g. $142.50 → 14250)
-- total_hours: "Est. Labor (hrs.)" as decimal number (e.g. 7.5)
-- overtime_hours: "Overtime (hrs.)" as decimal number (e.g. 0.0)
-- per_employee: array of { name, scheduled, actual } from the time card table. Scheduled and actual are strings like "12:00PM - 7:30PM" or null if missing.
+1. "What's Happening Today" — shows TODAY's scheduled shifts (the report date).
+   Sum the scheduled hours across all listed people to compute expected_hours.
+   If the email shows an Est. Labor $ for today, capture that; otherwise leave
+   expected_cost_cents null. per_employee for "expected" lists each person
+   with their scheduled time range.
 
-If a field can't be found, return null for it.
+2. "Yesterday's Summary" — shows YESTERDAY's actual labor (report date − 1).
+   Pull "Est. Labor $", "Est. Labor (hrs.)", "Overtime (hrs.)", and the
+   time-card table (per_employee with scheduled + actual ranges).
+
+If a field can't be found, return null for it. If a section is missing
+entirely, return null for cost_cents and hours and an empty array for
+per_employee.
 
 Output JSON only, no prose, no markdown fences:
 {
-  "labor_date": "YYYY-MM-DD",
-  "total_cost_cents": int,
-  "total_hours": number,
-  "overtime_hours": number,
-  "per_employee": [{ "name": "string", "scheduled": "string|null", "actual": "string|null" }]
+  "report_date": "YYYY-MM-DD",
+  "expected": {
+    "cost_cents": int|null,
+    "hours": number|null,
+    "per_employee": [{ "name": "string", "scheduled": "string|null", "actual": null }]
+  },
+  "actual": {
+    "labor_date": "YYYY-MM-DD",
+    "cost_cents": int|null,
+    "hours": number|null,
+    "overtime_hours": number|null,
+    "per_employee": [{ "name": "string", "scheduled": "string|null", "actual": "string|null" }]
+  }
 }`;
 
   const response = await client.messages.create({
@@ -197,17 +229,6 @@ export async function importHomebaseDailyReports(daysBack = 3): Promise<ImportRe
   };
 
   for (const msgId of messageIds) {
-    // Skip if we already processed this Gmail message
-    const { data: existing } = await db
-      .from('daily_labor')
-      .select('id')
-      .eq('source_email_id', msgId)
-      .maybeSingle();
-    if (existing) {
-      result.skipped += 1;
-      continue;
-    }
-
     try {
       const msg: GmailMessage = await gmailFetch(
         `/users/me/messages/${msgId}?format=full`,
@@ -221,25 +242,42 @@ export async function importHomebaseDailyReports(daysBack = 3): Promise<ImportRe
       }
 
       const parsed = await parseEmailWithClaude(body, subject);
-      if (!parsed.labor_date || !/^\d{4}-\d{2}-\d{2}$/.test(parsed.labor_date)) {
-        result.errors.push({ email_id: msgId, error: 'invalid labor_date' });
+      if (!parsed.report_date || !/^\d{4}-\d{2}-\d{2}$/.test(parsed.report_date)) {
+        result.errors.push({ email_id: msgId, error: 'invalid report_date' });
         continue;
       }
 
-      // Upsert by labor_date so re-imports just refresh
-      await db.from('daily_labor').upsert(
-        {
-          labor_date: parsed.labor_date,
-          total_cost_cents: parsed.total_cost_cents ?? 0,
-          total_hours: parsed.total_hours ?? null,
-          per_employee: parsed.per_employee ?? [],
-          source: 'homebase_email',
+      const now = new Date().toISOString();
+      const rawSlice = body.slice(0, 4000);
+
+      // TODAY's row gets the expected_* columns. We only touch expected_*
+      // (not the actual_* / total_* columns) so a follow-up email landing
+      // on a date that already has actuals doesn't wipe them. Same in
+      // reverse for the yesterday row below.
+      await upsertExpected(db, {
+        labor_date: parsed.report_date,
+        expected_cost_cents: parsed.expected.cost_cents ?? null,
+        expected_hours: parsed.expected.hours ?? null,
+        expected_per_employee: parsed.expected.per_employee ?? [],
+        source_email_id: msgId,
+        raw_text: rawSlice,
+        parsed_at: now,
+      });
+
+      if (
+        parsed.actual.labor_date &&
+        /^\d{4}-\d{2}-\d{2}$/.test(parsed.actual.labor_date)
+      ) {
+        await upsertActual(db, {
+          labor_date: parsed.actual.labor_date,
+          total_cost_cents: parsed.actual.cost_cents ?? 0,
+          total_hours: parsed.actual.hours ?? null,
+          per_employee: parsed.actual.per_employee ?? [],
           source_email_id: msgId,
-          raw_text: body.slice(0, 4000),
-          parsed_at: new Date().toISOString(),
-        },
-        { onConflict: 'labor_date' },
-      );
+          raw_text: rawSlice,
+          parsed_at: now,
+        });
+      }
 
       result.imported += 1;
     } catch (err) {
@@ -251,4 +289,95 @@ export async function importHomebaseDailyReports(daysBack = 3): Promise<ImportRe
   }
 
   return result;
+}
+
+// Upsert-and-merge helpers: we can't use a single upsert call because the
+// row might already exist with the OTHER half populated (yesterday's email
+// wrote expected_*; today's email writes actual_* for the same row).
+// Read-modify-write keeps both halves intact.
+type DbClient = ReturnType<typeof supabaseAdmin>;
+
+async function upsertExpected(
+  db: DbClient,
+  fields: {
+    labor_date: string;
+    expected_cost_cents: number | null;
+    expected_hours: number | null;
+    expected_per_employee: unknown;
+    source_email_id: string;
+    raw_text: string;
+    parsed_at: string;
+  },
+) {
+  const { data: existing } = await db
+    .from('daily_labor')
+    .select('id')
+    .eq('labor_date', fields.labor_date)
+    .maybeSingle();
+  if (existing) {
+    await db
+      .from('daily_labor')
+      .update({
+        expected_cost_cents: fields.expected_cost_cents,
+        expected_hours: fields.expected_hours,
+        expected_per_employee: fields.expected_per_employee,
+        parsed_at: fields.parsed_at,
+      })
+      .eq('id', existing.id);
+    return;
+  }
+  await db.from('daily_labor').insert({
+    labor_date: fields.labor_date,
+    total_cost_cents: 0, // not-null in schema; actual hasn't arrived yet
+    source: 'homebase_email',
+    source_email_id: fields.source_email_id,
+    raw_text: fields.raw_text,
+    parsed_at: fields.parsed_at,
+    expected_cost_cents: fields.expected_cost_cents,
+    expected_hours: fields.expected_hours,
+    expected_per_employee: fields.expected_per_employee,
+  });
+}
+
+async function upsertActual(
+  db: DbClient,
+  fields: {
+    labor_date: string;
+    total_cost_cents: number;
+    total_hours: number | null;
+    per_employee: unknown;
+    source_email_id: string;
+    raw_text: string;
+    parsed_at: string;
+  },
+) {
+  const { data: existing } = await db
+    .from('daily_labor')
+    .select('id')
+    .eq('labor_date', fields.labor_date)
+    .maybeSingle();
+  if (existing) {
+    await db
+      .from('daily_labor')
+      .update({
+        total_cost_cents: fields.total_cost_cents,
+        total_hours: fields.total_hours,
+        per_employee: fields.per_employee,
+        source_email_id: fields.source_email_id,
+        raw_text: fields.raw_text,
+        parsed_at: fields.parsed_at,
+      })
+      .eq('id', existing.id);
+    return;
+  }
+  await db.from('daily_labor').insert({
+    labor_date: fields.labor_date,
+    total_cost_cents: fields.total_cost_cents,
+    total_hours: fields.total_hours,
+    per_employee: fields.per_employee,
+    source: 'homebase_email',
+    source_email_id: fields.source_email_id,
+    raw_text: fields.raw_text,
+    parsed_at: fields.parsed_at,
+  });
 }
