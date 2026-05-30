@@ -246,7 +246,7 @@ export function CreatePartyForm() {
     if (invoiceType === 'groupon_prepaid') {
       if (
         !confirm(
-          `Create this Groupon-prepaid party? Records $499 as the deposit (paid via Groupon), applies the discount, and sends the standard confirmation email + calendar invite. No invoice goes out.`,
+          `Create this Groupon-prepaid party? Marks the deposit and balance as paid via Groupon, sends the standard confirmation email + calendar invite. Add-ons (if any) get a separate Stripe invoice. No invoice for the party portion.`,
         )
       ) {
         return;
@@ -492,9 +492,9 @@ export function CreatePartyForm() {
               <ChoiceCard
                 checked={invoiceType === 'groupon_prepaid'}
                 onClick={() => setInvoiceType('groupon_prepaid')}
-                title="Groupon prepaid · $499"
-                blurb="Customer already paid via Groupon. No invoice sent — just creates the party + applies the discount + records the deposit. Add-ons billed separately later."
-                amount={pricing ? fmt(49900) : null}
+                title="Groupon prepaid · Semi-Private"
+                blurb="Customer prepaid via Groupon. Party portion is settled. Add-ons (if any) get a Stripe invoice. Actual Groupon remittance amount stays off our books."
+                amount={null}
               />
             </div>
           )}
@@ -967,7 +967,7 @@ export function CreatePartyForm() {
           {submitting
             ? 'Creating…'
             : invoiceType === 'groupon_prepaid'
-              ? `Create Groupon party (${fmt(invoiceAmountCents)} prepaid)`
+              ? `Create Groupon party`
               : invoiceType === 'full'
                 ? `Send full invoice (${fmt(invoiceAmountCents)})`
                 : `Send deposit invoice (${fmt(invoiceAmountCents)})`}

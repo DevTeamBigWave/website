@@ -148,7 +148,7 @@ export function ManualPaymentRecorder({
                     if (busy) return;
                     if (
                       !confirm(
-                        `Apply Groupon voucher? This records ${fmt(GROUPON_SEMI_CENTS)} as the deposit (paid via Groupon), discounts the base semi-private price to ${fmt(GROUPON_SEMI_CENTS)} inclusive of tax, and ${hasCalendarEvent ? 'updates the calendar event' : 'creates the calendar event'}. Add-ons + extras will still be billable.`,
+                        `Apply Groupon voucher? Marks the deposit and balance as paid via Groupon (party portion settled). Add-ons + extras stay billable via Stripe invoice. ${hasCalendarEvent ? 'Calendar event will refresh.' : 'Calendar event will be created.'}`,
                       )
                     ) return;
                     setBusy('deposit-groupon');
@@ -174,7 +174,7 @@ export function ManualPaymentRecorder({
                   disabled={busy !== null}
                   className="w-full rounded-full border-2 border-sky-200 bg-sky-50 px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-700 transition hover:border-sky-400 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {busy === 'deposit-groupon' ? '…' : `Groupon · ${fmt(GROUPON_SEMI_CENTS)}`}
+                  {busy === 'deposit-groupon' ? '…' : 'Groupon'}
                 </button>
               )}
             </>

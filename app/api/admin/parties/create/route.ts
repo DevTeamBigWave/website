@@ -238,28 +238,39 @@ export async function POST(request: Request) {
       parent_name: body.parent_name,
       email: body.email.trim().toLowerCase(),
       phone: body.phone,
-      subtotal_cents: pricing.subtotalCents,
-      discount_cents: pricing.discountCents,
-      tax_cents: pricing.taxCents,
-      total_cents: pricing.totalCents,
+      // Groupon zeros out the party portion (party is "off our books" — see
+      // mark-paid for the full rationale). Everything else uses the live
+      // calculatePartyPricing result.
+      subtotal_cents: isGroupon ? 0 : pricing.subtotalCents,
+      discount_cents: isGroupon ? 0 : pricing.discountCents,
+      tax_cents: isGroupon ? 0 : pricing.taxCents,
+      total_cents: isGroupon ? 0 : pricing.totalCents,
       // For full-pay we credit the whole thing (deposit = full discounted),
-      // for deposit-only we credit the 50% slice, and for custom we credit
-      // whatever the owner specified. All values are post-discount.
+      // for deposit-only we credit the 50% slice, custom = owner's amount,
+      // and Groupon stores GROUPON_SEMI_CENTS for revenue tracking only
+      // (computePartyFinancials skips crediting it against customer balance).
       deposit_cents: _persistedDeposit,
-      // Groupon-prepaid: the customer paid Groupon already, so the deposit
-      // is locked in the moment the party is created. Other invoice types
-      // wait for the Stripe webhook to flip deposit_paid_at.
+      // Groupon-prepaid: deposit AND balance are stamped paid at row-insert
+      // time because the customer already paid Groupon. Other types wait
+      // for the Stripe webhook to flip deposit_paid_at.
       ...(isGroupon
         ? {
             deposit_paid_at: new Date().toISOString(),
             deposit_payment_method: 'groupon',
+            balance_paid_at: new Date().toISOString(),
+            balance_paid_amount_cents: 0,
+            balance_payment_method: 'groupon',
           }
         : {}),
       status: 'confirmed',
       weekday_discount_applied: pricing.discountApplied,
       invoice_theme: body.invoice_theme,
-      manual_discount_percent: _customDiscountCents > 0 ? 0 : body.manual_discount_percent,
-      manual_discount_cents: _customDiscountCents,
+      manual_discount_percent: isGroupon
+        ? 0
+        : _customDiscountCents > 0
+          ? 0
+          : body.manual_discount_percent,
+      manual_discount_cents: isGroupon ? 0 : _customDiscountCents,
     })
     .select('id')
     .single();

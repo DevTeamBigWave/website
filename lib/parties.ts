@@ -40,6 +40,11 @@ export type PartyRowForFinancials = {
   gift_card_applied_cents?: number | null;
   deposit_cents: number;
   deposit_paid_at?: string | null;
+  // Used to flag Groupon-prepaid parties. When method='groupon' we
+  // intentionally DON'T credit deposit_cents against the customer's
+  // balance — the $499 went to Groupon's books for revenue tracking
+  // only; what the customer owes us is just the add-ons + tax.
+  deposit_payment_method?: string | null;
   balance_paid_amount_cents?: number | null;
   manual_discount_percent?: number | null;
   manual_discount_cents?: number | null; // flat-$ override; preempts percent
@@ -49,10 +54,13 @@ export function computePartyFinancials(p: PartyRowForFinancials): PartyFinancial
   const partyPreTax = p.subtotal_cents;
   const addOnsTotal = p.add_ons_total_cents ?? 0;
   const giftCard = p.gift_card_applied_cents ?? 0;
-  // Only count the deposit as paid if the webhook has actually confirmed it.
-  // Without this gate, admin-created parties would treat the owed deposit as
-  // received the moment the row is inserted.
-  const depositPaid = p.deposit_paid_at ? p.deposit_cents : 0;
+  // Groupon-prepaid: the deposit_cents on the row exists for revenue
+  // accounting (counts in the Party Deposits line) but isn't a credit
+  // the customer can apply against their add-on balance — Groupon paid
+  // us via their remittance, not the customer paying us.
+  const isGrouponPrepaid = p.deposit_payment_method === 'groupon';
+  const depositPaid =
+    !p.deposit_paid_at || isGrouponPrepaid ? 0 : p.deposit_cents;
   const balancePaid = p.balance_paid_amount_cents ?? 0;
   const pct = p.manual_discount_percent ?? 0;
   const flatCents = p.manual_discount_cents ?? 0;

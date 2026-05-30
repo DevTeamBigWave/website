@@ -72,28 +72,31 @@ export async function POST(
           { status: 409 },
         );
       }
-      // Compute the discount that, when applied to the base package
-      // pre-tax, brings the post-tax party total down to $499.
-      const basePrice = 65000; // Semi-Private list price, pre-tax
-      const baseAfterMonThu = party.weekday_discount_applied
-        ? Math.round(basePrice * 0.8)
-        : basePrice;
-      // Solve: taxable + round(taxable * TAX_RATE) === GROUPON_SEMI_CENTS
-      let taxable = Math.round(GROUPON_SEMI_CENTS / (1 + TAX_RATE));
-      while (taxable + Math.round(taxable * TAX_RATE) > GROUPON_SEMI_CENTS) taxable--;
-      while (taxable + Math.round(taxable * TAX_RATE) < GROUPON_SEMI_CENTS) taxable++;
-      const groupOnDiscount = Math.max(0, baseAfterMonThu - taxable);
-
+      // Groupon-prepaid model: party portion is fully covered by Groupon's
+      // remittance to us (which Gaby gets directly from Groupon — not
+      // through Stripe/Clover). Customer owes us only add-ons + tax-on-
+      // add-ons going forward. Zero out every party-side financial field
+      // so the math + display treats the party portion as "off our books".
+      //
+      // The $499 lands on deposit_cents purely so the Revenue dashboard
+      // can attribute the Groupon income to this party. computePartyFinancials
+      // sees method='groupon' and skips crediting it against the customer's
+      // balance owed (the customer never gave us \$499 — Groupon did).
       await db
         .from('parties')
         .update({
+          subtotal_cents: 0,
+          discount_cents: 0,
+          tax_cents: 0,
+          total_cents: 0,
+          manual_discount_cents: 0,
+          manual_discount_percent: 0,
+          deposit_cents: GROUPON_SEMI_CENTS,
           deposit_paid_at: new Date().toISOString(),
           deposit_payment_method: 'groupon',
-          deposit_cents: GROUPON_SEMI_CENTS,
-          // Groupon discount stored as a flat-$ override — wins over any
-          // existing manual_discount_percent (matches computePartyFinancials).
-          manual_discount_cents: groupOnDiscount,
-          manual_discount_percent: 0,
+          balance_paid_at: new Date().toISOString(),
+          balance_paid_amount_cents: 0,
+          balance_payment_method: 'groupon',
           status: 'confirmed',
           hold_expires_at: null,
         })
