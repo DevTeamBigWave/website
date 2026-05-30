@@ -53,7 +53,7 @@ export function CreatePartyForm() {
 
   // Invoice settings
   const [invoiceType, setInvoiceType] = useState<
-    'full' | 'deposit_only' | 'custom_deposit' | 'groupon_prepaid'
+    'full' | 'deposit_only' | 'custom_deposit'
   >('deposit_only');
   // Custom deposit amount in dollars (string for the input). Only honored
   // when invoiceType === 'custom_deposit'. Falls back to standard 50% if
@@ -210,9 +210,7 @@ export function CreatePartyForm() {
       ? fullAfterDiscount
       : invoiceType === 'custom_deposit'
         ? customDepositCents || depositAfterDiscount
-        : invoiceType === 'groupon_prepaid'
-          ? 49900
-          : depositAfterDiscount;
+        : depositAfterDiscount;
 
   const toggleAddOn = (id: string) => {
     setAddOnRows((r) => ({ ...r, [id]: { ...r[id], checked: !r[id].checked } }));
@@ -243,28 +241,18 @@ export function CreatePartyForm() {
       }
     }
 
-    if (invoiceType === 'groupon_prepaid') {
-      if (
-        !confirm(
-          `Create this Groupon-prepaid party? Marks the deposit and balance as paid via Groupon, sends the standard confirmation email + calendar invite. Add-ons (if any) get a separate Stripe invoice. No invoice for the party portion.`,
-        )
-      ) {
-        return;
-      }
-    } else {
-      const verb =
-        invoiceType === 'full'
-          ? 'Send full invoice'
-          : invoiceType === 'custom_deposit'
-            ? 'Send custom deposit invoice'
-            : 'Send deposit invoice';
-      if (
-        !confirm(
-          `${verb} of ${fmt(invoiceAmountCents)} to ${email}? This creates the party and emails the invoice immediately.`,
-        )
-      ) {
-        return;
-      }
+    const verb =
+      invoiceType === 'full'
+        ? 'Send full invoice'
+        : invoiceType === 'custom_deposit'
+          ? 'Send custom deposit invoice'
+          : 'Send deposit invoice';
+    if (
+      !confirm(
+        `${verb} of ${fmt(invoiceAmountCents)} to ${email}? This creates the party and emails the invoice immediately.`,
+      )
+    ) {
+      return;
     }
 
     setSubmitting(true);
@@ -487,18 +475,6 @@ export function CreatePartyForm() {
               }
             />
           </div>
-          {pkg === 'semi' && (
-            <div className="mt-2">
-              <ChoiceCard
-                checked={invoiceType === 'groupon_prepaid'}
-                onClick={() => setInvoiceType('groupon_prepaid')}
-                title="Groupon prepaid · Semi-Private"
-                blurb="Customer prepaid via Groupon. Party portion is settled. Add-ons (if any) get a Stripe invoice. Actual Groupon remittance amount stays off our books."
-                amount={null}
-              />
-            </div>
-          )}
-
           {invoiceType === 'custom_deposit' && (
             <div className="mt-4 rounded-2xl border border-slate-200 bg-cream-deep p-4">
               <label className="block">
@@ -933,11 +909,7 @@ export function CreatePartyForm() {
               <hr className="border-slate-100" />
               <div className="flex items-baseline justify-between pt-1">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  {invoiceType === 'full'
-                    ? 'Invoice now'
-                    : invoiceType === 'groupon_prepaid'
-                      ? 'Prepaid via Groupon'
-                      : 'Deposit now'}
+                  {invoiceType === 'full' ? 'Invoice now' : 'Deposit now'}
                 </span>
                 <span className="font-display text-2xl text-coral">
                   {fmt(invoiceAmountCents)}
@@ -966,11 +938,9 @@ export function CreatePartyForm() {
         >
           {submitting
             ? 'Creating…'
-            : invoiceType === 'groupon_prepaid'
-              ? `Create Groupon party`
-              : invoiceType === 'full'
-                ? `Send full invoice (${fmt(invoiceAmountCents)})`
-                : `Send deposit invoice (${fmt(invoiceAmountCents)})`}
+            : invoiceType === 'full'
+              ? `Send full invoice (${fmt(invoiceAmountCents)})`
+              : `Send deposit invoice (${fmt(invoiceAmountCents)})`}
         </button>
       </aside>
 
@@ -999,11 +969,7 @@ export function CreatePartyForm() {
           disabled={submitting || !pricing}
           className="rounded-full bg-coral px-5 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-playful transition hover:bg-coral-600 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {submitting
-            ? invoiceType === 'groupon_prepaid' ? 'Creating…' : 'Sending…'
-            : invoiceType === 'groupon_prepaid'
-              ? 'Create Groupon party'
-              : invoiceType === 'full' ? 'Send invoice' : 'Send deposit'}
+          {submitting ? 'Sending…' : invoiceType === 'full' ? 'Send invoice' : 'Send deposit'}
         </button>
       </div>
     </div>

@@ -17,15 +17,7 @@ import { stripe } from '@/lib/stripe';
 import { calculatePartyPricing, type PackageId, type ExtensionId } from '@/lib/pricing';
 import { partyTimeConflict } from '@/lib/parties';
 import { INVOICE_THEMES, type InvoiceThemeSlug } from '@/lib/invoice-themes';
-import {
-  sendCreatedPartyInvoice,
-  sendOwnerNotification,
-  sendPartyConfirmation,
-  sendBalanceInvoiceReady,
-} from '@/lib/email';
-import { createPartyEvent } from '@/lib/google-calendar';
-import { createOrUpdateBalanceInvoice } from '@/lib/party-invoice';
-import { maybeSendPlanningCallInvite } from '@/lib/planning-call';
+import { sendCreatedPartyInvoice } from '@/lib/email';
 
 export const maxDuration = 60;
 
@@ -50,7 +42,7 @@ const CreateSchema = z.object({
   email: z.string().email().max(160),
   phone: z.string().min(7).max(40),
   invoice_theme: z.string().refine((v): v is InvoiceThemeSlug => v in INVOICE_THEMES),
-  invoice_type: z.enum(['full', 'deposit_only', 'custom_deposit', 'groupon_prepaid']),
+  invoice_type: z.enum(['full', 'deposit_only', 'custom_deposit']),
   // Required only when invoice_type === 'custom_deposit'. The Stripe floor
   // is $0.50, the upper bound is enforced server-side against the actual
   // grand total once it's been computed.
@@ -130,18 +122,6 @@ export async function POST(request: Request) {
   // what we're actually invoicing the customer (post-discount).
   const isFullInvoice = body.invoice_type === 'full';
   const isCustomDeposit = body.invoice_type === 'custom_deposit';
-  // Groupon-prepaid: customer already paid $499 via Groupon. We skip the
-  // Stripe invoice flow entirely — just create the party with the deposit
-  // already recorded and the Groupon discount applied so the party
-  // portion zeroes out. Add-ons + extras stay billable.
-  const isGroupon = body.invoice_type === 'groupon_prepaid';
-  if (isGroupon && body.package !== 'semi') {
-    return NextResponse.json(
-      { error: 'Groupon offer only applies to Semi-Private parties.' },
-      { status: 400 },
-    );
-  }
-  const GROUPON_SEMI_CENTS = 49900;
 
   // GRAND TOTAL — matches lib/parties.ts computePartyFinancials exactly:
   //   combined_pre_tax = party_pre_tax + add_ons_pre_tax
@@ -150,19 +130,6 @@ export async function POST(request: Request) {
   //   grand           = taxable + tax     (add-ons are taxed too)
   // Custom-$ wins over percent.
   const TAX_RATE = 0.08875;
-  // For Groupon-prepaid bookings, override the F&F discount so the party
-  // post-tax total comes out exactly to $499. Add-ons + extras get layered
-  // on top untouched (they bill normally on the eventual balance invoice).
-  if (isGroupon) {
-    let taxable = Math.round(GROUPON_SEMI_CENTS / (1 + TAX_RATE));
-    while (taxable + Math.round(taxable * TAX_RATE) > GROUPON_SEMI_CENTS) taxable--;
-    while (taxable + Math.round(taxable * TAX_RATE) < GROUPON_SEMI_CENTS) taxable++;
-    const baseAfterMonThu = pricing.discountApplied
-      ? Math.round(65000 * 0.8)
-      : 65000;
-    body.manual_discount_cents = Math.max(0, baseAfterMonThu - taxable);
-    body.manual_discount_percent = 0;
-  }
   const _customDiscountCents = body.manual_discount_cents ?? 0;
   const _allAddOnsCents = body.add_ons.reduce((s, a) => s + a.unit_price_cents * a.qty, 0);
   const _combinedPreTax = pricing.subtotalCents + _allAddOnsCents;
@@ -218,9 +185,7 @@ export async function POST(request: Request) {
     ? _fullAfterDiscount
     : isCustomDeposit
       ? _customDeposit
-      : isGroupon
-        ? GROUPON_SEMI_CENTS
-        : _depositAfterDiscount;
+      : _depositAfterDiscount;
 
   const { data: created, error: insertErr } = await db
     .from('parties')
@@ -238,39 +203,18 @@ export async function POST(request: Request) {
       parent_name: body.parent_name,
       email: body.email.trim().toLowerCase(),
       phone: body.phone,
-      // Groupon zeros out the party portion (party is "off our books" — see
-      // mark-paid for the full rationale). Everything else uses the live
-      // calculatePartyPricing result.
-      subtotal_cents: isGroupon ? 0 : pricing.subtotalCents,
-      discount_cents: isGroupon ? 0 : pricing.discountCents,
-      tax_cents: isGroupon ? 0 : pricing.taxCents,
-      total_cents: isGroupon ? 0 : pricing.totalCents,
+      subtotal_cents: pricing.subtotalCents,
+      discount_cents: pricing.discountCents,
+      tax_cents: pricing.taxCents,
+      total_cents: pricing.totalCents,
       // For full-pay we credit the whole thing (deposit = full discounted),
-      // for deposit-only we credit the 50% slice, custom = owner's amount,
-      // and Groupon stores GROUPON_SEMI_CENTS for revenue tracking only
-      // (computePartyFinancials skips crediting it against customer balance).
+      // for deposit-only we credit the 50% slice, custom = owner's amount.
       deposit_cents: _persistedDeposit,
-      // Groupon-prepaid: deposit AND balance are stamped paid at row-insert
-      // time because the customer already paid Groupon. Other types wait
-      // for the Stripe webhook to flip deposit_paid_at.
-      ...(isGroupon
-        ? {
-            deposit_paid_at: new Date().toISOString(),
-            deposit_payment_method: 'groupon',
-            balance_paid_at: new Date().toISOString(),
-            balance_paid_amount_cents: 0,
-            balance_payment_method: 'groupon',
-          }
-        : {}),
       status: 'confirmed',
       weekday_discount_applied: pricing.discountApplied,
       invoice_theme: body.invoice_theme,
-      manual_discount_percent: isGroupon
-        ? 0
-        : _customDiscountCents > 0
-          ? 0
-          : body.manual_discount_percent,
-      manual_discount_cents: isGroupon ? 0 : _customDiscountCents,
+      manual_discount_percent: _customDiscountCents > 0 ? 0 : body.manual_discount_percent,
+      manual_discount_cents: _customDiscountCents,
     })
     .select('id')
     .single();
@@ -300,107 +244,6 @@ export async function POST(request: Request) {
     if (addOnErr) {
       console.error('Add-on insert failed (party still created):', addOnErr);
     }
-  }
-
-  // Groupon-prepaid: party row is fully set up (deposit recorded, discount
-  // applied). Fire the standard confirmation email + calendar event + owner
-  // notification — same as Stripe's deposit-paid webhook would do — and
-  // return. No Stripe invoice gets sent because Groupon already collected.
-  if (isGroupon) {
-    const { data: fullParty } = await db
-      .from('parties')
-      .select('*')
-      .eq('id', partyId)
-      .maybeSingle();
-    if (fullParty) {
-      const siteUrl =
-        process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.wonderlandplayhouse.com';
-      try {
-        await sendPartyConfirmation(fullParty as any, body.add_ons as any);
-      } catch (err) {
-        console.error('Groupon: confirmation email failed:', err);
-      }
-      // Auto-fire the planning-call invite — Groupon parties just paid
-      // their $499 "deposit", so this is exactly when it should go out.
-      void maybeSendPlanningCallInvite(fullParty as any);
-      try {
-        await sendOwnerNotification({
-          subject: `🎟️ Groupon party created · ${body.child_name} · ${formatDateLong(body.date)}`,
-          party: fullParty,
-          addOns: body.add_ons as any,
-        });
-      } catch (err) {
-        console.error('Groupon: owner notification failed:', err);
-      }
-      try {
-        const eventId = await createPartyEvent(fullParty as any, siteUrl);
-        if (eventId) {
-          await db
-            .from('parties')
-            .update({ google_calendar_event_id: eventId })
-            .eq('id', partyId);
-        }
-      } catch (err) {
-        console.error('Groupon: calendar event creation failed:', err);
-      }
-
-      // If she picked add-ons or there are extras (extra kids / extension),
-      // the party portion is covered by $499 but the rest still needs to be
-      // collected. Auto-fire a Stripe balance invoice so the customer gets
-      // a single hosted-invoice link to pay the difference. Without this
-      // Gaby would have to click "Send balance invoice" on the party page
-      // as a follow-up step.
-      try {
-        // Refetch with the calendar event id baked in so the balance invoice
-        // helper sees a fully populated row.
-        const { data: refreshed } = await db
-          .from('parties')
-          .select('*')
-          .eq('id', partyId)
-          .maybeSingle();
-        const partyForInvoice = refreshed ?? fullParty;
-        const { data: addOnRows } = await db
-          .from('party_add_ons')
-          .select('id, name, unit_price_cents, qty, notes')
-          .eq('party_id', partyId)
-          .order('created_at', { ascending: true });
-
-        const result = await createOrUpdateBalanceInvoice(
-          partyForInvoice as any,
-          (addOnRows ?? []) as any,
-        ).catch((err) => {
-          // No-balance-owed throws — that's the no-add-ons case, totally
-          // normal for Groupon parties without extras. Anything else logs.
-          if (err instanceof Error && /no balance/i.test(err.message)) return null;
-          throw err;
-        });
-
-        if (result) {
-          await sendBalanceInvoiceReady({
-            parent_name: partyForInvoice.parent_name,
-            email: partyForInvoice.email,
-            child_name: partyForInvoice.child_name,
-            date: partyForInvoice.date,
-            balance_cents: result.balanceDueCents,
-            hosted_invoice_url: result.hostedUrl,
-            add_ons: (addOnRows ?? []).map((a: any) => ({
-              name: a.name,
-              qty: a.qty,
-              unit_price_cents: a.unit_price_cents,
-            })),
-            theme: partyForInvoice.invoice_theme ?? null,
-          });
-        }
-      } catch (err) {
-        console.error('Groupon: add-on balance invoice failed:', err);
-      }
-    }
-    return NextResponse.json({
-      ok: true,
-      partyId,
-      groupon: true,
-      amountCents: GROUPON_SEMI_CENTS,
-    });
   }
 
   // Build the Stripe Invoice
