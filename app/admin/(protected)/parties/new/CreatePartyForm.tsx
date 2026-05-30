@@ -226,6 +226,12 @@ export function CreatePartyForm() {
       setError('Please fill date, time, child name, parent name, email, and phone.');
       return;
     }
+    // DOB is required so birthday-marketing emails have a real date to anchor
+    // to — without it the kid shows up as "turning 0" on the parties list.
+    if (!childDob) {
+      setError("Please enter the birthday child's date of birth.");
+      return;
+    }
     if (!pricing) {
       setError('Pricing is not ready — check the date.');
       return;
@@ -388,9 +394,10 @@ export function CreatePartyForm() {
                 className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
               />
             </Field>
-            <Field label="Child date of birth">
+            <Field label="Child date of birth *">
               <input
                 type="date"
+                required
                 value={childDob}
                 onChange={(e) => setChildDob(e.target.value)}
                 className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"

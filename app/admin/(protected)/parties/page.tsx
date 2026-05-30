@@ -14,6 +14,7 @@ type PartyRow = {
   status: string;
   child_name: string | null;
   child_age: number | null;
+  child_dob: string | null;
   parent_name: string;
   email: string;
   phone: string;
@@ -56,7 +57,7 @@ export default async function AdminPartiesPage({
   const { data: parties = [] } = await db
     .from('parties')
     .select(
-      'id, date, start_time, package, status, child_name, child_age, parent_name, email, phone, headcount, total_cents, subtotal_cents, deposit_cents, deposit_paid_at, add_ons_total_cents, gift_card_applied_cents, balance_paid_amount_cents, manual_discount_percent, manual_discount_cents',
+      'id, date, start_time, package, status, child_name, child_age, child_dob, parent_name, email, phone, headcount, total_cents, subtotal_cents, deposit_cents, deposit_paid_at, add_ons_total_cents, gift_card_applied_cents, balance_paid_amount_cents, manual_discount_percent, manual_discount_cents',
     )
     .order('date', { ascending: false })
     .limit(500);
@@ -175,9 +176,16 @@ function PartyCard({ party: p, today }: { party: PartyRow; today: string }) {
           <div className="min-w-0">
             <p className={`truncate text-base font-semibold ${isPast ? 'text-slate-500' : 'text-slate-700'}`}>
               {p.child_name ?? '—'}
-              {p.child_age != null && (
+              {p.child_dob && p.child_age != null ? (
                 <span className="ml-1 text-xs font-normal text-slate-400">
                   turning {p.child_age}
+                </span>
+              ) : (
+                // "turning 0" used to render whenever DOB was never captured —
+                // misleading and hides a data gap we need for birthday-marketing
+                // emails. Surface it as an obvious chip instead.
+                <span className="ml-1 rounded-full bg-sunshine-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                  Needs DOB
                 </span>
               )}
             </p>
