@@ -2,7 +2,10 @@
 // next-Saturday date math.
 
 import Anthropic from '@anthropic-ai/sdk';
+import { randomUUID } from 'crypto';
 import { supabaseAdmin } from '@/lib/supabase';
+import { getMarketingRecipients } from '@/lib/marketing';
+import { sendMarketingCampaign } from '@/lib/email';
 
 const MODEL = 'claude-sonnet-4-6';
 const NYC = 'America/New_York';
@@ -138,4 +141,150 @@ OUTPUT JSON ONLY (no markdown, no prose around it):
     throw new Error('Generator returned invalid output');
   }
   return parsed;
+}
+
+// Shared send pipeline used by both the Saturday cron and the admin
+// "Send now" button — keeps the two paths from drifting. Behavior:
+//   - Picks up (or creates) the draft row for `date`
+//   - Bails if already sent
+//   - Uses pre_subject/pre_body when both set, otherwise AI-generates
+//   - Sends to all 'promotions' subscribers in parallel, logging per-row
+//   - Updates the draft row to 'sent' with the final subject/body/campaign id
+export type SaturdayRunResult =
+  | { ok: true; skipped?: string; draft_id?: string }
+  | {
+      ok: true;
+      target_date: string;
+      generated_by_ai: boolean;
+      campaign_id: string;
+      sent: number;
+      failed: number;
+      total: number;
+    }
+  | { ok: false; error: string };
+
+export async function runSaturdayMarketing(date?: string): Promise<SaturdayRunResult> {
+  const db = supabaseAdmin();
+  const today = date ?? todayNYC();
+
+  let draft = await getDraftForDate(today);
+  if (!draft) {
+    const { data: created } = await db
+      .from('weekly_marketing_drafts')
+      .insert({ target_send_date: today, status: 'queued' })
+      .select()
+      .single();
+    draft = created!;
+  }
+
+  if (draft.status === 'sent') {
+    return { ok: true, skipped: 'already sent', draft_id: draft.id };
+  }
+
+  let subject = draft.pre_subject?.trim();
+  let body = draft.pre_body?.trim();
+  let ctaLabel = draft.pre_cta_label?.trim() || undefined;
+  let ctaHref = draft.pre_cta_href?.trim() || undefined;
+  let generatedByAi = false;
+
+  if (!subject || !body) {
+    try {
+      const gen = await generateSaturdayEmail(draft.notes_for_generator);
+      subject = gen.subject;
+      body = gen.body_text;
+      ctaLabel = gen.cta_label || undefined;
+      ctaHref = gen.cta_href || undefined;
+      generatedByAi = true;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'AI generation failed';
+      await db
+        .from('weekly_marketing_drafts')
+        .update({ status: 'failed', error_message: msg })
+        .eq('id', draft.id);
+      return { ok: false, error: msg };
+    }
+  }
+
+  const recipients = await getMarketingRecipients('promotions');
+  const campaignId = `weekly_${today}_${randomUUID().slice(0, 6)}`;
+
+  let sent = 0;
+  let failed = 0;
+  const concurrency = 5;
+  const queue = [...recipients];
+
+  async function worker() {
+    while (queue.length > 0) {
+      const r = queue.shift();
+      if (!r) break;
+      const { data: row } = await db
+        .from('marketing_sends')
+        .insert({
+          customer_id: r.customer_id,
+          campaign_type: 'promotion',
+          campaign_id: campaignId,
+          subject: subject!,
+          to_email: r.email,
+          status: 'queued',
+        })
+        .select('id')
+        .single();
+      try {
+        const result = await sendMarketingCampaign({
+          to: r.email,
+          to_name: r.parent_name,
+          subject: subject!,
+          body_text: body!,
+          cta_label: ctaLabel,
+          cta_href: ctaHref,
+        });
+        await db
+          .from('marketing_sends')
+          .update({
+            status: 'sent',
+            sent_at: new Date().toISOString(),
+            resend_message_id: (result as any)?.data?.id ?? null,
+          })
+          .eq('id', row?.id);
+        sent += 1;
+      } catch (err) {
+        failed += 1;
+        if (row?.id) {
+          await db
+            .from('marketing_sends')
+            .update({
+              status: 'failed',
+              error_message: err instanceof Error ? err.message : 'unknown',
+            })
+            .eq('id', row.id);
+        }
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: concurrency }, () => worker()));
+
+  await db
+    .from('weekly_marketing_drafts')
+    .update({
+      status: 'sent',
+      sent_subject: subject,
+      sent_body: body,
+      sent_cta_label: ctaLabel ?? null,
+      sent_cta_href: ctaHref ?? null,
+      generated_by_ai: generatedByAi,
+      campaign_id: campaignId,
+      sent_at: new Date().toISOString(),
+    })
+    .eq('id', draft.id);
+
+  return {
+    ok: true,
+    target_date: today,
+    generated_by_ai: generatedByAi,
+    campaign_id: campaignId,
+    sent,
+    failed,
+    total: recipients.length,
+  };
 }

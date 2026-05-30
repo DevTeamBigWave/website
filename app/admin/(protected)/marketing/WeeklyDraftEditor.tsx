@@ -31,6 +31,7 @@ export function WeeklyDraftEditor({
   const [preCtaHref, setPreCtaHref] = useState(initial?.pre_cta_href ?? '');
   const [advanced, setAdvanced] = useState(!!(initial?.pre_subject || initial?.pre_body));
   const [busy, setBusy] = useState(false);
+  const [sending, setSending] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
   const hasAnything = notes || preSubject || preBody;
@@ -61,6 +62,50 @@ export function WeeklyDraftEditor({
       }
     } finally {
       setBusy(false);
+    }
+  };
+
+  const sendNow = async () => {
+    if (
+      !confirm(
+        `Send the Saturday email to ${recipientCount} subscribers right now? This uses today's notes/pre-write — or AI-generates if both are blank. Saves any unsaved edits first.`,
+      )
+    ) {
+      return;
+    }
+    setSending(true);
+    setFeedback(null);
+    try {
+      // Persist any in-progress edits so the send picks them up.
+      await fetch('/api/admin/marketing/draft', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          target_send_date: targetDate,
+          notes_for_generator: notes || undefined,
+          pre_subject: preSubject || undefined,
+          pre_body: preBody || undefined,
+          pre_cta_label: preCtaLabel || undefined,
+          pre_cta_href: preCtaHref || undefined,
+        }),
+      });
+      const res = await fetch(
+        `/api/admin/marketing/send-saturday?date=${encodeURIComponent(targetDate)}`,
+        { method: 'POST' },
+      );
+      const data = await res.json();
+      if (!res.ok || data.ok === false) {
+        setFeedback(`Send failed: ${data.error ?? `HTTP ${res.status}`}`);
+      } else if (data.skipped) {
+        setFeedback(`Skipped: ${data.skipped}`);
+      } else {
+        setFeedback(`Sent to ${data.sent}/${data.total}${data.failed ? ` (${data.failed} failed)` : ''} ✓`);
+        router.refresh();
+      }
+    } catch (err) {
+      setFeedback(`Send failed: ${err instanceof Error ? err.message : 'network'}`);
+    } finally {
+      setSending(false);
     }
   };
 
@@ -154,16 +199,26 @@ export function WeeklyDraftEditor({
             </>
           )}
         </p>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {feedback && <span className="text-xs text-slate-500">{feedback}</span>}
           <button
             type="button"
             onClick={save}
-            disabled={busy}
-            className="rounded-full bg-coral px-5 py-2 text-sm font-bold text-white shadow-playful hover:bg-coral-600 disabled:opacity-50"
+            disabled={busy || sending}
+            className="rounded-full border-2 border-coral bg-white px-5 py-2 text-sm font-bold text-coral hover:bg-coral-50 disabled:opacity-50"
           >
             {busy ? 'Saving…' : 'Save draft'}
           </button>
+          {initial?.status !== 'sent' && (
+            <button
+              type="button"
+              onClick={sendNow}
+              disabled={busy || sending || recipientCount === 0}
+              className="rounded-full bg-coral px-5 py-2 text-sm font-bold text-white shadow-playful hover:bg-coral-600 disabled:opacity-50"
+            >
+              {sending ? 'Sending…' : 'Send now'}
+            </button>
+          )}
         </div>
       </div>
 
