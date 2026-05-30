@@ -81,8 +81,16 @@ export type RevenueSummary = {
   range: { fromISO: string; toISO: string; label: string };
   lines: RevenueLine[];
   gross_cents: number;
-  // Estimated processing fees: Stripe 2.9% + 30¢ per transaction
+  // Per-processor estimated fees. Stripe applies to anything we charged
+  // online via Stripe; Clover applies to in-venue device transactions.
+  // Zelle, cash, and Groupon never incur processing fees. See the
+  // constants below — update if Gaby's contracted rates change.
   estimated_stripe_fees_cents: number;
+  estimated_stripe_txns: number;
+  estimated_clover_fees_cents: number;
+  estimated_clover_txns: number;
+  // Sum of the two for the "total fees" KPI
+  estimated_processing_fees_cents: number;
   // Labor cost from daily_labor (Homebase) in the range
   labor_cost_cents: number;
   labor_days_with_data: number;
@@ -93,8 +101,12 @@ export type RevenueSummary = {
   daily: Array<{ date: string; amount_cents: number }>;
 };
 
+// Standard rate cards. Update these if Gaby renegotiates with either
+// processor; everything downstream pulls from these constants.
 const STRIPE_PCT = 0.029;
 const STRIPE_FIXED_CENTS = 30;
+const CLOVER_PCT = 0.026;
+const CLOVER_FIXED_CENTS = 10;
 
 function ymd(d: Date): string {
   return new Intl.DateTimeFormat('en-CA', {
@@ -231,10 +243,50 @@ export async function getRevenue(range: DateRange): Promise<RevenueSummary> {
   const gross = lines.reduce((s, l) => s + l.amount_cents, 0);
   const txnCount = lines.reduce((s, l) => s + l.txn_count, 0);
 
-  // Estimated Stripe fees (only on Stripe-sourced txns)
-  const stripeTxns = partyDeposits.txn_count + partyBalance.txn_count + openPlayLine.txn_count + giftCardSales.txn_count;
-  const stripeAmount = partyDeposits.amount_cents + partyBalance.amount_cents + openPlayLine.amount_cents + giftCardSales.amount_cents;
-  const estimatedStripeFees = Math.round(stripeAmount * STRIPE_PCT + stripeTxns * STRIPE_FIXED_CENTS);
+  // Estimated Stripe fees — only on payments that actually went through
+  // Stripe. We re-filter party_deposits + party_balance to Stripe-method
+  // rows so Zelle/cash/Groupon don't get charged a fake 2.9%. Open play
+  // online and gift card sales are always Stripe.
+  const stripeDepParties = depPartiesNonClover.filter(
+    (p: any) => p.deposit_payment_method === 'stripe',
+  );
+  const stripeBalParties = balPartiesNonClover.filter(
+    (p: any) => (p.balance_payment_method ?? '').toLowerCase().includes('stripe'),
+  );
+  const stripeDepAmount = stripeDepParties.reduce(
+    (s: number, p: any) =>
+      s + Math.max(0, (p.deposit_cents ?? 0) - (p.gift_card_applied_cents ?? 0)),
+    0,
+  );
+  const stripeBalAmount = stripeBalParties.reduce(
+    (s: number, p: any) => s + (p.balance_paid_amount_cents ?? 0),
+    0,
+  );
+  const stripeTxns =
+    stripeDepParties.length +
+    stripeBalParties.length +
+    openPlayLine.txn_count +
+    giftCardSales.txn_count;
+  const stripeAmount =
+    stripeDepAmount +
+    stripeBalAmount +
+    openPlayLine.amount_cents +
+    giftCardSales.amount_cents;
+  const estimatedStripeFees = Math.round(
+    stripeAmount * STRIPE_PCT + stripeTxns * STRIPE_FIXED_CENTS,
+  );
+
+  // Estimated Clover fees — applied to the in-venue POS line. (Clover-
+  // method party deposits/balances were already excluded from
+  // partyDeposits/partyBalance to avoid double-counting with the Clover
+  // sync, so we don't double-charge fees here either.)
+  const cloverTxns = cloverLine.txn_count;
+  const cloverAmount = cloverLine.amount_cents;
+  const estimatedCloverFees = Math.round(
+    cloverAmount * CLOVER_PCT + cloverTxns * CLOVER_FIXED_CENTS,
+  );
+
+  const estimatedProcessingFees = estimatedStripeFees + estimatedCloverFees;
 
   // Daily series (combine all sources)
   const dailyMap = new Map<string, number>();
@@ -289,10 +341,14 @@ export async function getRevenue(range: DateRange): Promise<RevenueSummary> {
     lines,
     gross_cents: gross,
     estimated_stripe_fees_cents: estimatedStripeFees,
+    estimated_stripe_txns: stripeTxns,
+    estimated_clover_fees_cents: estimatedCloverFees,
+    estimated_clover_txns: cloverTxns,
+    estimated_processing_fees_cents: estimatedProcessingFees,
     labor_cost_cents: laborCost,
     labor_days_with_data: (laborRows ?? []).length,
-    net_before_labor_cents: gross - estimatedStripeFees,
-    net_after_labor_cents: gross - estimatedStripeFees - laborCost,
+    net_before_labor_cents: gross - estimatedProcessingFees,
+    net_after_labor_cents: gross - estimatedProcessingFees - laborCost,
     txn_count: txnCount,
     daily,
   };

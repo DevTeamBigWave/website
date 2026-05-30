@@ -66,10 +66,34 @@ export default async function RevenuePage({
       {/* KPIs */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi label="Gross revenue" value={fmt(summary.gross_cents)} accent />
-        <Kpi label="Est. Stripe fees" value={`−${fmt(summary.estimated_stripe_fees_cents)}`} />
+        <Kpi label="Processing fees" value={`−${fmt(summary.estimated_processing_fees_cents)}`} />
         <Kpi label="Labor (Homebase)" value={`−${fmt(summary.labor_cost_cents)}`} />
         <Kpi label="Net" value={fmt(summary.net_after_labor_cents)} accent />
       </div>
+
+      {/* Per-processor fee breakdown */}
+      <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-card">
+        <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+          Processing fee breakdown
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <FeeRow
+            label="Stripe (online)"
+            txns={summary.estimated_stripe_txns}
+            rate="2.9% + $0.30 per txn"
+            fees={summary.estimated_stripe_fees_cents}
+            fmt={fmt}
+          />
+          <FeeRow
+            label="Clover (in-venue)"
+            txns={summary.estimated_clover_txns}
+            rate="2.6% + $0.10 per txn"
+            fees={summary.estimated_clover_fees_cents}
+            fmt={fmt}
+          />
+        </div>
+      </div>
+
       <p className="text-xs text-slate-500">
         {summary.txn_count} transaction{summary.txn_count === 1 ? '' : 's'}
         {' · '}
@@ -123,7 +147,8 @@ export default async function RevenuePage({
         <ul className="mt-2 ml-5 list-disc space-y-1">
           <li>Cash basis: a sale counts on the day money is received.</li>
           <li>Gift card credit applied to a booking does NOT count as new revenue (it was already counted when the card was sold).</li>
-          <li>Stripe fees are an estimate (2.9% + $0.30 per transaction). Actual fees may vary slightly.</li>
+          <li>Processing fees are estimates. Stripe: 2.9% + $0.30 per transaction. Clover: 2.6% + $0.10 per transaction. Actual fees can vary slightly with negotiated rates and card type.</li>
+          <li>Zelle, cash, and Groupon payments incur no processing fees — they're excluded from the breakdown above.</li>
           <li>Refunds + Homebase labor cost will subtract from this when Phase 3 + 4 are live.</li>
         </ul>
       </div>
@@ -136,6 +161,38 @@ function Kpi({ label, value, accent }: { label: string; value: string; accent?: 
     <div className={`rounded-2xl border p-5 ${accent ? 'border-coral-200 bg-coral-50' : 'border-slate-200 bg-white'}`}>
       <p className="text-xs font-bold uppercase tracking-wider text-slate-500">{label}</p>
       <p className={`mt-1 font-display text-3xl ${accent ? 'text-coral-700' : 'text-slate-700'}`}>{value}</p>
+    </div>
+  );
+}
+
+function FeeRow({
+  label,
+  txns,
+  rate,
+  fees,
+  fmt,
+}: {
+  label: string;
+  txns: number;
+  rate: string;
+  fees: number;
+  fmt: (c: number) => string;
+}) {
+  const avgPerTxn = txns > 0 ? fees / txns : 0;
+  return (
+    <div className="rounded-xl border border-slate-100 bg-cream-deep p-4">
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-sm font-semibold text-slate-700">{label}</p>
+        <p className="font-display text-xl text-coral">−{fmt(fees)}</p>
+      </div>
+      <p className="mt-1 text-xs text-slate-500">
+        {txns} transaction{txns === 1 ? '' : 's'} · {rate}
+      </p>
+      {txns > 0 && (
+        <p className="mt-0.5 text-xs text-slate-400">
+          Avg {fmt(Math.round(avgPerTxn))} per transaction
+        </p>
+      )}
     </div>
   );
 }
