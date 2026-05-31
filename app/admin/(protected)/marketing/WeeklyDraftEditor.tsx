@@ -220,7 +220,7 @@ export function WeeklyDraftEditor({
           >
             {busy ? 'Saving…' : 'Save draft'}
           </button>
-          {initial?.status !== 'sent' && (
+          {initial?.status !== 'sent' ? (
             <button
               type="button"
               onClick={sendNow}
@@ -229,13 +229,28 @@ export function WeeklyDraftEditor({
             >
               {sending ? 'Sending…' : 'Send now'}
             </button>
+          ) : (
+            // Draft is marked sent — but Resend may not have actually
+            // received them (today's case). Still allow a forced resend
+            // so the owner can recover without manual DB cleanup.
+            <button
+              type="button"
+              onClick={sendNow}
+              disabled={busy || sending || recipientCount === 0}
+              className="rounded-full border-2 border-coral bg-white px-5 py-2 text-sm font-bold text-coral hover:bg-coral-50 disabled:opacity-50"
+              title="Draft is marked sent. Press to force a resend (uses ?force=1)."
+            >
+              {sending ? 'Resending…' : 'Force resend'}
+            </button>
           )}
         </div>
       </div>
 
       {initial?.status === 'sent' && (
         <p className="text-xs text-sky-700">
-          ✓ Already sent for {new Date(targetDate + 'T00:00:00').toLocaleDateString()}. Next Saturday will be a new draft.
+          ✓ Already marked sent for {new Date(targetDate + 'T00:00:00').toLocaleDateString()}.
+          If Resend doesn&rsquo;t show the messages, tap <strong>Force resend</strong> above.
+          Next Saturday will be a new draft regardless.
         </p>
       )}
     </div>
