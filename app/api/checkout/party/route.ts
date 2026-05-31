@@ -194,7 +194,10 @@ export async function POST(request: Request) {
   // (status=confirmed, calendar event fires, emails go out) but the deposit
   // is NOT recorded as paid — so admin sees the full grand-total as owed.
   if (body.promoCode) {
-    const v = await validatePromoCode(body.promoCode);
+    const v = await validatePromoCode(body.promoCode, {
+      context: 'party',
+      channel: 'online',
+    });
     if (!v.ok) {
       // Roll the held party back so the slot reopens
       await supabase
@@ -223,6 +226,23 @@ export async function POST(request: Request) {
         // No checkout URL — the frontend redirects to the confirm page directly
         redirectTo: `/book/confirm?party_id=${party.id}`,
       });
+    }
+    // percent_off via the customer flow isn't wired through the Stripe
+    // line-item math yet (separate follow-up). Until that lands, send the
+    // customer to ask the venue — Gaby can apply % discounts manually via
+    // the party detail page's discount field.
+    if (v.kind === 'percent_off') {
+      await supabase
+        .from('parties')
+        .update({ status: 'cancelled', cancellation_reason: 'percent_off needs manual application' })
+        .eq('id', party.id);
+      return NextResponse.json(
+        {
+          error:
+            'Percent-off codes need to be applied by the venue. Please email info@wonderlandplayhouse.com or call (718) 889-1777 with your code and party details.',
+        },
+        { status: 400 },
+      );
     }
   }
 
