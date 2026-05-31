@@ -51,7 +51,7 @@ export default async function PromoCodesPage() {
   // All active codes (not just the most recent). An owner can now have a
   // monthly auto SKIP code + multiple custom percent-off codes running at
   // the same time, so they all need to show up.
-  const { data: active } = await db
+  const { data: active, error: activeErr } = await db
     .from('promo_codes')
     .select(SELECT_COLS)
     .gt('valid_until', now)
@@ -60,11 +60,16 @@ export default async function PromoCodesPage() {
     .order('created_at', { ascending: false });
   const activeCodes = (active ?? []) as Row[];
 
-  const { data: history } = await db
+  const { data: history, error: historyErr } = await db
     .from('promo_codes')
     .select(SELECT_COLS)
     .order('created_at', { ascending: false })
     .limit(30);
+
+  // Surface schema/RLS errors directly instead of silently rendering empty.
+  // Almost always means migration 0032 wasn't applied — the SELECT references
+  // columns (disabled_at, applies_to, channel, etc.) that don't exist yet.
+  const queryError = activeErr?.message ?? historyErr?.message ?? null;
 
   return (
     <div className="space-y-6">
@@ -76,6 +81,25 @@ export default async function PromoCodesPage() {
           too — it gets pulled into the Saturday marketing email automatically.
         </p>
       </header>
+
+      {queryError && (
+        <div className="rounded-2xl border-2 border-coral bg-coral-50 p-5">
+          <p className="text-sm font-bold text-coral-700">
+            Database query failed — codes can't load.
+          </p>
+          <p className="mt-1 text-xs text-coral-700/80">
+            Almost always means migration{' '}
+            <code className="rounded bg-white px-1 py-0.5 font-mono">
+              0032_promo_codes_builder.sql
+            </code>{' '}
+            hasn't been applied yet. Open Supabase → SQL Editor and run it,
+            then refresh this page.
+          </p>
+          <p className="mt-2 text-[11px] font-mono text-coral-700/70">
+            {queryError}
+          </p>
+        </div>
+      )}
 
       <section className="space-y-3">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
