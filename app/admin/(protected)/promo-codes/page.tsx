@@ -178,18 +178,34 @@ export default async function PromoCodesPage() {
 }
 
 function ActiveCard({ code: c }: { code: Row }) {
+  // Kind is the most important info — what the code DOES. Render big
+  // and bold, with the code text underneath. Custom label (if set) sits
+  // above as a small tag so the owner can tell campaigns apart at a glance.
   return (
     <div className="rounded-2xl border-2 border-coral bg-coral-50 p-5">
       <div className="flex items-baseline justify-between gap-2">
-        <p className="text-xs font-bold uppercase tracking-wider text-coral-700">
-          {c.label ?? kindLabel(c)}
-        </p>
+        {c.label ? (
+          <p className="text-[11px] font-bold uppercase tracking-wider text-coral-700/80">
+            {c.label}
+          </p>
+        ) : (
+          <p className="text-[11px] font-bold uppercase tracking-wider text-coral-700/60">
+            {c.rotation_origin === 'monthly_cron'
+              ? 'Auto monthly · for marketing email'
+              : c.rotation_origin === 'manual_admin'
+                ? 'Manually generated'
+                : ' '}
+          </p>
+        )}
         <DisableButton id={c.id} code={c.code} />
       </div>
-      <p className="mt-2 font-mono text-2xl font-bold tracking-wider text-coral-700">
+      <p className="mt-2 font-display text-2xl text-slate-700">
+        {kindLabel(c)}
+      </p>
+      <p className="mt-1 text-[11px] text-slate-500">{kindHelp(c.kind)}</p>
+      <p className="mt-3 font-mono text-xl font-bold tracking-wider text-coral-700">
         {c.code}
       </p>
-      <p className="mt-1 text-xs text-coral-700/80">{kindLabel(c)}</p>
       <p className="mt-2 text-xs text-coral-700/70">
         Valid through {fmtDateShort(c.valid_until)} · {c.uses_count} use
         {c.uses_count === 1 ? '' : 's'}
@@ -212,6 +228,14 @@ function kindLabel(c: Pick<Row, 'kind' | 'discount_percent'>): string {
   if (c.kind === 'percent_off')
     return c.discount_percent ? `${c.discount_percent}% off` : 'Percent off';
   return c.kind;
+}
+
+function kindHelp(kind: string): string {
+  if (kind === 'skip_deposit')
+    return "Customer books without paying the deposit today. Full balance still owed before the party.";
+  if (kind === 'percent_off')
+    return 'Comes off the party price at checkout. Add-ons stay at full price.';
+  return '';
 }
 
 function appliesToLabel(applies_to: string[] | null): string {
