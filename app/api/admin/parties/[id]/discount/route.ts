@@ -48,10 +48,25 @@ export async function PATCH(
   // they'd be misleading at that point.
   const { data: existing } = await db
     .from('parties')
-    .select('promo_code_id')
+    .select('promo_code_id, weekday_discount_applied')
     .eq('id', partyId)
     .maybeSingle();
   const hadPromo = !!existing?.promo_code_id;
+
+  // No-stacking rule: the Mon-Thu auto 20% can't combine with any
+  // additional discount. Block unless the admin is CLEARING (setting 0).
+  const isClearing =
+    (typeof body.percent === 'number' && body.percent === 0) ||
+    (typeof body.amount_cents === 'number' && body.amount_cents === 0);
+  if (existing?.weekday_discount_applied && !isClearing) {
+    return NextResponse.json(
+      {
+        error:
+          "This party already has the Mon–Thu 20% discount baked in — promotions can't stack. Reschedule to Fri–Sun first if you want to apply an additional discount.",
+      },
+      { status: 409 },
+    );
+  }
 
   const updates: Record<string, unknown> = {};
   if (typeof body.percent === 'number') {

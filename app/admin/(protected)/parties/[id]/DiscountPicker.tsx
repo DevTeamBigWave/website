@@ -12,6 +12,7 @@ export function DiscountPicker({
   initial,
   initialAmountCents,
   promoCodeText,
+  blockedByWeekdayDiscount = false,
 }: {
   partyId: string;
   initial: number;
@@ -20,6 +21,9 @@ export function DiscountPicker({
   // admin override here will replace it — we confirm first so the owner
   // doesn't accidentally silently drop a "JUNE20" off the receipts.
   promoCodeText?: string | null;
+  // Mon-Thu auto-discount is on this party. Discounts can't stack, so
+  // the picker becomes read-only.
+  blockedByWeekdayDiscount?: boolean;
 }) {
   const router = useRouter();
   const [percent, setPercent] = useState<number>(initial);
@@ -115,6 +119,16 @@ export function DiscountPicker({
   };
 
   const clear = () => applyPercent(0);
+
+  if (blockedByWeekdayDiscount) {
+    return (
+      <p className="rounded-xl bg-slate-50 px-3 py-3 text-xs text-slate-600">
+        Mon–Thu parties already save 20% — no other discount can stack on
+        top. To apply a custom discount, reschedule the party to a Fri–Sun
+        date first (that removes the weekday discount), then come back here.
+      </p>
+    );
+  }
 
   return (
     <div className="space-y-3">

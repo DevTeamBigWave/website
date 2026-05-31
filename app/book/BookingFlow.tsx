@@ -104,6 +104,7 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
     return () => clearTimeout(t);
   }, [packageId]);
 
+
   useEffect(() => {
     if (!time || !packageId || !date) return;
     const t = setTimeout(() => {
@@ -230,6 +231,16 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
   const headcountNum = Number(details.headcount);
   const headcountValid =
     Number.isFinite(headcountNum) && headcountNum >= 1 && headcountNum <= 40;
+
+  // If the customer picked a date that triggers the Mon-Thu auto-discount,
+  // any previously-applied promo code is no longer valid (no stacking).
+  // Clear it silently — the PromoCodeInput will re-render as the "can't
+  // stack" message so they're not confused about what happened.
+  useEffect(() => {
+    if (pricing?.discountApplied && appliedPromo) {
+      setAppliedPromo(null);
+    }
+  }, [pricing?.discountApplied, appliedPromo]);
 
   // Build a list of human-readable missing fields so we can tell the parent
   // exactly what's blocking the submit instead of silently disabling the button.
@@ -739,6 +750,10 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
               )}
               <PromoCodeInput
                 applied={appliedPromo}
+                // Mon-Thu's automatic 20% already saves the customer money —
+                // we don't let promo codes stack on top. Hide the input so
+                // they don't waste time typing one.
+                blockedByWeekdayDiscount={pricing?.discountApplied ?? false}
                 onApply={(promo) => {
                   setAppliedPromo(promo);
                   // Clear any applied gift card so the server doesn't get
@@ -1018,10 +1033,24 @@ type AppliedPromo = {
 function PromoCodeInput({
   applied,
   onApply,
+  blockedByWeekdayDiscount = false,
 }: {
   applied: AppliedPromo | null;
   onApply: (promo: AppliedPromo | null) => void;
+  // Mon-Thu auto-discount + promo can't stack. When true, render an
+  // explanatory chip instead of the input.
+  blockedByWeekdayDiscount?: boolean;
 }) {
+  // Server-side enforcement lives in /api/checkout/party; this is just UX
+  // so the customer doesn't waste time typing a code that will be rejected.
+  if (blockedByWeekdayDiscount && !applied) {
+    return (
+      <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500">
+        Mon–Thu dates already get 20% off — promo codes can't stack with the
+        weekday discount. Pick a Fri–Sun date to use a code.
+      </p>
+    );
+  }
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);

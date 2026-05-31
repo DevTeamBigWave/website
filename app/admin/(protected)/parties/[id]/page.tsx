@@ -165,15 +165,22 @@ export default async function PartyDetailPage({
           {(() => {
             const promoRaw = (party as any).promo_code;
             const promo = Array.isArray(promoRaw) ? promoRaw[0] : promoRaw;
+            const weekdayActive = !!(party as any).weekday_discount_applied;
             return (
               <Card
                 title={
-                  promo ? `Promo ${promo.code} applied` : 'Friends & family discount'
+                  weekdayActive
+                    ? 'Mon–Thu 20% discount'
+                    : promo
+                      ? `Promo ${promo.code} applied`
+                      : 'Friends & family discount'
                 }
                 subtitle={
-                  promo
-                    ? 'Customer used this code at booking. Setting a custom discount below will replace it.'
-                    : 'Owner-applied courtesy off the grand total. Applies on the next invoice.'
+                  weekdayActive
+                    ? "Auto-applied because this party is Mon–Thu. No other discount can stack on top — reschedule to Fri–Sun to add a manual discount."
+                    : promo
+                      ? 'Customer used this code at booking. Setting a custom discount below will replace it.'
+                      : 'Owner-applied courtesy off the grand total. Applies on the next invoice.'
                 }
               >
                 <DiscountPicker
@@ -181,6 +188,7 @@ export default async function PartyDetailPage({
                   initial={((party as any).manual_discount_percent ?? 0) as number}
                   initialAmountCents={((party as any).manual_discount_cents ?? 0) as number}
                   promoCodeText={promo?.code ?? null}
+                  blockedByWeekdayDiscount={weekdayActive}
                 />
               </Card>
             );

@@ -84,11 +84,15 @@ export function computePartyFinancials(p: PartyRowForFinancials): PartyFinancial
   const flatCents = p.manual_discount_cents ?? 0;
 
   const combinedPreTax = partyPreTax + addOnsTotal;
-  // Custom-$ takes precedence over %. The discount endpoint zeroes the other
-  // when one is set, but we defend here too. Cap at combinedPreTax so we
-  // can't produce a negative subtotal.
-  const rawDiscount = flatCents > 0 ? flatCents : Math.round((combinedPreTax * pct) / 100);
-  const manualDiscount = Math.min(rawDiscount, combinedPreTax);
+  // Discounts (% and flat $) apply to the PARTY portion only — never to
+  // add-ons. Add-ons always stay at their full unit price.
+  //   - percent → multiply against partyPreTax, not combinedPreTax
+  //   - flat $  → kept as-is, just capped at partyPreTax so we can't
+  //               negate the party portion
+  // Custom-$ takes precedence over % (admin endpoint zeroes one when
+  // setting the other, but we defend here too).
+  const rawDiscount = flatCents > 0 ? flatCents : Math.round((partyPreTax * pct) / 100);
+  const manualDiscount = Math.min(rawDiscount, partyPreTax);
 
   const taxableSubtotal = combinedPreTax - manualDiscount;
   const taxCents = Math.round(taxableSubtotal * TAX_RATE);

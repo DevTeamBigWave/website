@@ -173,12 +173,14 @@ export function CreatePartyForm() {
   const TAX_RATE = 0.08875;
   const partyPreTax = pricing?.subtotalCents ?? 0;
   const combinedPreTax = partyPreTax + addOnsTotalCents;
-  // Custom-$ wins over percent.
+  // Manual discount applies to PARTY portion only — never to add-ons.
+  // Mirrors computePartyFinancials in lib/parties.ts and the server-side
+  // math in /api/admin/parties/create.
   const grandManualDiscount = Math.min(
-    combinedPreTax,
+    partyPreTax,
     discountCents > 0
       ? discountCents
-      : Math.round((combinedPreTax * discountPercent) / 100),
+      : Math.round((partyPreTax * discountPercent) / 100),
   );
   const taxableSubtotal = combinedPreTax - grandManualDiscount;
   const taxCents = Math.round(taxableSubtotal * TAX_RATE);
@@ -517,11 +519,24 @@ export function CreatePartyForm() {
           )}
         </Card>
 
-        {/* Friends & family discount — shortcut tiles + custom % + custom $ */}
+        {/* Friends & family discount — shortcut tiles + custom % + custom $.
+            Blocked on Mon-Thu since the 20% weekday discount already applies
+            and discounts can't stack. */}
         <Card
           title="Friends & family discount"
-          subtitle="Owner-applied courtesy. Comes off the grand total on the invoice."
+          subtitle={
+            pricing?.discountApplied
+              ? 'Mon–Thu parties already save 20%. No other discount can stack.'
+              : 'Owner-applied courtesy. Comes off the party price on the invoice.'
+          }
         >
+          {pricing?.discountApplied ? (
+            <p className="rounded-xl bg-slate-50 px-3 py-3 text-xs text-slate-600">
+              Mon–Thu's auto 20% discount is already applied to this date.
+              To add a custom discount instead, pick a Fri–Sun date.
+            </p>
+          ) : (
+          <>
           <div className="grid grid-cols-4 gap-2">
             {([0, 10, 15, 20] as const).map((v) => {
               const isSelected =
@@ -632,6 +647,8 @@ export function CreatePartyForm() {
                   : `${discountPercent}% off · ${fmt(grandManualDiscount)}`}
               </strong>
             </p>
+          )}
+          </>
           )}
         </Card>
 

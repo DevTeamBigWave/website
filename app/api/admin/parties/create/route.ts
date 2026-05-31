@@ -130,31 +130,42 @@ export async function POST(request: Request) {
   //   grand           = taxable + tax     (add-ons are taxed too)
   // Custom-$ wins over percent.
   const TAX_RATE = 0.08875;
+
+  // No-stacking rule: Mon-Thu's auto 20% can't combine with a manual
+  // friends-and-family discount on the same party. Reject early before
+  // any DB writes.
+  const wantsManualDiscount =
+    (body.manual_discount_cents ?? 0) > 0 || body.manual_discount_percent > 0;
+  if (pricing.discountApplied && wantsManualDiscount) {
+    return NextResponse.json(
+      {
+        error:
+          "Mon–Thu parties already get the auto 20% discount — friends & family discounts can't stack with it. Set the discount to 0 or pick a Fri–Sun date.",
+      },
+      { status: 400 },
+    );
+  }
+
   const _customDiscountCents = body.manual_discount_cents ?? 0;
   const _allAddOnsCents = body.add_ons.reduce((s, a) => s + a.unit_price_cents * a.qty, 0);
   const _combinedPreTax = pricing.subtotalCents + _allAddOnsCents;
+  // Manual discount applies to the PARTY portion only — never to add-ons.
+  // Computed against pricing.subtotalCents (party) and capped at it so we
+  // can't negate the party. Matches computePartyFinancials in lib/parties.ts.
   const _grandManualDiscount = Math.min(
-    _combinedPreTax,
+    pricing.subtotalCents,
     _customDiscountCents > 0
       ? _customDiscountCents
-      : Math.round((_combinedPreTax * body.manual_discount_percent) / 100),
+      : Math.round((pricing.subtotalCents * body.manual_discount_percent) / 100),
   );
   const _taxableSubtotal = _combinedPreTax - _grandManualDiscount;
   const _grandTaxCents = Math.round(_taxableSubtotal * TAX_RATE);
   const _grandAfterDiscount = _taxableSubtotal + _grandTaxCents; // canonical grand total
 
-  // Deposit-only basis: 50% of (party portion incl. its share of the
-  // discounted, taxed subtotal). Mirrors the customer /book deposit.
-  const _partyPreTaxAfterFF = Math.max(
-    0,
-    pricing.subtotalCents -
-      Math.min(
-        pricing.subtotalCents,
-        _customDiscountCents > 0
-          ? Math.round((_customDiscountCents * pricing.subtotalCents) / Math.max(1, _combinedPreTax))
-          : Math.round((pricing.subtotalCents * body.manual_discount_percent) / 100),
-      ),
-  );
+  // Deposit-only basis: 50% of (party portion incl. its tax share). Since
+  // the discount comes entirely off the party, the party-post-discount
+  // pre-tax is simply subtotalCents - manualDiscount.
+  const _partyPreTaxAfterFF = pricing.subtotalCents - _grandManualDiscount;
   const _partyTaxShare = Math.round(_partyPreTaxAfterFF * TAX_RATE);
   const _partyAfterDiscount = _partyPreTaxAfterFF + _partyTaxShare;
   const _depositAfterDiscount = Math.round(_partyAfterDiscount / 2);
@@ -263,16 +274,10 @@ export async function POST(request: Request) {
   const isFull = isFullInvoice;
   const fullAfterDiscount = _fullAfterDiscount; // canonical grand total
   const depositAfterDiscount = _depositAfterDiscount;
-  // F&F discount the customer will see on THIS invoice. For deposit-only
-  // we show the party-portion share so the deposit-side math reconciles
-  // line-by-line; for full we show the whole F&F.
-  const partyFFShareCents = Math.min(
-    pricing.subtotalCents,
-    _customDiscountCents > 0
-      ? Math.round((_customDiscountCents * pricing.subtotalCents) / Math.max(1, _combinedPreTax))
-      : Math.round((pricing.subtotalCents * body.manual_discount_percent) / 100),
-  );
-  const invoiceFFCents = isFull ? _grandManualDiscount : partyFFShareCents;
+  // F&F discount shown on the invoice. Manual discount is party-only now,
+  // so the same _grandManualDiscount applies whether we're invoicing
+  // full or just the deposit portion.
+  const invoiceFFCents = _grandManualDiscount;
   const invoiceAmountCents = isFull
     ? fullAfterDiscount
     : isCustomDeposit

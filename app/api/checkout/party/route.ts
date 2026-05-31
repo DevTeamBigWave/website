@@ -205,6 +205,24 @@ export async function POST(request: Request) {
   let promoCodeText: string | undefined;
 
   if (body.promoCode) {
+    // No stacking: Mon-Thu's automatic 20% private discount and a customer
+    // promo code can never combine. The customer already got a discount.
+    if (pricing.discountApplied) {
+      await supabase
+        .from('parties')
+        .update({
+          status: 'cancelled',
+          cancellation_reason: 'promo code rejected (Mon-Thu auto-discount already applied)',
+        })
+        .eq('id', party.id);
+      return NextResponse.json(
+        {
+          error:
+            "This date already gets the Mon–Thu 20% off — promo codes can't stack with it. Pick a Fri–Sun date to use your code, or remove the code to keep the Mon–Thu discount.",
+        },
+        { status: 400 },
+      );
+    }
     const v = await validatePromoCode(body.promoCode, {
       context: 'party',
       channel: 'online',
