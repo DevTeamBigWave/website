@@ -96,10 +96,48 @@ export async function generateSaturdayEmail(
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
   const now = new Date();
-  const month = now.toLocaleString('en-US', { month: 'long', timeZone: NYC });
+  const monthLong = now.toLocaleString('en-US', { month: 'long', timeZone: NYC });
+  const dateLong = now.toLocaleString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: NYC,
+  });
+  const dayInNYC = parseInt(
+    new Intl.DateTimeFormat('en-US', { timeZone: NYC, day: 'numeric' }).format(now),
+    10,
+  );
+  // Days remaining in the current NYC month — used to nudge the AI off
+  // the current month's framing when there's almost none of it left.
+  const yearMonth = new Intl.DateTimeFormat('en-CA', {
+    timeZone: NYC,
+    year: 'numeric',
+    month: '2-digit',
+  })
+    .format(now)
+    .split('-')
+    .map(Number);
+  const daysInMonth = new Date(yearMonth[0], yearMonth[1], 0).getDate();
+  const daysLeftInMonth = daysInMonth - dayInNYC;
+  const nextMonth = new Date(yearMonth[0], yearMonth[1] % 12, 1).toLocaleString(
+    'en-US',
+    { month: 'long', timeZone: NYC },
+  );
+  // Threshold: by the last week of the month, the AI should pivot to
+  // next-month framing (any "May parties filling up" copy on May 30 reads
+  // as stale by the time the recipient opens it).
+  const pivotToNextMonth = daysLeftInMonth <= 7;
+
   const userMessage = `Write Saturday's weekly marketing email for Wonderland Playhouse.
 
-CURRENT MONTH: ${month}
+TODAY: ${dateLong}
+Days left in ${monthLong}: ${daysLeftInMonth}
+${
+  pivotToNextMonth
+    ? `IMPORTANT: ${monthLong} is essentially over. Frame the email around ${nextMonth} (upcoming dates, ${nextMonth} availability, seasonal hooks for ${nextMonth}). Do NOT write copy that references "${monthLong} parties filling up" or anything that will read as stale once recipients open it Saturday morning.`
+    : `Frame the email around ${monthLong} (current month is mid-cycle, there's still real time left to book).`
+}
 
 ${notes ? `OWNER'S NOTES / EVENTS / CONTEXT (use these prominently):\n${notes}\n` : 'No specific notes from the owner this week — write something seasonally relevant and gently CTA toward booking.'}
 
