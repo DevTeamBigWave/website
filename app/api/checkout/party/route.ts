@@ -242,11 +242,15 @@ export async function POST(request: Request) {
       promoDiscountPercent = v.discount_percent;
       promoCodeId = v.id;
       promoCodeText = v.code;
-      // Recompute deposit + total against the discounted party subtotal.
-      // We only adjust deposit_cents / tax_cents / total_cents on the row
-      // here — the discount itself lives in manual_discount_percent so
-      // computePartyFinancials applies it consistently to (party + add-ons)
-      // later when the balance invoice goes out.
+      // Discount applies to the PARTY PORTION ONLY — not to any add-ons
+      // the admin adds later. We achieve this by converting the % to a
+      // FLAT cents amount computed against the party subtotal, then
+      // storing it in manual_discount_cents (not manual_discount_percent,
+      // which would re-grow with add-ons in computePartyFinancials).
+      // Flat-amount discount applied to combined (party+addons) is
+      // mathematically equivalent to the same amount applied to party
+      // only — the final tax/total numbers are the same, and add-ons
+      // effectively stay at full price.
       const discountAmount = Math.round(
         (pricing.subtotalCents * promoDiscountPercent) / 100,
       );
@@ -258,7 +262,8 @@ export async function POST(request: Request) {
       await supabase
         .from('parties')
         .update({
-          manual_discount_percent: promoDiscountPercent,
+          manual_discount_cents: discountAmount,
+          manual_discount_percent: 0,
           tax_cents: newTax,
           total_cents: effectiveTotalCents,
           deposit_cents: effectiveDepositCents,
