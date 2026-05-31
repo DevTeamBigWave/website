@@ -150,8 +150,52 @@ export function pickAngleForDate(d: Date) {
   return ANGLES[isoWeekNumber(d) % ANGLES.length];
 }
 
+// A promo code the AI should weave into the email. Owner picks this on
+// the Saturday card (or it auto-fills with the active skip-deposit code).
+export type PromoCodeForCopy = {
+  code: string;
+  label: string;          // human-readable purpose, e.g. "Skip the $$ deposit"
+  description: string;    // what it does, plain English
+  valid_until_label: string; // "valid through Jun 30" — pre-formatted
+};
+
+// Pull the currently-active promo code(s) the owner can offer subscribers.
+// Returns the most recently created skip_deposit code that's still in its
+// valid window. Used so the Saturday email can offer it without manual
+// copy-paste.
+export async function getActivePromoCodesForCopy(): Promise<PromoCodeForCopy[]> {
+  const db = supabaseAdmin();
+  const now = new Date().toISOString();
+  const { data } = await db
+    .from('promo_codes')
+    .select('code, kind, label, notes, valid_until, max_uses, uses_count')
+    .lte('valid_from', now)
+    .gt('valid_until', now)
+    .order('created_at', { ascending: false });
+  return (data ?? [])
+    .filter(
+      (r: any) => r.max_uses == null || (r.uses_count ?? 0) < r.max_uses,
+    )
+    .map((r: any) => ({
+      code: r.code,
+      label:
+        r.label ??
+        (r.kind === 'skip_deposit' ? 'Skip the deposit at checkout' : r.kind),
+      description:
+        r.notes ??
+        (r.kind === 'skip_deposit'
+          ? 'Booking goes through without paying the deposit upfront — full balance is still owed.'
+          : ''),
+      valid_until_label: new Date(r.valid_until).toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+      }),
+    }));
+}
+
 export async function generateSaturdayEmail(
   notes: string | null | undefined,
+  promoCodes: PromoCodeForCopy[] = [],
 ): Promise<GeneratedMarketing> {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -208,6 +252,15 @@ The angle is the LENS — what the email is about and the emotional register. St
 
 ${notes ? `OWNER'S NOTES / EVENTS / CONTEXT (use these in addition to the angle — they take precedence if there's a conflict):\n${notes}\n` : ''}
 
+${
+  promoCodes.length > 0
+    ? `ACTIVE PROMO CODES the email can offer:
+${promoCodes.map((p) => `- ${p.code} — ${p.label}. ${p.description} Valid through ${p.valid_until_label}.`).join('\n')}
+
+When the angle naturally supports it (book-ahead nudge, open-play value, seasonal CTA), weave the most relevant code into the body in a single specific line — e.g. "Use code ${promoCodes[0].code} at checkout to ${promoCodes[0].label.toLowerCase()}." Do NOT shoehorn a code into angles where it'd feel mercenary (low-stim parenting moment, parent-to-parent tip) — those should skip the code entirely. NEVER list multiple codes; pick the single most relevant one or none.`
+    : ''
+}
+
 RULES:
 - Subject line: 50-70 chars, specific, no clickbait, no emoji. Match the angle — a low-stim parenting angle shouldn't have a "spots filling fast" subject.
 - Body: 80-160 words. Plain text. 2-4 short paragraphs separated by blank lines. Conversational, parent-to-parent.
@@ -246,6 +299,84 @@ OUTPUT JSON ONLY (no markdown, no prose around it):
   if (!parsed.subject || !parsed.body_text) {
     throw new Error('Generator returned invalid output');
   }
+  return parsed;
+}
+
+// Take an existing draft (subject + body + optional CTA) and apply the
+// owner's plain-English revision instructions. Used by the "Refine with
+// AI" box on the Saturday card — Gaby types "shorter and more about
+// memberships" or "remove the second paragraph" and we re-roll.
+export async function refineSaturdayEmail(
+  current: {
+    subject: string;
+    body_text: string;
+    cta_label?: string | null;
+    cta_href?: string | null;
+  },
+  instructions: string,
+  promoCodes: PromoCodeForCopy[] = [],
+): Promise<GeneratedMarketing> {
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+
+  const userMessage = `Revise this weekly marketing email for Wonderland Playhouse based on the owner's instructions.
+
+CURRENT SUBJECT: ${current.subject}
+
+CURRENT BODY:
+${current.body_text}
+
+CURRENT CTA: ${current.cta_label ?? '(none)'} → ${current.cta_href ?? '(none)'}
+
+${
+  promoCodes.length > 0
+    ? `ACTIVE PROMO CODES available (use the most relevant one ONLY if the owner's instructions imply a promo or the existing copy already has one):
+${promoCodes.map((p) => `- ${p.code} — ${p.label}. ${p.description} Valid through ${p.valid_until_label}.`).join('\n')}
+`
+    : ''
+}
+
+OWNER'S REVISION INSTRUCTIONS:
+${instructions}
+
+RULES:
+- Keep the same low-stim, calm, parent-to-parent tone. No exclamation-mark spam, no "magical experiences await" filler.
+- Apply ONLY what the instructions ask for — don't rewrite paragraphs that weren't called out.
+- Subject 50-70 chars. Body 80-160 words, 2-4 short paragraphs separated by blank lines.
+- If the instructions say to remove the CTA, return empty strings for cta_label/cta_href. If they say to change it, pick from: /parties /book /tour /inquire /book/open-play /memberships /gift-cards
+- DO NOT add greetings like "Hi {name}" or sign-offs — the template handles both.
+
+OUTPUT JSON ONLY (no markdown, no prose around it):
+{
+  "subject": "string",
+  "body_text": "string with \\n\\n between paragraphs",
+  "cta_label": "string (optional, empty string means remove)",
+  "cta_href": "string (optional, empty string means remove)"
+}`;
+
+  const response = await client.messages.create({
+    model: MODEL,
+    max_tokens: 1024,
+    system: BRAND_CONTEXT,
+    messages: [{ role: 'user', content: userMessage }],
+  });
+
+  const text = response.content
+    .filter((b): b is Extract<typeof b, { type: 'text' }> => b.type === 'text')
+    .map((b) => b.text)
+    .join('')
+    .trim()
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/```\s*$/i, '')
+    .trim();
+
+  const parsed = JSON.parse(text) as GeneratedMarketing;
+  if (!parsed.subject || !parsed.body_text) {
+    throw new Error('Refine returned invalid output');
+  }
+  // Empty strings → drop, matching the contract
+  if (!parsed.cta_label) parsed.cta_label = undefined;
+  if (!parsed.cta_href) parsed.cta_href = undefined;
   return parsed;
 }
 
@@ -299,7 +430,11 @@ export async function runSaturdayMarketing(
 
   if (!subject || !body) {
     try {
-      const gen = await generateSaturdayEmail(draft.notes_for_generator);
+      const activePromoCodes = await getActivePromoCodesForCopy();
+      const gen = await generateSaturdayEmail(
+        draft.notes_for_generator,
+        activePromoCodes,
+      );
       subject = gen.subject;
       body = gen.body_text;
       ctaLabel = gen.cta_label || undefined;

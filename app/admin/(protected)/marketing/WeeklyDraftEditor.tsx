@@ -14,6 +14,10 @@ type Draft = {
   status: string;
 } | null;
 
+// Flow: type notes → Generate preview (or skip and type manually) → review
+// + tweak inline → optional "Refine with AI" pass → Send now. Sending
+// always uses whatever's in the editable fields below, never a blind AI
+// roll. So you never fire something you haven't actually read.
 export function WeeklyDraftEditor({
   targetDate,
   initial,
@@ -29,14 +33,17 @@ export function WeeklyDraftEditor({
   const [preBody, setPreBody] = useState(initial?.pre_body ?? '');
   const [preCtaLabel, setPreCtaLabel] = useState(initial?.pre_cta_label ?? '');
   const [preCtaHref, setPreCtaHref] = useState(initial?.pre_cta_href ?? '');
-  const [advanced, setAdvanced] = useState(!!(initial?.pre_subject || initial?.pre_body));
+  const [refineInstructions, setRefineInstructions] = useState('');
   const [busy, setBusy] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [refining, setRefining] = useState(false);
   const [sending, setSending] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [promoCodesUsed, setPromoCodesUsed] = useState<string[]>([]);
 
-  const hasAnything = notes || preSubject || preBody;
+  const hasPreview = !!(preSubject || preBody);
 
-  const save = async () => {
+  const saveDraft = async () => {
     setBusy(true);
     setFeedback(null);
     try {
@@ -65,10 +72,82 @@ export function WeeklyDraftEditor({
     }
   };
 
+  const generatePreview = async () => {
+    setGenerating(true);
+    setFeedback(null);
+    try {
+      const res = await fetch('/api/admin/marketing/generate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ notes: notes || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.ok === false) {
+        setFeedback(`Generate failed: ${data.error ?? `HTTP ${res.status}`}`);
+        return;
+      }
+      setPreSubject(data.subject ?? '');
+      setPreBody(data.body_text ?? '');
+      setPreCtaLabel(data.cta_label ?? '');
+      setPreCtaHref(data.cta_href ?? '');
+      setPromoCodesUsed(data.promo_codes_used ?? []);
+      setFeedback('Preview generated — review below before sending.');
+    } catch (err) {
+      setFeedback(`Generate failed: ${err instanceof Error ? err.message : 'network'}`);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const refineWithAi = async () => {
+    if (!preSubject || !preBody) {
+      setFeedback('Generate a preview first, then refine it.');
+      return;
+    }
+    if (refineInstructions.trim().length < 2) {
+      setFeedback('Tell Claude what to change — e.g. "shorter, drop the second paragraph".');
+      return;
+    }
+    setRefining(true);
+    setFeedback(null);
+    try {
+      const res = await fetch('/api/admin/marketing/refine', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          subject: preSubject,
+          body_text: preBody,
+          cta_label: preCtaLabel || undefined,
+          cta_href: preCtaHref || undefined,
+          instructions: refineInstructions,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.ok === false) {
+        setFeedback(`Refine failed: ${data.error ?? `HTTP ${res.status}`}`);
+        return;
+      }
+      setPreSubject(data.subject ?? preSubject);
+      setPreBody(data.body_text ?? preBody);
+      setPreCtaLabel(data.cta_label ?? '');
+      setPreCtaHref(data.cta_href ?? '');
+      setRefineInstructions('');
+      setFeedback('Refined ✓');
+    } catch (err) {
+      setFeedback(`Refine failed: ${err instanceof Error ? err.message : 'network'}`);
+    } finally {
+      setRefining(false);
+    }
+  };
+
   const sendNow = async () => {
+    if (!preSubject || !preBody) {
+      setFeedback('Generate a preview (or type the email manually) before sending.');
+      return;
+    }
     if (
       !confirm(
-        `Send the Saturday email to ${recipientCount} subscribers right now? This uses today's notes/pre-write — or AI-generates if both are blank. Saves any unsaved edits first.`,
+        `Send to ${recipientCount} subscribers right now?\n\nSubject: ${preSubject}\n\n${preBody.slice(0, 200)}${preBody.length > 200 ? '…' : ''}`,
       )
     ) {
       return;
@@ -76,22 +155,21 @@ export function WeeklyDraftEditor({
     setSending(true);
     setFeedback(null);
     try {
-      // Persist any in-progress edits so the send picks them up.
+      // Save first so the send picks up whatever's currently in the editor.
+      // The send pipeline uses pre_subject/pre_body when both are set, so
+      // saving = locking in exactly what we just reviewed.
       await fetch('/api/admin/marketing/draft', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           target_send_date: targetDate,
           notes_for_generator: notes || undefined,
-          pre_subject: preSubject || undefined,
-          pre_body: preBody || undefined,
+          pre_subject: preSubject,
+          pre_body: preBody,
           pre_cta_label: preCtaLabel || undefined,
           pre_cta_href: preCtaHref || undefined,
         }),
       });
-      // ?force=1 bypasses the "already sent" guard so we can retry after
-      // a partial-failure run (e.g. draft marked sent but Resend was
-      // empty — exactly today's symptom).
       const res = await fetch(
         `/api/admin/marketing/send-saturday?date=${encodeURIComponent(targetDate)}&force=1`,
         { method: 'POST' },
@@ -102,8 +180,6 @@ export function WeeklyDraftEditor({
       } else if (data.skipped) {
         setFeedback(`Skipped: ${data.skipped}`);
       } else if (data.sent === 0) {
-        // Every send failed — show the first concrete error so we can
-        // actually fix the cause instead of staring at a green checkmark.
         setFeedback(
           `Sent 0/${data.total} — all failed. First error: ${data.first_error ?? 'unknown'}`,
         );
@@ -120,36 +196,48 @@ export function WeeklyDraftEditor({
     }
   };
 
-  const mode = preSubject && preBody ? 'manual' : 'ai';
-
   return (
     <div className="mt-4 space-y-4 rounded-2xl bg-white p-5 shadow-sm">
       <Field label="Events / promos / context for this week (optional)">
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          rows={4}
+          rows={3}
           maxLength={2000}
           placeholder={`e.g.\n- Halloween bash Oct 30 at 4pm — kids in costume get a free goodie bag\n- Mon-Thu 20% off still running\n- New entertainment: glam spa day station ($175)`}
           className={inputCls}
         />
       </Field>
 
-      <button
-        type="button"
-        onClick={() => setAdvanced((a) => !a)}
-        className="text-xs font-semibold text-coral hover:text-coral-700"
-      >
-        {advanced ? '− Hide manual write override' : '+ Write the full email myself instead'}
-      </button>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={generatePreview}
+          disabled={generating || sending || refining}
+          className="rounded-full bg-sky-500 px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-sky-600 disabled:opacity-50"
+        >
+          {generating ? 'Generating…' : hasPreview ? 'Regenerate from scratch' : 'Generate preview'}
+        </button>
+        <p className="self-center text-xs text-slate-500">
+          {hasPreview
+            ? 'Tweak the copy below, refine with AI, or send when ready.'
+            : 'Drafts using your notes + this week’s angle. Nothing sends until you tap Send.'}
+        </p>
+      </div>
 
-      {advanced && (
-        <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <p className="text-xs text-slate-500">
-            If you fill in subject AND body, the AI is skipped — Saturday sends exactly this.
-            Leave them blank to use Claude with the notes above.
-          </p>
-          <Field label="Subject (manual)">
+      {hasPreview && (
+        <div className="space-y-3 rounded-xl border border-sky-200 bg-sky-50/50 p-4">
+          <div className="flex items-baseline justify-between">
+            <p className="text-xs font-bold uppercase tracking-wider text-sky-700">
+              Preview · what {recipientCount} subscribers will receive
+            </p>
+            {promoCodesUsed.length > 0 && (
+              <p className="text-[10px] uppercase tracking-wider text-sky-600">
+                Codes wired in: {promoCodesUsed.join(', ')}
+              </p>
+            )}
+          </div>
+          <Field label="Subject">
             <input
               type="text"
               value={preSubject}
@@ -158,11 +246,11 @@ export function WeeklyDraftEditor({
               className={inputCls}
             />
           </Field>
-          <Field label="Body (manual — paragraphs separated by blank lines)">
+          <Field label="Body">
             <textarea
               value={preBody}
               onChange={(e) => setPreBody(e.target.value)}
-              rows={8}
+              rows={10}
               maxLength={8000}
               className={`${inputCls} font-sans`}
             />
@@ -179,78 +267,81 @@ export function WeeklyDraftEditor({
             </Field>
             <Field label="CTA link (optional)">
               <input
-                type="url"
+                type="text"
                 value={preCtaHref}
                 onChange={(e) => setPreCtaHref(e.target.value)}
                 className={inputCls}
+                placeholder="/parties, /book, etc."
               />
             </Field>
+          </div>
+
+          <div className="rounded-lg border border-dashed border-sky-300 bg-white p-3">
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-sky-700">
+              Refine with AI
+            </p>
+            <textarea
+              value={refineInstructions}
+              onChange={(e) => setRefineInstructions(e.target.value)}
+              rows={2}
+              maxLength={2000}
+              placeholder="e.g. shorter and warmer, drop the third paragraph, lead with the promo code, no CTA"
+              className={inputCls}
+            />
+            <button
+              type="button"
+              onClick={refineWithAi}
+              disabled={refining || sending || generating || !refineInstructions.trim()}
+              className="mt-2 rounded-full border border-sky-500 bg-white px-4 py-1.5 text-xs font-bold text-sky-700 hover:bg-sky-50 disabled:opacity-50"
+            >
+              {refining ? 'Refining…' : 'Apply with AI'}
+            </button>
           </div>
         </div>
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
         <p className="text-sm text-slate-600">
-          {mode === 'manual' ? (
-            <>
-              <strong>Manual.</strong> Saturday sends your exact subject + body to{' '}
-              {recipientCount} subscriber{recipientCount === 1 ? '' : 's'}.
-            </>
-          ) : hasAnything ? (
-            <>
-              <strong>AI-assisted.</strong> Saturday morning, Claude writes using
-              your notes + Wonderland voice. Sends to {recipientCount} subscriber
-              {recipientCount === 1 ? '' : 's'}.
-            </>
-          ) : (
-            <>
-              <strong>Full auto.</strong> No notes — Saturday morning Claude
-              writes from scratch using brand voice + seasonal context. Sends to{' '}
-              {recipientCount} subscriber{recipientCount === 1 ? '' : 's'}.
-            </>
-          )}
+          Saturday {hasPreview ? 'will send this preview as-is' : 'auto-generates and sends'} to{' '}
+          {recipientCount} subscriber{recipientCount === 1 ? '' : 's'}.
         </p>
         <div className="flex flex-wrap items-center gap-2">
           {feedback && <span className="text-xs text-slate-500">{feedback}</span>}
           <button
             type="button"
-            onClick={save}
-            disabled={busy || sending}
+            onClick={saveDraft}
+            disabled={busy || sending || generating || refining}
             className="rounded-full border-2 border-coral bg-white px-5 py-2 text-sm font-bold text-coral hover:bg-coral-50 disabled:opacity-50"
           >
             {busy ? 'Saving…' : 'Save draft'}
           </button>
-          {initial?.status !== 'sent' ? (
-            <button
-              type="button"
-              onClick={sendNow}
-              disabled={busy || sending || recipientCount === 0}
-              className="rounded-full bg-coral px-5 py-2 text-sm font-bold text-white shadow-playful hover:bg-coral-600 disabled:opacity-50"
-            >
-              {sending ? 'Sending…' : 'Send now'}
-            </button>
-          ) : (
-            // Draft is marked sent — but Resend may not have actually
-            // received them (today's case). Still allow a forced resend
-            // so the owner can recover without manual DB cleanup.
-            <button
-              type="button"
-              onClick={sendNow}
-              disabled={busy || sending || recipientCount === 0}
-              className="rounded-full border-2 border-coral bg-white px-5 py-2 text-sm font-bold text-coral hover:bg-coral-50 disabled:opacity-50"
-              title="Draft is marked sent. Press to force a resend (uses ?force=1)."
-            >
-              {sending ? 'Resending…' : 'Force resend'}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={sendNow}
+            disabled={busy || sending || generating || refining || recipientCount === 0 || !hasPreview}
+            className="rounded-full bg-coral px-5 py-2 text-sm font-bold text-white shadow-playful hover:bg-coral-600 disabled:opacity-50"
+            title={
+              !hasPreview
+                ? 'Generate a preview first so you can review the copy before sending.'
+                : initial?.status === 'sent'
+                  ? 'Draft is marked sent. Press to force a resend (?force=1).'
+                  : undefined
+            }
+          >
+            {sending
+              ? 'Sending…'
+              : initial?.status === 'sent'
+                ? 'Force resend'
+                : 'Send now'}
+          </button>
         </div>
       </div>
 
       {initial?.status === 'sent' && (
         <p className="text-xs text-sky-700">
           ✓ Already marked sent for {new Date(targetDate + 'T00:00:00').toLocaleDateString()}.
-          If Resend doesn&rsquo;t show the messages, tap <strong>Force resend</strong> above.
-          Next Saturday will be a new draft regardless.
+          If Resend doesn&rsquo;t show the messages, tap <strong>Force resend</strong>.
+          Next Saturday is a new draft regardless.
         </p>
       )}
     </div>
