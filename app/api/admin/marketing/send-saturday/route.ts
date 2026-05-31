@@ -21,7 +21,12 @@ export async function POST(req: Request) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return NextResponse.json({ error: 'invalid date' }, { status: 400 });
   }
+  // ?force=1 bypasses the "already sent" guard — used when a prior
+  // attempt marked the draft as sent but Resend has no record (RLS
+  // misconfig, bad API key, etc.) and we want to retry without manual
+  // DB cleanup.
+  const force = searchParams.get('force') === '1';
 
-  const result = await runSaturdayMarketing(date);
+  const result = await runSaturdayMarketing(date, { force });
   return NextResponse.json(result);
 }

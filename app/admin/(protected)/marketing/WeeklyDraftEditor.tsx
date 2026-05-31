@@ -89,8 +89,11 @@ export function WeeklyDraftEditor({
           pre_cta_href: preCtaHref || undefined,
         }),
       });
+      // ?force=1 bypasses the "already sent" guard so we can retry after
+      // a partial-failure run (e.g. draft marked sent but Resend was
+      // empty — exactly today's symptom).
       const res = await fetch(
-        `/api/admin/marketing/send-saturday?date=${encodeURIComponent(targetDate)}`,
+        `/api/admin/marketing/send-saturday?date=${encodeURIComponent(targetDate)}&force=1`,
         { method: 'POST' },
       );
       const data = await res.json();
@@ -98,8 +101,16 @@ export function WeeklyDraftEditor({
         setFeedback(`Send failed: ${data.error ?? `HTTP ${res.status}`}`);
       } else if (data.skipped) {
         setFeedback(`Skipped: ${data.skipped}`);
+      } else if (data.sent === 0) {
+        // Every send failed — show the first concrete error so we can
+        // actually fix the cause instead of staring at a green checkmark.
+        setFeedback(
+          `Sent 0/${data.total} — all failed. First error: ${data.first_error ?? 'unknown'}`,
+        );
       } else {
-        setFeedback(`Sent to ${data.sent}/${data.total}${data.failed ? ` (${data.failed} failed)` : ''} ✓`);
+        setFeedback(
+          `Sent ${data.sent}/${data.total}${data.failed ? ` (${data.failed} failed${data.first_error ? `; first: ${data.first_error}` : ''})` : ''} ✓`,
+        );
         router.refresh();
       }
     } catch (err) {
