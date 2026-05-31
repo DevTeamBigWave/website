@@ -49,13 +49,24 @@ export async function POST(request: Request) {
         const giftCardApplyCents = session.metadata?.gift_card_apply_cents
           ? parseInt(session.metadata.gift_card_apply_cents, 10)
           : undefined;
+        // promo_code_id is set when a percent_off promo was applied during
+        // checkout (skip_deposit doesn't go through Stripe so it's handled
+        // synchronously in /checkout/party). Webhook is the right place to
+        // record the use — abandoned carts won't burn the counter.
+        const promoCodeId = session.metadata?.promo_code_id;
 
         await finalizeParty(partyId, {
           paymentIntent: session.payment_intent as string,
           giftCardId,
           giftCardApplyCents,
           stripeSessionId: session.id,
+          ...(promoCodeId ? { promoCodeId } : {}),
         });
+
+        if (promoCodeId) {
+          const { recordPromoUse } = await import('@/lib/promo-codes');
+          void recordPromoUse(promoCodeId);
+        }
       }
 
       if (type === 'gift_card') {

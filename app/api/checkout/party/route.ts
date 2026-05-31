@@ -190,9 +190,20 @@ export async function POST(request: Request) {
     }
   }
 
-  // Promo code path: skip Stripe entirely. Party gets finalized in-place
-  // (status=confirmed, calendar event fires, emails go out) but the deposit
-  // is NOT recorded as paid — so admin sees the full grand-total as owed.
+  // Promo code path.
+  //  - skip_deposit  → skips Stripe entirely, party finalized with full
+  //    grand-total still owed (admin sees the balance).
+  //  - percent_off  → applies the % to party subtotal pre-tax (matching
+  //    computePartyFinancials' manual_discount_percent semantics so the
+  //    balance invoice math stays consistent later), then charges 50% of
+  //    the discounted total as the deposit via Stripe.
+  const TAX_RATE = 0.08875;
+  let effectiveDepositCents = pricing.depositCents;
+  let effectiveTotalCents = pricing.totalCents;
+  let promoCodeId: string | undefined;
+  let promoDiscountPercent = 0;
+  let promoCodeText: string | undefined;
+
   if (body.promoCode) {
     const v = await validatePromoCode(body.promoCode, {
       context: 'party',
@@ -227,26 +238,38 @@ export async function POST(request: Request) {
         redirectTo: `/book/confirm?party_id=${party.id}`,
       });
     }
-    // percent_off via the customer flow isn't wired through the Stripe
-    // line-item math yet (separate follow-up). Until that lands, send the
-    // customer to ask the venue — Gaby can apply % discounts manually via
-    // the party detail page's discount field.
-    if (v.kind === 'percent_off') {
+    if (v.kind === 'percent_off' && v.discount_percent) {
+      promoDiscountPercent = v.discount_percent;
+      promoCodeId = v.id;
+      promoCodeText = v.code;
+      // Recompute deposit + total against the discounted party subtotal.
+      // We only adjust deposit_cents / tax_cents / total_cents on the row
+      // here — the discount itself lives in manual_discount_percent so
+      // computePartyFinancials applies it consistently to (party + add-ons)
+      // later when the balance invoice goes out.
+      const discountAmount = Math.round(
+        (pricing.subtotalCents * promoDiscountPercent) / 100,
+      );
+      const newSubtotal = pricing.subtotalCents - discountAmount;
+      const newTax = Math.round(newSubtotal * TAX_RATE);
+      effectiveTotalCents = newSubtotal + newTax;
+      effectiveDepositCents = Math.round(effectiveTotalCents / 2);
+
       await supabase
         .from('parties')
-        .update({ status: 'cancelled', cancellation_reason: 'percent_off needs manual application' })
+        .update({
+          manual_discount_percent: promoDiscountPercent,
+          tax_cents: newTax,
+          total_cents: effectiveTotalCents,
+          deposit_cents: effectiveDepositCents,
+          promo_code_id: promoCodeId,
+        })
         .eq('id', party.id);
-      return NextResponse.json(
-        {
-          error:
-            'Percent-off codes need to be applied by the venue. Please email info@wonderlandplayhouse.com or call (718) 889-1777 with your code and party details.',
-        },
-        { status: 400 },
-      );
     }
   }
 
-  // Gift card lookup (if a code was passed) — applied against the deposit.
+  // Gift card lookup (if a code was passed) — applied against the deposit
+  // (now post-promo if a percent_off code was used).
   let giftCardId: string | undefined;
   let giftCardApplyCents = 0;
   if (body.giftCardCode) {
@@ -258,10 +281,10 @@ export async function POST(request: Request) {
       );
     }
     giftCardId = card.id;
-    giftCardApplyCents = Math.min(balanceCents(card), pricing.depositCents);
+    giftCardApplyCents = Math.min(balanceCents(card), effectiveDepositCents);
   }
 
-  const chargeCents = pricing.depositCents - giftCardApplyCents;
+  const chargeCents = effectiveDepositCents - giftCardApplyCents;
   const siteUrl =
     process.env.NEXT_PUBLIC_SITE_URL ?? 'https://wonderlandplayhouse.com';
 
@@ -270,7 +293,9 @@ export async function POST(request: Request) {
     await finalizeParty(party.id, {
       giftCardId,
       giftCardApplyCents,
+      ...(promoCodeId ? { promoCodeId } : {}),
     });
+    if (promoCodeId) void recordPromoUse(promoCodeId);
     return NextResponse.json({
       url: `${siteUrl}/book/confirm?party_id=${party.id}&gift=1`,
       partyId: party.id,
@@ -282,16 +307,20 @@ export async function POST(request: Request) {
   if (chargeCents > 0 && chargeCents < 50) {
     giftCardApplyCents = Math.max(0, giftCardApplyCents - (50 - chargeCents));
   }
-  const finalChargeCents = pricing.depositCents - giftCardApplyCents;
+  const finalChargeCents = effectiveDepositCents - giftCardApplyCents;
 
   // Create Stripe checkout session
   const pkg = PACKAGES[body.packageId as PackageId];
   const ageTurning = computeAgeTurning(body.childDob, date, body.childAge);
   const lineItemName = `${pkg.name} Birthday Party — ${body.childName}'s ${ageTurning ? `${ageTurning}th ` : ''}birthday`;
+  const promoSavingsCents = pricing.depositCents - effectiveDepositCents;
   const description = [
     new Date(body.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
     body.time,
     pricing.discountApplied ? `20% Mon–Thu discount applied (saved ${fmt(pricing.discountCents)})` : null,
+    promoDiscountPercent > 0
+      ? `Promo ${promoCodeText} (${promoDiscountPercent}% off — saved ${fmt(promoSavingsCents)} on deposit)`
+      : null,
     giftCardApplyCents > 0 ? `Gift card applied (saved ${fmt(giftCardApplyCents)})` : null,
   ]
     .filter(Boolean)
@@ -318,6 +347,10 @@ export async function POST(request: Request) {
       party_id: party.id,
       type: 'party_deposit',
       ...(giftCardId ? { gift_card_id: giftCardId, gift_card_apply_cents: String(giftCardApplyCents) } : {}),
+      // Stripe webhook reads promo_code_id to record the usage counter
+      // after successful payment — that way a customer who abandons
+      // checkout doesn't burn a use.
+      ...(promoCodeId ? { promo_code_id: promoCodeId } : {}),
     },
     success_url: `${siteUrl}/book/confirm?party_id=${party.id}&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${siteUrl}/book?cancelled=true`,

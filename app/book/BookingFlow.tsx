@@ -70,7 +70,18 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
   });
   const [selectedAddOns, setSelectedAddOns] = useState<Record<string, number>>({});
   const [inspirationUrls, setInspirationUrls] = useState<string[]>([]);
-  const [promoCode, setPromoCode] = useState<string | null>(null);
+  // Applied promo, with the kind/discount info so the summary + submit
+  // button can render the right thing (skip_deposit short-circuits Stripe;
+  // percent_off recomputes the deposit before paying).
+  const [appliedPromo, setAppliedPromo] = useState<{
+    code: string;
+    kind: 'skip_deposit' | 'percent_off';
+    discount_percent?: number | null;
+    label?: string | null;
+  } | null>(null);
+  const promoCode = appliedPromo?.code ?? null;
+  const promoDiscountPercent =
+    appliedPromo?.kind === 'percent_off' ? (appliedPromo.discount_percent ?? 0) : 0;
   const [monthIndex, setMonthIndex] = useState(0);
 
   // Network state
@@ -707,21 +718,32 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
           {/* Submit */}
           {packageId && date && time && (
             <div className="space-y-3">
-              {pricing && !promoCode && (
+              {pricing && appliedPromo?.kind !== 'skip_deposit' && (
+                // Gift card hidden ONLY for skip_deposit (no charge at all
+                // anyway). percent_off still has a deposit, so the gift
+                // card applies against the discounted deposit amount.
                 <GiftCardInput
                   appliedCard={giftCard}
                   onApply={setGiftCard}
                   onClear={() => setGiftCard(null)}
-                  maxApplyCents={pricing.depositCents}
+                  maxApplyCents={
+                    promoDiscountPercent
+                      ? Math.max(
+                          50,
+                          pricing.depositCents -
+                            Math.round((pricing.depositCents * promoDiscountPercent) / 100),
+                        )
+                      : pricing.depositCents
+                  }
                 />
               )}
               <PromoCodeInput
-                value={promoCode}
-                onApply={(code) => {
-                  setPromoCode(code);
+                applied={appliedPromo}
+                onApply={(promo) => {
+                  setAppliedPromo(promo);
                   // Clear any applied gift card so the server doesn't get
                   // both a giftCardCode and promoCode in the body.
-                  if (code) setGiftCard(null);
+                  if (promo) setGiftCard(null);
                 }}
               />
               {error && (
@@ -736,17 +758,23 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                 className="w-full rounded-full bg-coral px-7 py-4 text-base font-bold text-white shadow-playful transition hover:bg-coral-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {submitting
-                  ? promoCode
+                  ? appliedPromo?.kind === 'skip_deposit'
                     ? 'Confirming…'
                     : 'Starting checkout…'
-                  : promoCode
+                  : appliedPromo?.kind === 'skip_deposit'
                     ? 'Confirm booking · lock the date'
                     : pricing
                       ? (() => {
-                          const credit = giftCard
-                            ? Math.min(giftCard.balanceCents, pricing.depositCents)
+                          // Apply promo % to deposit for the button label too,
+                          // so the "Pay $X" exactly matches what Stripe charges.
+                          const promoSavings = promoDiscountPercent
+                            ? Math.round((pricing.depositCents * promoDiscountPercent) / 100)
                             : 0;
-                          const owed = pricing.depositCents - credit;
+                          const postPromoDeposit = pricing.depositCents - promoSavings;
+                          const credit = giftCard
+                            ? Math.min(giftCard.balanceCents, postPromoDeposit)
+                            : 0;
+                          const owed = postPromoDeposit - credit;
                           return owed <= 0
                             ? `Confirm with gift card · lock the date`
                             : `Pay ${fmt(owed)} deposit & lock the date`;
@@ -759,7 +787,7 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                 </p>
               )}
               <p className="text-xs text-slate-400">
-                {promoCode
+                {appliedPromo?.kind === 'skip_deposit'
                   ? "We'll lock the date and send your invoice separately — no card charged today."
                   : "You'll be redirected to Stripe to pay. Deposits are non-refundable but the date may be rescheduled."}
               </p>
@@ -787,59 +815,85 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
               {time ? ` · ${time}` : ''}
             </p>
 
-            {pricing && (
-              <div className="mt-5 space-y-2 border-t border-white/15 pt-4 text-sm">
-                <Row label={PACKAGES[packageId!].name} value={fmt(pricing.baseCents)} />
-                {extensionId && (
-                  <Row
-                    label={`+${EXTENSIONS[extensionId].label}`}
-                    value={fmt(pricing.extensionCents)}
-                  />
-                )}
-                {pricing.extraKidCount > 0 && (
-                  <Row
-                    label={`+${pricing.extraKidCount} extra ${pricing.extraKidCount === 1 ? 'kid' : 'kids'} ($25 ea)`}
-                    value={fmt(pricing.extraKidCents)}
-                  />
-                )}
-                {pricing.discountApplied && (
-                  <Row
-                    label="Mon–Thu discount"
-                    value={`−${fmt(pricing.discountCents)}`}
-                    accent
-                  />
-                )}
-                <Row label="Tax (8.875%)" value={fmt(pricing.taxCents)} />
-                <div className="mt-3 flex items-baseline justify-between border-t border-white/15 pt-3">
-                  <span className="text-sm text-white/85">Total</span>
-                  <span className="font-display text-2xl">{fmt(pricing.totalCents)}</span>
+            {pricing && (() => {
+              // Apply promo % to the displayed totals so what the customer
+              // sees matches what they're actually charged. Server does the
+              // authoritative recalc but we mirror the math here so the
+              // sidebar isn't lying while they look at the deposit.
+              const promoSavingsSubtotal = promoDiscountPercent
+                ? Math.round((pricing.subtotalCents * promoDiscountPercent) / 100)
+                : 0;
+              const effectiveSubtotal = pricing.subtotalCents - promoSavingsSubtotal;
+              const effectiveTax = promoDiscountPercent
+                ? Math.round(effectiveSubtotal * 0.08875)
+                : pricing.taxCents;
+              const effectiveTotal = effectiveSubtotal + effectiveTax;
+              const effectiveDeposit = promoDiscountPercent
+                ? Math.round(effectiveTotal / 2)
+                : pricing.depositCents;
+              const isSkipDeposit = appliedPromo?.kind === 'skip_deposit';
+              const dueToday = isSkipDeposit
+                ? 0
+                : Math.max(
+                    0,
+                    effectiveDeposit -
+                      (giftCard ? Math.min(giftCard.balanceCents, effectiveDeposit) : 0),
+                  );
+              return (
+                <div className="mt-5 space-y-2 border-t border-white/15 pt-4 text-sm">
+                  <Row label={PACKAGES[packageId!].name} value={fmt(pricing.baseCents)} />
+                  {extensionId && (
+                    <Row
+                      label={`+${EXTENSIONS[extensionId].label}`}
+                      value={fmt(pricing.extensionCents)}
+                    />
+                  )}
+                  {pricing.extraKidCount > 0 && (
+                    <Row
+                      label={`+${pricing.extraKidCount} extra ${pricing.extraKidCount === 1 ? 'kid' : 'kids'} ($25 ea)`}
+                      value={fmt(pricing.extraKidCents)}
+                    />
+                  )}
+                  {pricing.discountApplied && (
+                    <Row
+                      label="Mon–Thu discount"
+                      value={`−${fmt(pricing.discountCents)}`}
+                      accent
+                    />
+                  )}
+                  {promoDiscountPercent > 0 && (
+                    <Row
+                      label={`Promo ${appliedPromo!.code} (${promoDiscountPercent}% off)`}
+                      value={`−${fmt(promoSavingsSubtotal)}`}
+                      accent
+                    />
+                  )}
+                  <Row label="Tax (8.875%)" value={fmt(effectiveTax)} />
+                  <div className="mt-3 flex items-baseline justify-between border-t border-white/15 pt-3">
+                    <span className="text-sm text-white/85">Total</span>
+                    <span className="font-display text-2xl">{fmt(effectiveTotal)}</span>
+                  </div>
+                  {giftCard && !isSkipDeposit && (
+                    <Row
+                      label="Gift card"
+                      value={`−${fmt(Math.min(giftCard.balanceCents, effectiveDeposit))}`}
+                      accent
+                    />
+                  )}
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-sm text-sunshine">Due today</span>
+                    <span className="font-display text-3xl text-sunshine">
+                      {isSkipDeposit ? '$0' : fmt(dueToday)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-white/60">
+                    {isSkipDeposit
+                      ? `Full total (${fmt(effectiveTotal)}) invoiced separately — no card charged today.`
+                      : `Balance (${fmt(effectiveTotal - effectiveDeposit)}) due 7 days before the party.`}
+                  </p>
                 </div>
-                {giftCard && (
-                  <Row
-                    label="Gift card"
-                    value={`−${fmt(Math.min(giftCard.balanceCents, pricing.depositCents))}`}
-                    accent
-                  />
-                )}
-                <div className="flex items-baseline justify-between">
-                  <span className="text-sm text-sunshine">Due today</span>
-                  <span className="font-display text-3xl text-sunshine">
-                    {fmt(
-                      Math.max(
-                        0,
-                        pricing.depositCents -
-                          (giftCard
-                            ? Math.min(giftCard.balanceCents, pricing.depositCents)
-                            : 0),
-                      ),
-                    )}
-                  </span>
-                </div>
-                <p className="text-xs text-white/60">
-                  Balance ({fmt(pricing.totalCents - pricing.depositCents)}) due 7 days before the party.
-                </p>
-              </div>
-            )}
+              );
+            })()}
           </div>
         </aside>
       </div>
@@ -949,14 +1003,24 @@ function sameDay(a: Date, b: Date): boolean {
   );
 }
 
-// Promo-code (skip-deposit) entry. Collapsed by default — most parents won't
-// have one. When applied, the booking submits without going through Stripe.
+type AppliedPromo = {
+  code: string;
+  kind: 'skip_deposit' | 'percent_off';
+  discount_percent?: number | null;
+  label?: string | null;
+};
+
+// Promo-code entry. Collapsed by default — most parents won't have one.
+// Two kinds today:
+//   - skip_deposit: booking submits without going through Stripe
+//   - percent_off: booking still charges a deposit, but the deposit and
+//     total are reduced by the discount %
 function PromoCodeInput({
-  value,
+  applied,
   onApply,
 }: {
-  value: string | null;
-  onApply: (code: string | null) => void;
+  applied: AppliedPromo | null;
+  onApply: (promo: AppliedPromo | null) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
@@ -972,14 +1036,19 @@ function PromoCodeInput({
       const res = await fetch('/api/promo-code/validate', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ code, context: 'party' }),
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {
         setError(data.reason ?? 'Code invalid');
         return;
       }
-      onApply(code);
+      onApply({
+        code: data.code ?? code,
+        kind: data.kind,
+        discount_percent: data.discount_percent ?? null,
+        label: data.label ?? null,
+      });
       setInput('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not validate');
@@ -988,12 +1057,19 @@ function PromoCodeInput({
     }
   };
 
-  if (value) {
+  if (applied) {
+    const headline =
+      applied.kind === 'skip_deposit'
+        ? 'Promo applied · invoice coming separately'
+        : `Promo applied · ${applied.discount_percent}% off`;
     return (
       <div className="flex items-center justify-between rounded-2xl border-2 border-coral bg-coral-50 px-4 py-3">
         <div>
-          <p className="text-sm font-bold text-coral-700">Promo applied · invoice coming separately</p>
-          <p className="text-xs text-coral-700/80">{value}</p>
+          <p className="text-sm font-bold text-coral-700">{headline}</p>
+          <p className="text-xs text-coral-700/80">
+            {applied.code}
+            {applied.label ? ` · ${applied.label}` : ''}
+          </p>
         </div>
         <button
           type="button"
