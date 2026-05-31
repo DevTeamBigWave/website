@@ -13,7 +13,10 @@
 
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { generatePromoCode } from '@/lib/promo-codes';
+import {
+  generatePromoCode,
+  disableActiveSkipDepositCodes,
+} from '@/lib/promo-codes';
 
 function authorize(request: Request): boolean {
   const secret = process.env.CRON_SECRET;
@@ -54,6 +57,10 @@ export async function POST(request: Request) {
   if (!code) {
     return NextResponse.json({ error: 'Could not generate unique code' }, { status: 500 });
   }
+
+  // Supersede any prior live skip-deposit code so only the new one is
+  // active. Keeps history intact (sets disabled_at instead of deleting).
+  await disableActiveSkipDepositCodes();
 
   const { data, error } = await db
     .from('promo_codes')

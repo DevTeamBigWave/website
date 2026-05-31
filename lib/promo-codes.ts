@@ -120,3 +120,18 @@ export async function recordPromoUse(promoCodeId: string): Promise<void> {
   const db = supabaseAdmin();
   await db.rpc('promo_codes_increment_use', { p_id: promoCodeId });
 }
+
+// Disable every currently-active skip-deposit code so only the about-to-be-
+// inserted one is live. Keeps history intact (we set disabled_at instead
+// of deleting) so the audit trail and uses_count snapshot stay queryable.
+// Called by both the manual generate endpoint and the monthly rotation cron.
+export async function disableActiveSkipDepositCodes(): Promise<void> {
+  const db = supabaseAdmin();
+  const now = new Date().toISOString();
+  await db
+    .from('promo_codes')
+    .update({ disabled_at: now })
+    .eq('kind', 'skip_deposit')
+    .is('disabled_at', null)
+    .gt('valid_until', now);
+}
