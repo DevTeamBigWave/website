@@ -183,10 +183,13 @@ export function PromoCodeBuilder() {
               onChange={(e) => setDiscountPercent(e.target.value)}
               className={`${inputCls} max-w-[100px]`}
             />
-            <p className="mt-1 text-[11px] text-amber-700">
-              Heads up: percent-off codes currently need to be applied manually by you
-              on the party detail page. Customers entering them online will be told
-              to contact the venue. Full customer-facing flow is a follow-up.
+            <p className="mt-1 text-[11px] text-slate-500">
+              Comes off the party price only — add-ons stay at full price.
+              Customers apply it on the /book page; deposit + total adjust
+              automatically. Only party bookings honor it today (open play /
+              membership / gift-card codes can be created and the builder
+              will validate scope, but those checkouts don't auto-apply
+              the discount yet).
             </p>
           </Field>
         )}

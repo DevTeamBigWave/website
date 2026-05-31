@@ -198,7 +198,7 @@ export async function POST(request: Request) {
         try {
           const { data: party } = await supabase
             .from('parties')
-            .select('*')
+            .select('*, promo_code:promo_code_id(code, label)')
             .eq('id', partyId)
             .maybeSingle();
           partyForEmails = party;
@@ -281,7 +281,7 @@ export async function POST(request: Request) {
         try {
           const { data: party } = await supabase
             .from('parties')
-            .select('*')
+            .select('*, promo_code:promo_code_id(code, label)')
             .eq('id', partyId)
             .maybeSingle();
           if (party) {

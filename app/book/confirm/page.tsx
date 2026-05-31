@@ -47,7 +47,7 @@ async function PartyConfirm({ partyId, giftFlag }: { partyId: string; giftFlag: 
   const { data: party } = await db
     .from('parties')
     .select(
-      'id, parent_name, email, child_name, child_age, date, start_time, package, status, headcount, total_cents, subtotal_cents, deposit_cents, deposit_paid_at, add_ons_total_cents, gift_card_applied_cents, balance_paid_amount_cents, manual_discount_percent, manual_discount_cents, promo_code_id',
+      'id, parent_name, email, child_name, child_age, date, start_time, package, status, headcount, total_cents, subtotal_cents, deposit_cents, deposit_paid_at, add_ons_total_cents, gift_card_applied_cents, balance_paid_amount_cents, manual_discount_percent, manual_discount_cents, promo_code_id, promo_code:promo_code_id(code, label)',
     )
     .eq('id', partyId)
     .maybeSingle();

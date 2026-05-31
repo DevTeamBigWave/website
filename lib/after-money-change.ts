@@ -27,7 +27,7 @@ export async function afterMoneyChange(partyId: string, changeNote: string) {
     const { data: party } = await db
       .from('parties')
       .select(
-        'id, parent_name, email, child_name, package, date, start_time, subtotal_cents, total_cents, deposit_cents, deposit_paid_at, add_ons_total_cents, gift_card_applied_cents, balance_paid_amount_cents, balance_invoice_id, manual_discount_percent, manual_discount_cents',
+        'id, parent_name, email, child_name, package, date, start_time, subtotal_cents, total_cents, deposit_cents, deposit_paid_at, add_ons_total_cents, gift_card_applied_cents, balance_paid_amount_cents, balance_invoice_id, manual_discount_percent, manual_discount_cents, promo_code:promo_code_id(code, label)',
       )
       .eq('id', partyId)
       .maybeSingle();

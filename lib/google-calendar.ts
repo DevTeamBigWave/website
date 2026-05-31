@@ -155,6 +155,10 @@ export type PartyForCalendar = {
   balance_paid_amount_cents?: number | null;
   manual_discount_percent?: number | null;
   manual_discount_cents?: number | null;
+  promo_code?:
+    | { code: string; label?: string | null }
+    | Array<{ code: string; label?: string | null }>
+    | null;
   add_ons_total_cents?: number | null;
   inspiration_image_urls?: string[] | null;
 };
@@ -219,8 +223,8 @@ function buildEventBody(
     if (fin.manual_discount_cents > 0) {
       lines.push(
         fin.manual_discount_percent > 0
-          ? `  − Friends & family ${fin.manual_discount_percent}% off: ${fmt(fin.manual_discount_cents)}`
-          : `  − Friends & family discount: ${fmt(fin.manual_discount_cents)}`,
+          ? `  − ${fin.manual_discount_label} (${fin.manual_discount_percent}% off): ${fmt(fin.manual_discount_cents)}`
+          : `  − ${fin.manual_discount_label}: ${fmt(fin.manual_discount_cents)}`,
       );
     }
     lines.push(`  Grand total: ${fmt(fin.grand_total_cents)}`);
@@ -366,7 +370,7 @@ export async function syncPartyEventByPartyId(
   const { data: party } = await db
     .from('parties')
     .select(
-      'id, date, start_time, package, child_name, child_age, parent_name, email, phone, headcount, notes, total_cents, subtotal_cents, deposit_cents, deposit_paid_at, deposit_payment_method, promo_code_id, balance_paid_at, balance_paid_amount_cents, manual_discount_percent, manual_discount_cents, add_ons_total_cents, inspiration_image_urls, duration_minutes, extension_minutes, weekday_discount_applied, google_calendar_event_id',
+      'id, date, start_time, package, child_name, child_age, parent_name, email, phone, headcount, notes, total_cents, subtotal_cents, deposit_cents, deposit_paid_at, deposit_payment_method, promo_code_id, balance_paid_at, balance_paid_amount_cents, manual_discount_percent, manual_discount_cents, add_ons_total_cents, inspiration_image_urls, duration_minutes, extension_minutes, weekday_discount_applied, google_calendar_event_id, promo_code:promo_code_id(code, label)',
     )
     .eq('id', partyId)
     .maybeSingle();

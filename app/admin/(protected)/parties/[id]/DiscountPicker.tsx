@@ -11,10 +11,15 @@ export function DiscountPicker({
   partyId,
   initial,
   initialAmountCents,
+  promoCodeText,
 }: {
   partyId: string;
   initial: number;
   initialAmountCents: number;
+  // When set, this party booked with a customer-applied promo code. Any
+  // admin override here will replace it — we confirm first so the owner
+  // doesn't accidentally silently drop a "JUNE20" off the receipts.
+  promoCodeText?: string | null;
 }) {
   const router = useRouter();
   const [percent, setPercent] = useState<number>(initial);
@@ -36,6 +41,21 @@ export function DiscountPicker({
     busyKey: string,
   ) => {
     if (busy) return false;
+    // Replacing a customer-applied promo? Confirm so it's not accidental.
+    if (promoCodeText) {
+      const newValue =
+        'percent' in payload
+          ? payload.percent === 0
+            ? 'no discount'
+            : `${payload.percent}% off`
+          : payload.amount_cents === 0
+            ? 'no discount'
+            : `${fmt(payload.amount_cents)} off`;
+      const ok = window.confirm(
+        `This party booked with promo ${promoCodeText}. Setting "${newValue}" here will replace the promo on all receipts and emails. Continue?`,
+      );
+      if (!ok) return false;
+    }
     setBusy(busyKey);
     setError(null);
     try {

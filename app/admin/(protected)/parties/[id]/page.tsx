@@ -63,7 +63,7 @@ export default async function PartyDetailPage({
     db
       .from('parties')
       .select(
-        'id, date, start_time, package, status, child_name, child_age, parent_name, email, phone, headcount, notes, total_cents, subtotal_cents, discount_cents, tax_cents, deposit_cents, deposit_paid_at, deposit_payment_method, add_ons_total_cents, gift_card_applied_cents, balance_invoice_id, balance_invoice_hosted_url, balance_invoice_sent_at, balance_paid_at, balance_paid_amount_cents, balance_payment_method, planning_call_email_sent_at, extension_minutes, weekday_discount_applied, invoice_theme, manual_discount_percent, manual_discount_cents, inspiration_image_urls, promo_code_id, google_calendar_event_id, created_at',
+        'id, date, start_time, package, status, child_name, child_age, parent_name, email, phone, headcount, notes, total_cents, subtotal_cents, discount_cents, tax_cents, deposit_cents, deposit_paid_at, deposit_payment_method, add_ons_total_cents, gift_card_applied_cents, balance_invoice_id, balance_invoice_hosted_url, balance_invoice_sent_at, balance_paid_at, balance_paid_amount_cents, balance_payment_method, planning_call_email_sent_at, extension_minutes, weekday_discount_applied, invoice_theme, manual_discount_percent, manual_discount_cents, inspiration_image_urls, promo_code_id, google_calendar_event_id, created_at, promo_code:promo_code_id(code, label)',
       )
       .eq('id', id)
       .maybeSingle(),
@@ -159,14 +159,32 @@ export default async function PartyDetailPage({
             />
           </Card>
 
-          {/* Friends & family discount */}
-          <Card title="Friends & family discount" subtitle="Owner-applied courtesy off the grand total. Applies on the next invoice.">
-            <DiscountPicker
-              partyId={party.id}
-              initial={((party as any).manual_discount_percent ?? 0) as number}
-              initialAmountCents={((party as any).manual_discount_cents ?? 0) as number}
-            />
-          </Card>
+          {/* Discount — friends & family OR promo code, same column.
+              PostgREST returns the embedded promo_code as array even though
+              the FK is single-valued, so we pick the first. */}
+          {(() => {
+            const promoRaw = (party as any).promo_code;
+            const promo = Array.isArray(promoRaw) ? promoRaw[0] : promoRaw;
+            return (
+              <Card
+                title={
+                  promo ? `Promo ${promo.code} applied` : 'Friends & family discount'
+                }
+                subtitle={
+                  promo
+                    ? 'Customer used this code at booking. Setting a custom discount below will replace it.'
+                    : 'Owner-applied courtesy off the grand total. Applies on the next invoice.'
+                }
+              >
+                <DiscountPicker
+                  partyId={party.id}
+                  initial={((party as any).manual_discount_percent ?? 0) as number}
+                  initialAmountCents={((party as any).manual_discount_cents ?? 0) as number}
+                  promoCodeText={promo?.code ?? null}
+                />
+              </Card>
+            );
+          })()}
 
           {/* Actions */}
           <Card title="Send to customer">
@@ -229,8 +247,8 @@ export default async function PartyDetailPage({
                 <Row
                   label={
                     financials.manual_discount_percent > 0
-                      ? `Friends & family ${financials.manual_discount_percent}% off`
-                      : 'Friends & family discount'
+                      ? `${financials.manual_discount_label} (${financials.manual_discount_percent}% off)`
+                      : financials.manual_discount_label
                   }
                   value={`−${fmtMoney(financials.manual_discount_cents)}`}
                   accent

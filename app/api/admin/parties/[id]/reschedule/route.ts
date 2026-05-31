@@ -220,7 +220,7 @@ export async function POST(
   // Refetch the full party so the email templates have everything they need
   const { data: refreshed } = await db
     .from('parties')
-    .select('*')
+    .select('*, promo_code:promo_code_id(code, label)')
     .eq('id', partyId)
     .maybeSingle();
   const fullParty = refreshed ?? party;

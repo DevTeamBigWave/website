@@ -18,6 +18,10 @@ export type PartyFinancials = {
   combined_pre_tax_cents: number;    // party + add-ons, pre-F&F
   manual_discount_percent: number;
   manual_discount_cents: number;     // resolved discount amount in $
+  // Label for the discount line on invoices/emails/calendar:
+  //   - "Promo CODE" when promo_code is present on the row (customer used a code)
+  //   - "Friends & family discount" otherwise (admin-applied)
+  manual_discount_label: string;
   taxable_subtotal_cents: number;    // combined − F&F (what tax is applied to)
   tax_cents: number;                 // 8.875% of taxable_subtotal
   grand_total_cents: number;         // taxable_subtotal + tax
@@ -48,6 +52,20 @@ export type PartyRowForFinancials = {
   balance_paid_amount_cents?: number | null;
   manual_discount_percent?: number | null;
   manual_discount_cents?: number | null; // flat-$ override; preempts percent
+  // Optional. When set (caller fetched the related promo_codes row), the
+  // discount line is labeled "Promo CODE" instead of "Friends & family".
+  // Customer-facing renderers (invoice, confirmation email, calendar event,
+  // admin detail) should populate this; back-office paths that don't show
+  // the label (cron reminders, list views) can leave it null.
+  //
+  // Accepts both array and object form — PostgREST's embedded select
+  // returns `promo_code: [{...}]` when the relationship is detected as
+  // many, even though our parties.promo_code_id is single-valued. We
+  // normalize internally.
+  promo_code?:
+    | { code: string; label?: string | null }
+    | Array<{ code: string; label?: string | null }>
+    | null;
 };
 
 export function computePartyFinancials(p: PartyRowForFinancials): PartyFinancials {
@@ -85,12 +103,18 @@ export function computePartyFinancials(p: PartyRowForFinancials): PartyFinancial
     : taxCents;
   const baseTotalLegacy = partyPreTax + partyTaxShare;
 
+  const promoRow = Array.isArray(p.promo_code) ? p.promo_code[0] : p.promo_code;
+  const discountLabel = promoRow
+    ? `Promo ${promoRow.code}`
+    : 'Friends & family discount';
+
   return {
     party_pre_tax_cents: partyPreTax,
     add_ons_total_cents: addOnsTotal,
     combined_pre_tax_cents: combinedPreTax,
     manual_discount_percent: flatCents > 0 ? 0 : pct,
     manual_discount_cents: manualDiscount,
+    manual_discount_label: discountLabel,
     taxable_subtotal_cents: taxableSubtotal,
     tax_cents: taxCents,
     grand_total_cents: grandTotal,

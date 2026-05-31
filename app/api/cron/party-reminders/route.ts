@@ -112,7 +112,7 @@ export async function GET(request: Request) {
   const { data: invoiceTargets = [] } = await db
     .from('parties')
     .select(
-      'id, parent_name, email, phone, date, start_time, package, child_name, total_cents, subtotal_cents, deposit_cents, deposit_paid_at, add_ons_total_cents, gift_card_applied_cents, balance_paid_amount_cents, balance_invoice_id, balance_invoice_sent_at, manual_discount_percent, manual_discount_cents, invoice_theme',
+      'id, parent_name, email, phone, date, start_time, package, child_name, total_cents, subtotal_cents, deposit_cents, deposit_paid_at, add_ons_total_cents, gift_card_applied_cents, balance_paid_amount_cents, balance_invoice_id, balance_invoice_sent_at, manual_discount_percent, manual_discount_cents, invoice_theme, promo_code:promo_code_id(code, label)',
     )
     .eq('status', 'confirmed')
     .eq('date', invoiceLeadDate)
@@ -161,7 +161,7 @@ export async function GET(request: Request) {
   // 2. 7-day reminders
   const { data: sevenDay = [] } = await db
     .from('parties')
-    .select('*')
+    .select('*, promo_code:promo_code_id(code, label)')
     .eq('status', 'confirmed')
     .eq('date', sevenDaysOut)
     .is('reminder_7d_sent_at', null);
@@ -185,7 +185,7 @@ export async function GET(request: Request) {
   //    day) for any party that still owes money. Skips fully-paid parties.
   const { data: balanceDue = [] } = await db
     .from('parties')
-    .select('*')
+    .select('*, promo_code:promo_code_id(code, label)')
     .eq('status', 'confirmed')
     .eq('date', balanceDueDay)
     .is('balance_due_reminder_sent_at', null);
@@ -221,7 +221,7 @@ export async function GET(request: Request) {
   // 4. 24-hour reminders
   const { data: oneDay = [] } = await db
     .from('parties')
-    .select('*')
+    .select('*, promo_code:promo_code_id(code, label)')
     .eq('status', 'confirmed')
     .eq('date', oneDayOut)
     .is('reminder_24h_sent_at', null);
@@ -246,7 +246,7 @@ export async function GET(request: Request) {
   //    parties that paid in full.
   const { data: balanceOverdue = [] } = await db
     .from('parties')
-    .select('*')
+    .select('*, promo_code:promo_code_id(code, label)')
     .eq('status', 'confirmed')
     .eq('date', oneDayOut)
     .is('balance_overdue_reminder_sent_at', null);

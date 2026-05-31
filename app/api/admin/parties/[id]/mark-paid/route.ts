@@ -47,7 +47,7 @@ export async function POST(
   const { data: party } = await db
     .from('parties')
     .select(
-      'id, date, start_time, package, child_name, child_age, parent_name, email, phone, headcount, notes, total_cents, subtotal_cents, duration_minutes, extension_minutes, deposit_cents, deposit_paid_at, deposit_payment_method, add_ons_total_cents, gift_card_applied_cents, manual_discount_percent, manual_discount_cents, balance_paid_at, balance_paid_amount_cents, balance_payment_method, balance_invoice_id, weekday_discount_applied, inspiration_image_urls, promo_code_id, google_calendar_event_id',
+      'id, date, start_time, package, child_name, child_age, parent_name, email, phone, headcount, notes, total_cents, subtotal_cents, duration_minutes, extension_minutes, deposit_cents, deposit_paid_at, deposit_payment_method, add_ons_total_cents, gift_card_applied_cents, manual_discount_percent, manual_discount_cents, balance_paid_at, balance_paid_amount_cents, balance_payment_method, balance_invoice_id, weekday_discount_applied, inspiration_image_urls, promo_code_id, google_calendar_event_id, promo_code:promo_code_id(code, label)',
     )
     .eq('id', partyId)
     .maybeSingle();
@@ -196,7 +196,7 @@ export async function POST(
   // Refetch the party so emails + finance math use the post-update state.
   const { data: refreshed } = await db
     .from('parties')
-    .select('*')
+    .select('*, promo_code:promo_code_id(code, label)')
     .eq('id', partyId)
     .maybeSingle();
   const fullParty = refreshed ?? party;

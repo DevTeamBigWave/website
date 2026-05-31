@@ -40,6 +40,19 @@ export async function PATCH(
     );
   }
 
+  const db = supabaseAdmin();
+
+  // If this party was booked with a customer-applied promo code, the admin
+  // override here REPLACES it. Clear promo_code_id too so receipts/emails
+  // don't keep showing "Promo CODE" labels on an admin-set $/% amount —
+  // they'd be misleading at that point.
+  const { data: existing } = await db
+    .from('parties')
+    .select('promo_code_id')
+    .eq('id', partyId)
+    .maybeSingle();
+  const hadPromo = !!existing?.promo_code_id;
+
   const updates: Record<string, unknown> = {};
   if (typeof body.percent === 'number') {
     updates.manual_discount_percent = body.percent;
@@ -48,8 +61,8 @@ export async function PATCH(
     updates.manual_discount_cents = body.amount_cents;
     updates.manual_discount_percent = 0;
   }
+  if (hadPromo) updates.promo_code_id = null;
 
-  const db = supabaseAdmin();
   const { error } = await db.from('parties').update(updates).eq('id', partyId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

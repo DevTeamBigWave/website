@@ -29,6 +29,12 @@ type PartyForInvoice = {
   balance_invoice_id: string | null;
   manual_discount_percent: number | null;
   manual_discount_cents: number | null;
+  // Set by callers that did the promo_codes join — used to label the
+  // invoice line item "Promo CODE" instead of "Friends & family".
+  promo_code?:
+    | { code: string; label?: string | null }
+    | Array<{ code: string; label?: string | null }>
+    | null;
 };
 
 type AddOnRow = {
@@ -122,7 +128,8 @@ export async function createOrUpdateBalanceInvoice(
     });
   }
 
-  // Friends & family discount, applied to (party + add-ons) PRE-tax
+  // Pre-tax discount — labeled "Promo CODE" when a customer code was used
+  // at booking, "Friends & family" when admin applied it manually.
   if (financials.manual_discount_cents > 0) {
     await stripe.invoiceItems.create({
       customer: customerId,
@@ -131,8 +138,8 @@ export async function createOrUpdateBalanceInvoice(
       currency: 'usd',
       description:
         financials.manual_discount_percent > 0
-          ? `Friends & family discount (${financials.manual_discount_percent}% off)`
-          : `Friends & family discount`,
+          ? `${financials.manual_discount_label} (${financials.manual_discount_percent}% off)`
+          : financials.manual_discount_label,
     });
   }
 

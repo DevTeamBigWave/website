@@ -192,8 +192,8 @@ export async function sendPartyConfirmation(party: any, addOns: AddOnLite[] = []
   if (fin.manual_discount_cents > 0) {
     moneyRows.push([
       fin.manual_discount_percent > 0
-        ? `Friends & family ${fin.manual_discount_percent}% off`
-        : 'Friends & family discount',
+        ? `${fin.manual_discount_label} (${fin.manual_discount_percent}% off)`
+        : fin.manual_discount_label,
       `<span style="color:#ff7783;">−${fmtMoney(fin.manual_discount_cents)}</span>`,
     ]);
   }
@@ -342,8 +342,8 @@ export async function sendPartyBalanceUpdated(args: {
   if (fin.manual_discount_cents > 0) {
     moneyRows.push([
       fin.manual_discount_percent > 0
-        ? `Friends & family ${fin.manual_discount_percent}% off`
-        : 'Friends & family discount',
+        ? `${fin.manual_discount_label} (${fin.manual_discount_percent}% off)`
+        : fin.manual_discount_label,
       `<span style="color:#ff7783;">−${fmtMoney(fin.manual_discount_cents)}</span>`,
     ]);
   }
@@ -1204,8 +1204,8 @@ export async function sendOwnerNotification({
   if (fin.manual_discount_cents > 0) {
     rows.push([
       fin.manual_discount_percent > 0
-        ? `Friends & family ${fin.manual_discount_percent}% off`
-        : 'Friends & family discount',
+        ? `${fin.manual_discount_label} (${fin.manual_discount_percent}% off)`
+        : fin.manual_discount_label,
       `<span style="color:#ff7783;">−${fmtMoney(fin.manual_discount_cents)}</span>`,
     ]);
   }

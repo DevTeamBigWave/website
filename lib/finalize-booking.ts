@@ -60,7 +60,7 @@ export async function finalizeParty(partyId: string, opts: FinalizePartyOptions 
     .update(updates)
     .eq('id', partyId)
     .eq('status', 'hold')
-    .select()
+    .select('*, promo_code:promo_code_id(code, label)')
     .single();
 
   if (error || !party) {
@@ -68,7 +68,7 @@ export async function finalizeParty(partyId: string, opts: FinalizePartyOptions 
     // downstream calls (idempotent).
     const { data: existing } = await supabase
       .from('parties')
-      .select('*')
+      .select('*, promo_code:promo_code_id(code, label)')
       .eq('id', partyId)
       .maybeSingle();
     if (!existing || existing.status !== 'confirmed') {
