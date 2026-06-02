@@ -8,6 +8,7 @@ import { InvoiceThemePicker } from './InvoiceThemePicker';
 import { DiscountPicker } from './DiscountPicker';
 import { ManualPaymentRecorder } from './ManualPaymentRecorder';
 import { RescheduleCard } from './RescheduleCard';
+import { NotesEditor } from './NotesEditor';
 import { DeletePartyButton } from './DeletePartyButton';
 import { requireAdmin } from '@/lib/admin';
 import type { InvoiceThemeSlug } from '@/lib/invoice-themes';
@@ -116,12 +117,7 @@ export default async function PartyDetailPage({
               <Row label="Phone" value={<a href={`tel:${party.phone}`} className="text-coral hover:text-coral-700">{party.phone}</a>} />
               <Row label="Headcount" value={`${party.headcount} kids`} />
             </dl>
-            {party.notes && (
-              <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Notes from parent</p>
-                <p className="mt-1 whitespace-pre-wrap">{party.notes}</p>
-              </div>
-            )}
+            <NotesEditor partyId={party.id} initial={(party as any).notes ?? null} />
           </Card>
 
           {/* Inspiration photos — only render if the customer uploaded any */}
