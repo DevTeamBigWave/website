@@ -412,14 +412,19 @@ export function CreatePartyForm() {
             </Field>
           </div>
 
-          <Field label="Notes (optional)">
+          <Field label="Parent notes (optional)">
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
               className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
-              placeholder="Theme, allergies, special requests…"
+              placeholder="What the parent said — allergies, decor theme, special requests, dietary needs…"
             />
+            <p className="mt-1 text-[11px] text-slate-400">
+              Same field the parent fills out on the self-serve booking page.
+              Anything you capture here appears on the party detail as
+              &ldquo;Notes from parent&rdquo; for the whole team to see.
+            </p>
           </Field>
         </Card>
 
