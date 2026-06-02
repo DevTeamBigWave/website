@@ -44,6 +44,7 @@ export function ManualPaymentRecorder({
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [invoiceMintedUrl, setInvoiceMintedUrl] = useState<string | null>(null);
   const [customOpen, setCustomOpen] = useState(false);
   const [customAmount, setCustomAmount] = useState('');
 
@@ -90,13 +91,20 @@ export function ManualPaymentRecorder({
           ...(customAmountCents != null ? { amount_cents: customAmountCents } : {}),
         }),
       });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
         setError(data.error ?? `Could not mark paid (${res.status})`);
         return;
       }
       setCustomOpen(false);
       setCustomAmount('');
+      // mark-paid auto-mints a fresh balance invoice on non-Stripe deposits.
+      // Flash that result inline so the owner sees the new invoice went out
+      // without needing to scroll to the activity timeline.
+      if (data.balance_invoice_url) {
+        setInvoiceMintedUrl(data.balance_invoice_url);
+        setTimeout(() => setInvoiceMintedUrl(null), 6000);
+      }
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Network error');
@@ -274,6 +282,19 @@ export function ManualPaymentRecorder({
           deposit OR balance) — the custom-amount path renders its own
           inline error inside the card so it's visible right at the action. */}
       {error && !customOpen && <p className="text-xs text-coral-700">{error}</p>}
+      {invoiceMintedUrl && (
+        <p className="rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+          ✓ Balance invoice sent to customer.{' '}
+          <a
+            href={invoiceMintedUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="font-semibold underline"
+          >
+            View on Stripe
+          </a>
+        </p>
+      )}
       <p className="text-[11px] text-slate-400">
         Use these when a customer pays outside Stripe — Zelle, cash, or in-person on Clover.
         Stripe card payments record automatically.

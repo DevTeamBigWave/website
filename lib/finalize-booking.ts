@@ -35,18 +35,38 @@ export async function finalizeParty(partyId: string, opts: FinalizePartyOptions 
     status: 'confirmed',
     hold_expires_at: null,
   };
+
+  // Bug B protection: when finalizeParty fires AFTER an admin already
+  // recorded the deposit manually via mark-paid (Clover/Zelle/Cash), we
+  // must NOT overwrite their chosen payment method back to 'stripe'.
+  // Read the current row's payment method first. If it's already set to
+  // something other than 'stripe', the admin path was authoritative —
+  // leave deposit_payment_method untouched in this update.
+  let existingDepositMethod: string | null = null;
   if (!opts.skipDeposit) {
-    updates.deposit_paid_at = new Date().toISOString();
-    // Label the method so the admin Financials card + calendar event
-    // description show how the deposit landed. paymentIntent === Stripe
-    // checkout completed (even if a gift card partly covered the charge);
-    // no paymentIntent but a gift card === gift card fully covered the
-    // deposit and finalizeParty was called directly (no Stripe round trip).
-    updates.deposit_payment_method = opts.paymentIntent
-      ? 'stripe'
-      : opts.giftCardId
-        ? 'gift_card'
-        : 'stripe';
+    const { data: pre } = await supabase
+      .from('parties')
+      .select('deposit_payment_method, deposit_paid_at')
+      .eq('id', partyId)
+      .maybeSingle();
+    existingDepositMethod = pre?.deposit_payment_method ?? null;
+    const manualLabelLocked =
+      pre?.deposit_paid_at &&
+      existingDepositMethod &&
+      existingDepositMethod !== 'stripe';
+
+    updates.deposit_paid_at = pre?.deposit_paid_at ?? new Date().toISOString();
+    // Label the method only if it isn't already a manually-set non-stripe
+    // value. paymentIntent → real Stripe checkout payment. giftCardId →
+    // fully covered by a gift card (no Stripe round trip). Otherwise leave
+    // null — never silently claim 'stripe' as a fallback.
+    if (!manualLabelLocked) {
+      updates.deposit_payment_method = opts.paymentIntent
+        ? 'stripe'
+        : opts.giftCardId
+          ? 'gift_card'
+          : null;
+    }
   }
   if (opts.promoCodeId) updates.promo_code_id = opts.promoCodeId;
   if (opts.paymentIntent) updates.stripe_deposit_payment_intent = opts.paymentIntent;

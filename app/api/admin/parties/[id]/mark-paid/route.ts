@@ -10,8 +10,13 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { stripe } from '@/lib/stripe';
 import { createPartyEvent, syncPartyEventByPartyId } from '@/lib/google-calendar';
 import { computePartyFinancials } from '@/lib/parties';
-import { sendManualPaymentReceived, sendOwnerNotification } from '@/lib/email';
+import {
+  sendManualPaymentReceived,
+  sendOwnerNotification,
+  sendBalanceInvoiceReady,
+} from '@/lib/email';
 import { maybeSendPlanningCallInvite } from '@/lib/planning-call';
+import { createOrUpdateBalanceInvoice } from '@/lib/party-invoice';
 
 const Schema = z.object({
   kind: z.enum(['deposit', 'balance']),
@@ -210,6 +215,50 @@ export async function POST(
 
   const fin = computePartyFinancials(fullParty as any);
 
+  // Option 2: when a deposit gets recorded via mark-paid (always non-Stripe
+  // by schema — Clover/Zelle/Cash/Groupon), the customer paid out-of-band
+  // and Stripe doesn't know yet. Auto-mint a fresh balance invoice that
+  // reflects the now-reduced amount owed so Stripe and admin agree on
+  // the math without the owner having to remember to tap "Send invoice".
+  // Skip when there's no balance owed (gift card or full prepay) — Stripe
+  // minimum is $0.50.
+  let autoInvoiceUrl: string | null = null;
+  if (body.kind === 'deposit' && fin.balance_due_cents >= 50) {
+    try {
+      const { hostedUrl } = await createOrUpdateBalanceInvoice(
+        fullParty as any,
+        (addOns ?? []) as any,
+      );
+      autoInvoiceUrl = hostedUrl;
+      // Tell the customer the balance invoice is ready so they can pay
+      // online later. Same email template the manual /invoice endpoint
+      // and the 14-day cron use, so branding stays consistent.
+      try {
+        await sendBalanceInvoiceReady({
+          parent_name: fullParty.parent_name,
+          email: fullParty.email,
+          child_name: fullParty.child_name,
+          date: fullParty.date,
+          balance_cents: fin.balance_due_cents,
+          hosted_invoice_url: hostedUrl,
+          add_ons: (addOns ?? []).map((a: any) => ({
+            name: a.name,
+            qty: a.qty,
+            unit_price_cents: a.unit_price_cents,
+          })),
+          theme: (fullParty as any).invoice_theme ?? null,
+        });
+      } catch (err) {
+        console.error('Auto balance-invoice email failed:', err);
+      }
+    } catch (err) {
+      // Don't block the deposit recording on an invoice-mint failure —
+      // the deposit is what matters; owner can manually re-send invoice
+      // from /admin/parties/[id] if Stripe was flaky.
+      console.error('Auto balance-invoice mint failed (continuing):', err);
+    }
+  }
+
   // Confirmation email to the customer
   try {
     await sendManualPaymentReceived({
@@ -257,5 +306,11 @@ export async function POST(
     void maybeSendPlanningCallInvite(fullParty as any);
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({
+    ok: true,
+    // Surface the freshly-minted balance invoice URL when Option 2 fired
+    // so the admin UI can confirm "balance invoice sent" without an
+    // extra round trip.
+    ...(autoInvoiceUrl ? { balance_invoice_url: autoInvoiceUrl } : {}),
+  });
 }

@@ -176,21 +176,43 @@ export async function POST(request: Request) {
 
       // Owner-created via /admin/parties/new — full payment of the whole party
       if ((type === 'party_full' || type === 'party_deposit_admin') && partyId) {
-        const updates: Record<string, unknown> = {
-          deposit_paid_at: new Date().toISOString(),
-          // Tag the method so admin card + calendar event description show
-          // "Deposit paid · $X · Stripe ✓" instead of an unlabeled credit.
-          deposit_payment_method: 'stripe',
-        };
+        // Bug B protection: if mark-paid already recorded the deposit
+        // manually (Clover/Zelle/Cash), the customer paid out-of-band and
+        // the Stripe invoice may have been closed via paid_out_of_band —
+        // which triggers THIS webhook. Don't overwrite the manual label
+        // back to 'stripe'. Same for balance_payment_method.
+        const { data: pre } = await supabase
+          .from('parties')
+          .select(
+            'deposit_paid_at, deposit_payment_method, balance_paid_at, balance_payment_method',
+          )
+          .eq('id', partyId)
+          .maybeSingle();
+        const depositLocked =
+          pre?.deposit_paid_at &&
+          pre.deposit_payment_method &&
+          pre.deposit_payment_method !== 'stripe';
+        const balanceLocked =
+          pre?.balance_paid_at &&
+          pre.balance_payment_method &&
+          pre.balance_payment_method !== 'stripe';
+
+        const updates: Record<string, unknown> = {};
+        if (!depositLocked) {
+          updates.deposit_paid_at = pre?.deposit_paid_at ?? new Date().toISOString();
+          updates.deposit_payment_method = 'stripe';
+        }
         // For party_full the single Stripe invoice covers everything. We
         // stamp balance_paid_at so the admin UI shows "paid in full", but
         // intentionally don't set balance_paid_amount_cents — otherwise
         // revenue.ts would count the same charge twice (once under Party
         // deposits via deposit_cents, once under Party balance).
-        if (type === 'party_full') {
+        if (type === 'party_full' && !balanceLocked) {
           updates.balance_paid_at = new Date().toISOString();
         }
-        await supabase.from('parties').update(updates).eq('id', partyId);
+        if (Object.keys(updates).length > 0) {
+          await supabase.from('parties').update(updates).eq('id', partyId);
+        }
 
         // Create the Google Calendar event now that the deposit's confirmed.
         // Skip if already created (idempotent across duplicate webhooks).
@@ -220,7 +242,15 @@ export async function POST(request: Request) {
         // Customer + owner notifications — the original /admin/parties/new
         // flow sends "your invoice is on the way", but until now there was
         // no email when the customer actually paid the Stripe invoice.
-        if (partyForEmails) {
+        //
+        // Suppress these emails when the payment was already recorded
+        // manually via mark-paid (depositLocked/balanceLocked) — the
+        // matching mark-paid emails already went out, so a second copy
+        // labeled "Stripe" would confuse the customer.
+        const emailSuppressed =
+          (type === 'party_deposit_admin' && depositLocked) ||
+          (type === 'party_full' && depositLocked && balanceLocked);
+        if (partyForEmails && !emailSuppressed) {
           const fin = computePartyFinancials(partyForEmails);
           const kind: 'deposit' | 'balance' = type === 'party_full' ? 'balance' : 'deposit';
           try {
@@ -257,60 +287,74 @@ export async function POST(request: Request) {
       if (type === 'party_balance' && partyId) {
         const { data: current } = await supabase
           .from('parties')
-          .select('balance_paid_amount_cents, balance_payment_method')
+          .select('balance_paid_amount_cents, balance_payment_method, balance_paid_at')
           .eq('id', partyId)
           .maybeSingle();
         const priorPaid = current?.balance_paid_amount_cents ?? 0;
-        // Append 'stripe' to the payment-method list so the admin card shows
-        // "Last paid · Stripe" alongside any prior Zelle/cash/Clover entries.
         const priorMethods = current?.balance_payment_method
           ? current.balance_payment_method.split(',').map((s: string) => s.trim()).filter(Boolean)
           : [];
-        const methods = Array.from(new Set([...priorMethods, 'stripe'])).join(', ');
-        await supabase
-          .from('parties')
-          .update({
-            balance_paid_at: new Date().toISOString(),
-            balance_paid_amount_cents: priorPaid + (invoice.amount_paid ?? 0),
-            balance_payment_method: methods,
-          })
-          .eq('id', partyId);
 
-        // Customer receipt + owner notification — match what mark-paid does
-        // for manual payments so the customer knows we got their money.
-        try {
-          const { data: party } = await supabase
+        // Bug B protection: if mark-paid already recorded a manual balance
+        // payment (Clover/Zelle/Cash) and then closed the Stripe invoice via
+        // paid_out_of_band, THIS webhook fires for that out-of-band close.
+        // The money was already added to balance_paid_amount_cents by
+        // mark-paid — re-adding invoice.amount_paid here would double-count.
+        // Skip the money update; the prior manual record is authoritative.
+        const hasManualMethod = priorMethods.some((m: string) => m !== 'stripe');
+        const alreadyRecordedManually = !!current?.balance_paid_at && hasManualMethod;
+
+        if (!alreadyRecordedManually) {
+          // Append 'stripe' to the payment-method list so the admin card shows
+          // "Last paid · Stripe" alongside any prior Zelle/cash/Clover entries.
+          const methods = Array.from(new Set([...priorMethods, 'stripe'])).join(', ');
+          await supabase
             .from('parties')
-            .select('*, promo_code:promo_code_id(code, label)')
-            .eq('id', partyId)
-            .maybeSingle();
-          if (party) {
-            const fin = computePartyFinancials(party);
-            try {
-              await sendManualPaymentReceived({
-                parent_name: party.parent_name,
-                email: party.email,
-                child_name: party.child_name,
-                date: party.date,
-                kind: 'balance',
-                method: 'stripe',
-                amount_cents: invoice.amount_paid ?? 0,
-                remaining_balance_cents: fin.balance_due_cents,
-              });
-            } catch (err) {
-              console.error('Stripe balance customer receipt failed:', err);
+            .update({
+              balance_paid_at: new Date().toISOString(),
+              balance_paid_amount_cents: priorPaid + (invoice.amount_paid ?? 0),
+              balance_payment_method: methods,
+            })
+            .eq('id', partyId);
+
+          // Customer receipt + owner notification — only on real Stripe
+          // payments. When this webhook fires for a paid_out_of_band close
+          // initiated by mark-paid, those emails already went out from
+          // mark-paid itself — don't duplicate.
+          try {
+            const { data: party } = await supabase
+              .from('parties')
+              .select('*, promo_code:promo_code_id(code, label)')
+              .eq('id', partyId)
+              .maybeSingle();
+            if (party) {
+              const fin = computePartyFinancials(party);
+              try {
+                await sendManualPaymentReceived({
+                  parent_name: party.parent_name,
+                  email: party.email,
+                  child_name: party.child_name,
+                  date: party.date,
+                  kind: 'balance',
+                  method: 'stripe',
+                  amount_cents: invoice.amount_paid ?? 0,
+                  remaining_balance_cents: fin.balance_due_cents,
+                });
+              } catch (err) {
+                console.error('Stripe balance customer receipt failed:', err);
+              }
+              try {
+                await sendOwnerNotification({
+                  subject: `💳 Stripe balance paid · ${fmtMoneyShort(invoice.amount_paid ?? 0)} · ${party.child_name ?? 'party'}`,
+                  party,
+                });
+              } catch (err) {
+                console.error('Stripe balance owner notification failed:', err);
+              }
             }
-            try {
-              await sendOwnerNotification({
-                subject: `💳 Stripe balance paid · ${fmtMoneyShort(invoice.amount_paid ?? 0)} · ${party.child_name ?? 'party'}`,
-                party,
-              });
-            } catch (err) {
-              console.error('Stripe balance owner notification failed:', err);
-            }
+          } catch (err) {
+            console.error('Stripe balance email lookup failed:', err);
           }
-        } catch (err) {
-          console.error('Stripe balance email lookup failed:', err);
         }
       }
 
