@@ -300,6 +300,70 @@ function buildEventBody(
 }
 
 // Create an event in the owner's calendar. Returns the new event ID.
+// Race-safe wrapper: only ONE concurrent caller creates the event for a
+// given party. Solves the duplicate-calendar-event bug where /api/webhooks
+// (Stripe-paid invoice) and /admin/parties/[id]/mark-paid (Clover record)
+// fire close together, both see google_calendar_event_id=null, and both
+// create competing events in Google Calendar.
+//
+// How it works:
+//   1. Atomically claim the right to create by writing 'pending' into
+//      google_calendar_event_id, gated by `.is(google_calendar_event_id,
+//      null)`. Only one caller's UPDATE affects a row; the loser sees
+//      affected=0 and returns null.
+//   2. Winner calls createPartyEvent; on success, replaces 'pending' with
+//      the real event ID. On failure, resets to null so a future call
+//      (e.g. /admin/parties/[id] manual resync) can retry.
+//
+// Returns the new event ID, or null if (a) another caller won the race,
+// (b) an event already exists, (c) no calendar integration is wired up,
+// or (d) the Google Calendar API call failed.
+export async function createPartyEventIfNotExists(
+  party: PartyForCalendar & { id: string },
+  siteUrl: string,
+): Promise<string | null> {
+  const db = supabaseAdmin();
+
+  // Atomic claim. .is('google_calendar_event_id', null) means "only proceed
+  // if no event ID has been assigned" — including the 'pending' sentinel.
+  // .select() returns the affected rows; empty result = we didn't win.
+  const { data: claim } = await db
+    .from('parties')
+    .update({ google_calendar_event_id: 'pending' })
+    .eq('id', party.id)
+    .is('google_calendar_event_id', null)
+    .select('id');
+  if (!claim || claim.length === 0) {
+    // Another caller already won the race or an event already exists.
+    return null;
+  }
+
+  try {
+    const eventId = await createPartyEvent(party, siteUrl);
+    if (eventId) {
+      await db
+        .from('parties')
+        .update({ google_calendar_event_id: eventId })
+        .eq('id', party.id);
+      return eventId;
+    }
+    // createPartyEvent returned null (no integration). Reset sentinel
+    // so future calls don't see 'pending' as a tombstone.
+    await db
+      .from('parties')
+      .update({ google_calendar_event_id: null })
+      .eq('id', party.id);
+    return null;
+  } catch (err) {
+    // API call threw. Reset so a manual retry isn't blocked by 'pending'.
+    await db
+      .from('parties')
+      .update({ google_calendar_event_id: null })
+      .eq('id', party.id);
+    throw err;
+  }
+}
+
 // Returns null (and silently skips) if no integration is connected — that
 // way booking flow keeps working even if Google Cal isn't wired up.
 export async function createPartyEvent(

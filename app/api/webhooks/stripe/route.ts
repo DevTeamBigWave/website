@@ -11,7 +11,7 @@ import {
   sendOwnerNotification,
 } from '@/lib/email';
 import { finalizeParty, finalizeOpenPlay } from '@/lib/finalize-booking';
-import { createPartyEvent, syncPartyEventByPartyId } from '@/lib/google-calendar';
+import { createPartyEventIfNotExists, syncPartyEventByPartyId } from '@/lib/google-calendar';
 import { computePartyFinancials } from '@/lib/parties';
 import { maybeSendPlanningCallInvite } from '@/lib/planning-call';
 
@@ -224,16 +224,12 @@ export async function POST(request: Request) {
             .eq('id', partyId)
             .maybeSingle();
           partyForEmails = party;
-          if (party && !party.google_calendar_event_id) {
+          if (party) {
             const siteUrl =
               process.env.NEXT_PUBLIC_SITE_URL ?? 'https://wonderlandplayhouse.com';
-            const eventId = await createPartyEvent(party as any, siteUrl);
-            if (eventId) {
-              await supabase
-                .from('parties')
-                .update({ google_calendar_event_id: eventId })
-                .eq('id', partyId);
-            }
+            // Race-safe: atomic claim inside the helper. If a concurrent
+            // mark-paid call already won, this is a no-op.
+            await createPartyEventIfNotExists(party as any, siteUrl);
           }
         } catch (err) {
           console.error('Calendar event creation failed (party still paid):', err);

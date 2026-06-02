@@ -10,7 +10,7 @@ import {
   sendOpenPlayConfirmation,
   sendOwnerNotification,
 } from '@/lib/email';
-import { createPartyEvent } from '@/lib/google-calendar';
+import { createPartyEventIfNotExists } from '@/lib/google-calendar';
 import { redeemFromCard } from '@/lib/gift-cards';
 import { maybeSendPlanningCallInvite } from '@/lib/planning-call';
 
@@ -134,7 +134,10 @@ export async function finalizeParty(partyId: string, opts: FinalizePartyOptions 
       party,
       addOns: addOns ?? [],
     }),
-    createPartyEvent(party, siteUrl),
+    // Race-safe: atomic claim inside the helper. If a concurrent webhook
+    // or mark-paid call already created the event, this is a no-op and
+    // returns null — no duplicate in Google Calendar.
+    createPartyEventIfNotExists(party, siteUrl),
   ]);
 
   // Auto-fire the planning-call invite the moment the deposit is recorded
@@ -144,14 +147,11 @@ export async function finalizeParty(partyId: string, opts: FinalizePartyOptions 
     void maybeSendPlanningCallInvite(party);
   }
 
-  if (calendarResult.status === 'fulfilled' && calendarResult.value) {
-    await supabase
-      .from('parties')
-      .update({ google_calendar_event_id: calendarResult.value })
-      .eq('id', party.id);
-  } else if (calendarResult.status === 'rejected') {
+  if (calendarResult.status === 'rejected') {
     console.error('Calendar event creation failed:', calendarResult.reason);
   }
+  // (createPartyEventIfNotExists writes the ID back internally — no
+  // additional update needed here.)
 
   return party;
 }

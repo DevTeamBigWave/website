@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { requireOwner } from '@/lib/admin';
 import { supabaseAdmin } from '@/lib/supabase';
 import { stripe } from '@/lib/stripe';
-import { createPartyEvent, syncPartyEventByPartyId } from '@/lib/google-calendar';
+import { createPartyEventIfNotExists, syncPartyEventByPartyId } from '@/lib/google-calendar';
 import { computePartyFinancials } from '@/lib/parties';
 import {
   sendManualPaymentReceived,
@@ -180,20 +180,17 @@ export async function POST(
   // /book flow (finalizeParty) and the Stripe webhook for admin invoices.
   // For all other mutations (balance paid, deposit paid when event already
   // exists), just re-sync the event description with the new state.
-  if (body.kind === 'deposit' && !party.google_calendar_event_id) {
+  // createPartyEventIfNotExists handles the atomic claim so a concurrent
+  // Stripe webhook can't race us into double-creating the event.
+  if (body.kind === 'deposit') {
     try {
       const siteUrl =
         process.env.NEXT_PUBLIC_SITE_URL ?? 'https://wonderlandplayhouse.com';
-      const eventId = await createPartyEvent(party as any, siteUrl);
-      if (eventId) {
-        await db
-          .from('parties')
-          .update({ google_calendar_event_id: eventId })
-          .eq('id', partyId);
-      }
+      await createPartyEventIfNotExists(party as any, siteUrl);
     } catch (err) {
       console.error('Calendar event creation failed (payment still recorded):', err);
     }
+    void syncPartyEventByPartyId(partyId);
   } else {
     void syncPartyEventByPartyId(partyId);
   }
