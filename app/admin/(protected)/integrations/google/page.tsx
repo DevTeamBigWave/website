@@ -52,18 +52,20 @@ export default async function GoogleIntegrationPage({
         {integration ? (
           <>
             <div className="flex items-start justify-between gap-3">
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="text-xs font-bold uppercase tracking-wider text-coral">
                   Connected
                 </p>
-                <p className="mt-1 font-display text-xl text-slate-700">
+                <p className="mt-1 break-all font-display text-xl text-slate-700">
                   {integration.google_email ?? 'Google account'}
                 </p>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 break-all text-xs text-slate-500">
                   Calendar: <code className="rounded bg-slate-100 px-1.5 py-0.5">{integration.calendar_id}</code>
                 </p>
               </div>
-              <DisconnectButton />
+              <div className="shrink-0">
+                <DisconnectButton />
+              </div>
             </div>
             <p className="mt-4 text-xs text-slate-500">
               Connected {fmtAgo(integration.connected_at)} ·{' '}
