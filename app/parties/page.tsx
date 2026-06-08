@@ -324,6 +324,7 @@ function OneStopShop() {
           <PhotoPlaceholder src="/photos/decor-09.jpeg" alt="Themed setup" className="aspect-square" />
           <PhotoPlaceholder src="/photos/decor-03.jpeg" alt="Balloon and table decor" className="aspect-square" />
           <PhotoPlaceholder src="/photos/decor-07.jpeg" alt="Birthday decor" className="aspect-square" />
+          <PhotoPlaceholder src="/photos/decor-14.jpeg" alt="Minnie Mouse themed party backdrop with neon number 2 and pink and purple balloon garland" className="aspect-square" />
         </div>
       </div>
     </section>
