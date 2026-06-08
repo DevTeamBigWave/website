@@ -28,7 +28,7 @@ export type AddOnCatalogItem = {
 
 export const ADD_ON_CATALOG: AddOnCatalogItem[] = [
   // Food
-  { id: 'kosher_party_upgrade', name: 'Upgrade included pizzas to kosher', category: 'food', price_cents: 3000, hint: 'Covers both included pies (+$30 total)', singleton: true },
+  { id: 'kosher_party_upgrade', name: 'Upgrade included pizzas to kosher', category: 'food', price_cents: 4000, hint: '$20 per pie · covers both included pies ($40 total)', singleton: true },
   { id: 'pizza_pie', name: 'Additional regular pizza pie', category: 'food', price_cents: 2500 },
   { id: 'kosher_pizza_pie', name: 'Additional kosher pizza pie', category: 'food', price_cents: 4000 },
   { id: 'french_fries', name: 'French fries', category: 'food', price_cents: 3000 },
