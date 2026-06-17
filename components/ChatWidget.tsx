@@ -12,6 +12,49 @@ const GREETING: ChatMessage = {
     "Hi! I'm the Wonderland Playhouse assistant. Ask me about parties, open play, memberships, gift cards, or anything else. What can I help with?",
 };
 
+// iOS Safari quirk: dvh/vh don't shrink when the on-screen keyboard opens,
+// and position:fixed elements don't reposition above it. The reliable fix is
+// to size and place the panel ourselves using the VisualViewport API while
+// the keyboard is up. Returns inline style overrides only when the keyboard
+// is actually open — otherwise the Tailwind layout handles things.
+function useKeyboardAwarePanelStyle(open: boolean): React.CSSProperties | undefined {
+  const [style, setStyle] = useState<React.CSSProperties | undefined>(undefined);
+
+  useEffect(() => {
+    if (!open || typeof window === 'undefined' || !window.visualViewport) {
+      setStyle(undefined);
+      return;
+    }
+    const vv = window.visualViewport;
+    const update = () => {
+      const keyboardPx = window.innerHeight - vv.height - vv.offsetTop;
+      // ~100px threshold so URL bar shifts don't trigger the override
+      if (keyboardPx > 100) {
+        setStyle({
+          position: 'fixed',
+          top: vv.offsetTop,
+          left: 12,
+          right: 12,
+          bottom: 'auto',
+          height: vv.height,
+          maxHeight: 'none',
+        });
+      } else {
+        setStyle(undefined);
+      }
+    };
+    update();
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    return () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+    };
+  }, [open]);
+
+  return style;
+}
+
 export function ChatWidget() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -23,6 +66,7 @@ export function ChatWidget() {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const isHidden = pathname?.startsWith('/admin') ?? false;
+  const panelStyle = useKeyboardAwarePanelStyle(open);
 
   useEffect(() => {
     try {
@@ -189,6 +233,7 @@ export function ChatWidget() {
         <div
           role="dialog"
           aria-label="Wonderland Playhouse chat"
+          style={panelStyle}
           className="fixed inset-x-3 bottom-3 z-50 flex max-h-[80vh] flex-col overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-card sm:inset-auto sm:bottom-6 sm:right-6 sm:h-[600px] sm:w-[400px]"
         >
           <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-cream px-4 py-3">
@@ -231,7 +276,7 @@ export function ChatWidget() {
             </div>
           </div>
 
-          <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+          <div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
             {messages.map((m, i) => (
               <div
                 key={i}
