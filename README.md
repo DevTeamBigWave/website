@@ -1,6 +1,6 @@
 # Wonderland Playhouse — Web Platform
 
-Next.js 15 (App Router) · Supabase · Stripe · Resend · Vercel
+Next.js 15 (App Router) · Supabase · Stripe · Resend · Twilio · Vercel
 
 ## What this is
 
@@ -70,6 +70,27 @@ Production: in Stripe Dashboard → Developers → Webhooks, add endpoint
 - `checkout.session.completed`
 - `checkout.session.expired`
 - `charge.refunded`
+
+## Twilio SMS setup
+
+`lib/sms.ts` sends the SMS half of the notifications shown in the diagram above.
+On a confirmed booking the Stripe webhook fires (alongside the emails):
+
+- **Party** — a confirmation text to the parent, plus an alert to the owner.
+- **Open Play** — a confirmation text (with the door code) to the parent.
+
+Configure three env vars from the [Twilio Console](https://console.twilio.com):
+
+```bash
+TWILIO_ACCOUNT_SID=ACxxxxxxxx   # Account Info
+TWILIO_AUTH_TOKEN=xxxx          # Account Info
+TWILIO_FROM_NUMBER=+1xxxxxxxxxx # an SMS-enabled number you own (E.164)
+```
+
+The owner's alerts go to `OWNER_NOTIFY_PHONE`. SMS is best-effort: if the Twilio
+vars are unset (e.g. a preview deploy), sending no-ops silently and never fails a
+booking. Sends are also wrapped in `Promise.allSettled` so a Twilio outage can't
+break the webhook.
 
 ## Pricing rules (single source of truth)
 

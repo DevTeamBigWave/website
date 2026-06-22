@@ -5,6 +5,7 @@ import Stripe from 'stripe';
 import { stripe } from '@/lib/stripe';
 import { supabaseAdmin } from '@/lib/supabase';
 import { sendPartyConfirmation, sendOpenPlayConfirmation, sendOwnerNotification } from '@/lib/email';
+import { sendPartyConfirmationSMS, sendOpenPlayConfirmationSMS, notifyOwnerNewParty } from '@/lib/sms';
 
 // Stripe sends raw bodies — App Router gives us req.text() which preserves them
 export async function POST(request: Request) {
@@ -57,13 +58,15 @@ export async function POST(request: Request) {
         revalidatePath('/book');
         revalidatePath('/');
 
-        // Fire emails (non-blocking — don't fail webhook if email fails)
+        // Fire emails + SMS (non-blocking — don't fail webhook if a send fails)
         await Promise.allSettled([
           sendPartyConfirmation(party),
           sendOwnerNotification({
             subject: `🎉 New party booked: ${party.child_name}'s ${party.package} party`,
             party,
           }),
+          sendPartyConfirmationSMS(party),
+          notifyOwnerNewParty(party),
         ]);
       }
 
@@ -83,7 +86,10 @@ export async function POST(request: Request) {
           .single();
 
         if (ticket) {
-          await sendOpenPlayConfirmation(ticket);
+          await Promise.allSettled([
+            sendOpenPlayConfirmation(ticket),
+            sendOpenPlayConfirmationSMS(ticket),
+          ]);
         }
       }
       break;
