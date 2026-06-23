@@ -2,6 +2,27 @@ import { Resend } from 'resend';
 import { unsubscribeUrl } from '@/lib/marketing';
 import { getInvoiceTheme } from '@/lib/invoice-themes';
 import { computePartyFinancials } from '@/lib/parties';
+import { partyPortionLines, type PackageId } from '@/lib/pricing';
+
+// Itemized party-portion rows (base + extra kids etc.) for the kvp money
+// tables, formatted like the other money rows. Negative lines (Mon–Thu
+// discount) render in coral with a leading minus.
+function partyMoneyRows(party: any, partyPreTaxCents: number): Array<[string, string]> {
+  const lines = partyPortionLines({
+    packageId: party.package as PackageId,
+    date: new Date(`${party.date}T${party.start_time ?? '12:00:00'}`),
+    time: party.start_time ?? '12:00',
+    extensionMinutes: party.extension_minutes ?? 0,
+    headcount: party.headcount ?? null,
+    storedSubtotalCents: partyPreTaxCents,
+  });
+  return lines.map((l) => [
+    l.label,
+    l.cents < 0
+      ? `<span style="color:#ff7783;">−${fmtMoney(-l.cents)}</span>`
+      : fmtMoney(l.cents),
+  ]);
+}
 
 let _resend: Resend | null = null;
 function resend(): Resend {
@@ -185,7 +206,7 @@ export async function sendPartyConfirmation(party: any, addOns: AddOnLite[] = []
   // page + Stripe invoice use.
   const moneyRows: Array<[string, string]> = [];
   moneyRows.push(['Package', party.package === 'private' ? 'Private' : 'Semi-Private']);
-  moneyRows.push(['Party', fmtMoney(fin.party_pre_tax_cents)]);
+  for (const row of partyMoneyRows(party, fin.party_pre_tax_cents)) moneyRows.push(row);
   if (fin.add_ons_total_cents > 0) {
     moneyRows.push(['Add-ons', fmtMoney(fin.add_ons_total_cents)]);
   }
@@ -334,7 +355,7 @@ export async function sendPartyBalanceUpdated(args: {
   const firstName = party.parent_name.split(' ')[0] || party.parent_name;
 
   const moneyRows: Array<[string, string]> = [
-    ['Party', fmtMoney(fin.party_pre_tax_cents)],
+    ...partyMoneyRows(party, fin.party_pre_tax_cents),
   ];
   if (fin.add_ons_total_cents > 0) {
     moneyRows.push(['Add-ons', fmtMoney(fin.add_ons_total_cents)]);

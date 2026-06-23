@@ -7,6 +7,7 @@
 
 import { supabaseAdmin } from '@/lib/supabase';
 import { computePartyFinancials } from '@/lib/parties';
+import { partyPortionLines, type PackageId } from '@/lib/pricing';
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const CALENDAR_API = 'https://www.googleapis.com/calendar/v3';
@@ -216,7 +217,18 @@ function buildEventBody(
     const fin = computePartyFinancials(party as any);
 
     lines.push('', 'Money:');
-    lines.push(`  Party total: ${fmt(party.total_cents)}`);
+    // Itemize the party portion (base + extra kids etc.) so the calendar
+    // matches the invoice. These are pre-tax; the grand total below adds tax.
+    for (const line of partyPortionLines({
+      packageId: party.package as PackageId,
+      date: new Date(`${party.date}T${party.start_time}`),
+      time: party.start_time,
+      extensionMinutes: party.extension_minutes,
+      headcount: party.headcount,
+      storedSubtotalCents: fin.party_pre_tax_cents,
+    })) {
+      lines.push(`  ${line.label}: ${line.cents < 0 ? '−' : ''}${fmt(Math.abs(line.cents))}`);
+    }
     if (party.add_ons_total_cents && party.add_ons_total_cents > 0) {
       lines.push(`  + Add-ons: ${fmt(party.add_ons_total_cents)}`);
     }

@@ -7,11 +7,7 @@
 import { stripe } from '@/lib/stripe';
 import { supabaseAdmin } from '@/lib/supabase';
 import { computePartyFinancials } from '@/lib/parties';
-import {
-  calculatePartyPricing,
-  type PackageId,
-  type ExtensionId,
-} from '@/lib/pricing';
+import { partyPortionLines, type PackageId } from '@/lib/pricing';
 
 const fmtMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
@@ -226,54 +222,19 @@ function buildPartyLineItems(
   meta: { headcount: number | null; extension_minutes: number | null } | null,
   partyPreTaxCents: number,
 ): Array<{ amount: number; description: string }> {
-  const fallback = [
-    {
-      amount: partyPreTaxCents,
-      description: `${packageLabel(party.package)} party — ${formatDateLong(party.date)}`,
-    },
-  ];
-  if (!meta) return fallback;
-  try {
-    const extensionId: ExtensionId | null =
-      (meta.extension_minutes ?? 0) >= 60 ? ('60m' as ExtensionId) : null;
-    const b = calculatePartyPricing({
-      packageId: party.package as PackageId,
-      date: new Date(`${party.date}T${party.start_time}`),
-      time: party.start_time,
-      extensionId,
-      headcount: meta.headcount ?? undefined,
-    });
-    // Only itemize if the parts add back up to the stored party subtotal.
-    if (b.subtotalCents !== partyPreTaxCents) return fallback;
-
-    const lines = [
-      {
-        amount: b.baseCents,
-        description: `${packageLabel(party.package)} party — ${formatDateLong(party.date)}`,
-      },
-    ];
-    if (b.extraKidCount > 0) {
-      lines.push({
-        amount: b.extraKidCents,
-        description: `Extra kid over package × ${b.extraKidCount}`,
-      });
-    }
-    if (b.extensionCents > 0) {
-      lines.push({
-        amount: b.extensionCents,
-        description: `Time extension (+${meta.extension_minutes} min)`,
-      });
-    }
-    if (b.discountCents > 0) {
-      lines.push({
-        amount: -b.discountCents,
-        description: 'Mon–Thu 20% discount',
-      });
-    }
-    return lines;
-  } catch {
-    return fallback;
-  }
+  const lines = partyPortionLines({
+    packageId: party.package as PackageId,
+    date: new Date(`${party.date}T${party.start_time}`),
+    time: party.start_time,
+    extensionMinutes: meta?.extension_minutes ?? 0,
+    headcount: meta?.headcount ?? null,
+    storedSubtotalCents: partyPreTaxCents,
+  });
+  // The base line (always first) carries the party date on the invoice.
+  return lines.map((l, i) => ({
+    amount: l.cents,
+    description: i === 0 ? `${l.label} — ${formatDateLong(party.date)}` : l.label,
+  }));
 }
 
 function buildCreditDescription(args: {

@@ -169,6 +169,60 @@ export function calculatePartyPricing(input: PartyPricingInput): PartyPricing {
   };
 }
 
+export type PartyPortionLine = { label: string; cents: number };
+
+/**
+ * Itemizes the party portion (parties.subtotal_cents) into base + extra-kid
+ * (+ time extension, − Mon–Thu discount) lines, all derived from headcount —
+ * the single source of truth for extra-kid pricing. Shared by the Stripe
+ * invoice, the confirmation + balance-updated emails, and the calendar event
+ * so they all show the flat base fee and extra kids as separate lines.
+ *
+ * Returns a single combined line if the recomputed parts don't reconcile
+ * exactly with storedSubtotalCents (legacy rows / custom pricing), so no
+ * downstream total can ever drift from the stored figure.
+ */
+export function partyPortionLines(input: {
+  packageId: PackageId;
+  date: Date;
+  time: string;
+  extensionMinutes?: number | null;
+  headcount?: number | null;
+  storedSubtotalCents: number;
+}): PartyPortionLine[] {
+  const pkg = PACKAGES[input.packageId];
+  const single: PartyPortionLine[] = [
+    { label: `${pkg.name} party`, cents: input.storedSubtotalCents },
+  ];
+  try {
+    const extensionId: ExtensionId | null =
+      (input.extensionMinutes ?? 0) >= 60 ? ('60m' as ExtensionId) : null;
+    const b = calculatePartyPricing({
+      packageId: input.packageId,
+      date: input.date,
+      time: input.time,
+      extensionId,
+      headcount: input.headcount ?? undefined,
+    });
+    // Only itemize if the parts add back up to the stored subtotal.
+    if (b.subtotalCents !== input.storedSubtotalCents) return single;
+
+    const lines: PartyPortionLine[] = [{ label: `${pkg.name} party`, cents: b.baseCents }];
+    if (b.extraKidCount > 0) {
+      lines.push({ label: `Extra kid over package × ${b.extraKidCount}`, cents: b.extraKidCents });
+    }
+    if (b.extensionCents > 0) {
+      lines.push({ label: `Time extension (+${input.extensionMinutes} min)`, cents: b.extensionCents });
+    }
+    if (b.discountCents > 0) {
+      lines.push({ label: 'Mon–Thu 20% discount', cents: -b.discountCents });
+    }
+    return lines;
+  } catch {
+    return single;
+  }
+}
+
 export function calculateOpenPlayPricing(numKids: number) {
   const totalCents = numKids * OPEN_PLAY_PRICE_CENTS;
   return { totalCents, perKidCents: OPEN_PLAY_PRICE_CENTS };
