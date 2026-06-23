@@ -1,4 +1,4 @@
-// Owner-only: upgrades a party to Private or downgrades it to Semi-Private.
+// Admin: upgrades a party to Private or downgrades it to Semi-Private.
 //
 // What changes:
 //   - parties.package flips. The sync_blocked_dates_from_party trigger
@@ -21,7 +21,7 @@
 
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { requireOwner } from '@/lib/admin';
+import { requireAdmin } from '@/lib/admin';
 import { supabaseAdmin } from '@/lib/supabase';
 import {
   calculatePartyPricing,
@@ -43,7 +43,7 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  await requireOwner();
+  await requireAdmin();
   const { id: partyId } = await params;
 
   let body: z.infer<typeof Schema>;
