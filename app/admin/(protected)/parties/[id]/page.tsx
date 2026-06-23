@@ -218,9 +218,10 @@ export default async function PartyDetailPage({
           )}
 
           {/* Privacy level — upgrade to Private / downgrade to Semi-Private.
-              Owner-only: it re-prices the party. Pricing, blocked_dates,
-              the calendar event, and customer + owner emails all update. */}
-          {me.role === 'owner' && (party.status === 'hold' || party.status === 'confirmed') && (
+              Re-prices the party. Pricing, blocked_dates, the calendar event,
+              and customer + owner emails all update. Shown to all admins like
+              the Reschedule / Discount cards; the endpoint enforces owner. */}
+          {(party.status === 'hold' || party.status === 'confirmed') && (
             <Card
               title="Privacy level"
               subtitle="Switch between Private (whole venue) and Semi-Private (party room). Re-prices the party and updates the calendar + customer email."
