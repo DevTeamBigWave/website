@@ -3,20 +3,67 @@ import { z } from 'zod';
 import { stripe } from '@/lib/stripe';
 import { supabaseAdmin } from '@/lib/supabase';
 import { calculatePartyPricing, PACKAGES, EXTENSIONS, fmt, type PackageId, type ExtensionId } from '@/lib/pricing';
+import { getGiftCardByCode, balanceCents } from '@/lib/gift-cards';
+import { finalizeParty } from '@/lib/finalize-booking';
+import { findCatalogItem } from '@/lib/add-ons';
+import { validatePromoCode, recordPromoUse } from '@/lib/promo-codes';
+import { partyTimeConflict } from '@/lib/parties';
 
 const PartyCheckoutSchema = z.object({
   packageId: z.enum(['private', 'semi']),
   date: z.string(), // ISO date
   time: z.string(),
-  extensionId: z.enum(['30m', '60m']).nullable().optional(),
+  extensionId: z.enum(['60m']).nullable().optional(),
   parentName: z.string().min(1).max(120),
   email: z.string().email(),
   phone: z.string().min(7).max(40),
   childName: z.string().min(1).max(80),
-  childAge: z.coerce.number().int().min(0).max(18),
-  headcount: z.coerce.number().int().min(1).max(60),
+  // DOB is the source of truth going forward — age is computed from it.
+  // Optional for now to keep the older API contract working; the new
+  // booking form will make this required.
+  childDob: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'childDob must be YYYY-MM-DD')
+    .optional(),
+  childAge: z.coerce.number().int().min(0).max(18).optional(),
+  headcount: z.coerce.number().int().min(1).max(40),
   notes: z.string().max(2000).optional(),
+  decorTheme: z.string().max(120).optional(),
+  addOns: z
+    .array(
+      z.object({
+        catalog_id: z.string().min(1).max(80),
+        qty: z.coerce.number().int().min(1).max(40).default(1),
+      }),
+    )
+    .max(20)
+    .optional(),
+  inspirationImageUrls: z.array(z.string().url()).max(3).optional(),
+  giftCardCode: z.string().max(40).optional(),
+  promoCode: z.string().max(40).optional(),
 });
+
+function composeNotes(notes: string | undefined, decorTheme: string | undefined): string | null {
+  const parts = [
+    decorTheme ? `Decor theme: ${decorTheme.trim()}` : '',
+    notes?.trim() ?? '',
+  ].filter(Boolean);
+  return parts.length ? parts.join('\n\n').slice(0, 2000) : null;
+}
+
+// If a DOB is provided, compute the age the kid is turning at the birthday
+// that falls in the party's calendar year. Same answer whether the party is
+// before or after the actual birthday date — a 2020-05-01 kid is turning 6
+// in 2026 regardless of whether the party is April or June 2026.
+function computeAgeTurning(dob: string | undefined, partyDate: Date, fallback: number | undefined): number | null {
+  if (dob) {
+    const birthYear = parseInt(dob.split('-')[0], 10);
+    if (Number.isFinite(birthYear)) {
+      return partyDate.getFullYear() - birthYear;
+    }
+  }
+  return fallback ?? null;
+}
 
 export async function POST(request: Request) {
   let body;
@@ -34,6 +81,7 @@ export async function POST(request: Request) {
     date,
     time: body.time,
     extensionId: (body.extensionId ?? null) as ExtensionId | null,
+    headcount: body.headcount,
   });
 
   const supabase = supabaseAdmin();
@@ -42,23 +90,35 @@ export async function POST(request: Request) {
   // Race condition guard: even if the UI showed it as available 30 seconds ago, recheck now.
   const { data: existing } = await supabase
     .from('parties')
-    .select('id, package, status, start_time')
+    .select('id, package, status, start_time, duration_minutes, extension_minutes')
     .eq('date', body.date.split('T')[0])
     .in('status', ['confirmed', 'hold']);
 
   if (existing && existing.length > 0) {
-    // Private blocks everything. Semi blocks only same-time slots & other privates.
-    const conflict = existing.find((p: any) => {
-      if (body.packageId === 'private') return true; // Any existing booking blocks private
-      if (p.package === 'private') return true; // Any private blocks any new booking
-      if (p.start_time === convertTimeToSql(body.time)) return true; // Same time slot
-      return false;
-    });
+    const newDuration =
+      PACKAGES[body.packageId as PackageId].durationMinutes +
+      (body.extensionId ? EXTENSIONS[body.extensionId as ExtensionId].minutes : 0);
+
+    // 30-min buffer for setup/cleanup between parties. Two parties on the
+    // same day conflict when their buffered windows overlap.
+    const conflict = partyTimeConflict(
+      convertTimeToSql(body.time),
+      newDuration,
+      existing.map((p: any) => ({
+        id: p.id,
+        start_time: p.start_time,
+        duration_minutes: p.duration_minutes ?? 120,
+        extension_minutes: p.extension_minutes ?? 0,
+      })),
+    );
 
     if (conflict) {
       return NextResponse.json(
-        { error: 'That date is no longer available. Please pick another.' },
-        { status: 409 }
+        {
+          error:
+            'That time conflicts with another booking on the same day. Please pick another slot, or call us to discuss.',
+        },
+        { status: 409 },
       );
     }
   }
@@ -73,11 +133,12 @@ export async function POST(request: Request) {
       duration_minutes: PACKAGES[body.packageId as PackageId].durationMinutes,
       extension_minutes: body.extensionId ? EXTENSIONS[body.extensionId as ExtensionId].minutes : 0,
       child_name: body.childName,
-      child_age: body.childAge,
+      child_age: computeAgeTurning(body.childDob, date, body.childAge),
+      child_dob: body.childDob ?? null,
       headcount: body.headcount,
-      notes: body.notes,
+      notes: composeNotes(body.notes, body.decorTheme),
       parent_name: body.parentName,
-      email: body.email,
+      email: body.email.trim().toLowerCase(),
       phone: body.phone,
       subtotal_cents: pricing.subtotalCents,
       discount_cents: pricing.discountCents,
@@ -87,21 +148,203 @@ export async function POST(request: Request) {
       status: 'hold',
       hold_expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30min hold for checkout
       weekday_discount_applied: pricing.discountApplied,
+      inspiration_image_urls: body.inspirationImageUrls ?? [],
     })
     .select()
     .single();
 
   if (insertError || !party) {
-    return NextResponse.json({ error: 'Could not create booking', detail: insertError?.message }, { status: 500 });
+    // Log the raw DB error server-side; don't leak schema/RLS detail to the browser.
+    console.error('Party insert failed:', insertError);
+    return NextResponse.json(
+      {
+        error:
+          'Could not create booking. Please try again or call us at (718) 889-1777.',
+      },
+      { status: 500 },
+    );
   }
+
+  // Customer-picked add-ons. Validated against the catalog; price comes from
+  // the catalog (not the client) so a customer can't tamper. NOT charged on
+  // the deposit — they get itemized on the balance invoice the owner sends.
+  if (body.addOns && body.addOns.length > 0) {
+    const rows = body.addOns
+      .map((a) => {
+        const item = findCatalogItem(a.catalog_id);
+        if (!item) return null;
+        return {
+          party_id: party.id,
+          catalog_id: item.id,
+          name: item.name,
+          unit_price_cents: item.price_cents,
+          qty: a.qty,
+        };
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null);
+    if (rows.length > 0) {
+      const { error: addOnErr } = await supabase.from('party_add_ons').insert(rows);
+      if (addOnErr) {
+        console.error('Add-on insert failed (party still created):', addOnErr);
+      }
+    }
+  }
+
+  // Promo code path.
+  //  - skip_deposit  → skips Stripe entirely, party finalized with full
+  //    grand-total still owed (admin sees the balance).
+  //  - percent_off  → applies the % to party subtotal pre-tax (matching
+  //    computePartyFinancials' manual_discount_percent semantics so the
+  //    balance invoice math stays consistent later), then charges 50% of
+  //    the discounted total as the deposit via Stripe.
+  const TAX_RATE = 0.08875;
+  let effectiveDepositCents = pricing.depositCents;
+  let effectiveTotalCents = pricing.totalCents;
+  let promoCodeId: string | undefined;
+  let promoDiscountPercent = 0;
+  let promoCodeText: string | undefined;
+
+  if (body.promoCode) {
+    // No stacking: Mon-Thu's automatic 20% private discount and a customer
+    // promo code can never combine. The customer already got a discount.
+    if (pricing.discountApplied) {
+      await supabase
+        .from('parties')
+        .update({
+          status: 'cancelled',
+          cancellation_reason: 'promo code rejected (Mon-Thu auto-discount already applied)',
+        })
+        .eq('id', party.id);
+      return NextResponse.json(
+        {
+          error:
+            "This date already gets the Mon–Thu 20% off — promo codes can't stack with it. Pick a Fri–Sun date to use your code, or remove the code to keep the Mon–Thu discount.",
+        },
+        { status: 400 },
+      );
+    }
+    const v = await validatePromoCode(body.promoCode, {
+      context: 'party',
+      channel: 'online',
+    });
+    if (!v.ok) {
+      // Roll the held party back so the slot reopens
+      await supabase
+        .from('parties')
+        .update({ status: 'cancelled', cancellation_reason: 'invalid promo code' })
+        .eq('id', party.id);
+      return NextResponse.json({ error: v.reason }, { status: 400 });
+    }
+    if (v.kind === 'skip_deposit') {
+      const finalized = await finalizeParty(party.id, {
+        skipDeposit: true,
+        promoCodeId: v.id,
+      });
+      if (!finalized) {
+        return NextResponse.json(
+          { error: 'Could not confirm booking with promo code.' },
+          { status: 500 },
+        );
+      }
+      // Best-effort usage counter
+      void recordPromoUse(v.id);
+      return NextResponse.json({
+        ok: true,
+        partyId: party.id,
+        skipDeposit: true,
+        // No checkout URL — the frontend redirects to the confirm page directly
+        redirectTo: `/book/confirm?party_id=${party.id}`,
+      });
+    }
+    if (v.kind === 'percent_off' && v.discount_percent) {
+      promoDiscountPercent = v.discount_percent;
+      promoCodeId = v.id;
+      promoCodeText = v.code;
+      // Discount applies to the PARTY PORTION ONLY — not to any add-ons
+      // the admin adds later. We achieve this by converting the % to a
+      // FLAT cents amount computed against the party subtotal, then
+      // storing it in manual_discount_cents (not manual_discount_percent,
+      // which would re-grow with add-ons in computePartyFinancials).
+      // Flat-amount discount applied to combined (party+addons) is
+      // mathematically equivalent to the same amount applied to party
+      // only — the final tax/total numbers are the same, and add-ons
+      // effectively stay at full price.
+      const discountAmount = Math.round(
+        (pricing.subtotalCents * promoDiscountPercent) / 100,
+      );
+      const newSubtotal = pricing.subtotalCents - discountAmount;
+      const newTax = Math.round(newSubtotal * TAX_RATE);
+      effectiveTotalCents = newSubtotal + newTax;
+      effectiveDepositCents = Math.round(effectiveTotalCents / 2);
+
+      await supabase
+        .from('parties')
+        .update({
+          manual_discount_cents: discountAmount,
+          manual_discount_percent: 0,
+          tax_cents: newTax,
+          total_cents: effectiveTotalCents,
+          deposit_cents: effectiveDepositCents,
+          promo_code_id: promoCodeId,
+        })
+        .eq('id', party.id);
+    }
+  }
+
+  // Gift card lookup (if a code was passed) — applied against the deposit
+  // (now post-promo if a percent_off code was used).
+  let giftCardId: string | undefined;
+  let giftCardApplyCents = 0;
+  if (body.giftCardCode) {
+    const card = await getGiftCardByCode(body.giftCardCode);
+    if (!card || card.status !== 'active' || balanceCents(card) <= 0) {
+      return NextResponse.json(
+        { error: 'Invalid or empty gift card code.' },
+        { status: 400 },
+      );
+    }
+    giftCardId = card.id;
+    giftCardApplyCents = Math.min(balanceCents(card), effectiveDepositCents);
+  }
+
+  const chargeCents = effectiveDepositCents - giftCardApplyCents;
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ?? 'https://wonderlandplayhouse.com';
+
+  // $0 case: gift card covers entire deposit. Skip Stripe, confirm immediately.
+  if (chargeCents <= 0) {
+    await finalizeParty(party.id, {
+      giftCardId,
+      giftCardApplyCents,
+      ...(promoCodeId ? { promoCodeId } : {}),
+    });
+    if (promoCodeId) void recordPromoUse(promoCodeId);
+    return NextResponse.json({
+      url: `${siteUrl}/book/confirm?party_id=${party.id}&gift=1`,
+      partyId: party.id,
+    });
+  }
+
+  // Stripe minimum is $0.50 — if the remainder is below that, top up the card
+  // redemption back to allow Stripe to charge $0.50 minimum.
+  if (chargeCents > 0 && chargeCents < 50) {
+    giftCardApplyCents = Math.max(0, giftCardApplyCents - (50 - chargeCents));
+  }
+  const finalChargeCents = effectiveDepositCents - giftCardApplyCents;
 
   // Create Stripe checkout session
   const pkg = PACKAGES[body.packageId as PackageId];
-  const lineItemName = `${pkg.name} Birthday Party — ${body.childName}'s ${body.childAge ? `${body.childAge}th ` : ''}birthday`;
+  const ageTurning = computeAgeTurning(body.childDob, date, body.childAge);
+  const lineItemName = `${pkg.name} Birthday Party — ${body.childName}'s ${ageTurning ? `${ageTurning}th ` : ''}birthday`;
+  const promoSavingsCents = pricing.depositCents - effectiveDepositCents;
   const description = [
     new Date(body.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
     body.time,
     pricing.discountApplied ? `20% Mon–Thu discount applied (saved ${fmt(pricing.discountCents)})` : null,
+    promoDiscountPercent > 0
+      ? `Promo ${promoCodeText} (${promoDiscountPercent}% off — saved ${fmt(promoSavingsCents)} on deposit)`
+      : null,
+    giftCardApplyCents > 0 ? `Gift card applied (saved ${fmt(giftCardApplyCents)})` : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -109,13 +352,13 @@ export async function POST(request: Request) {
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
     payment_method_types: ['card'],
-    customer_email: body.email,
+    customer_email: body.email.trim().toLowerCase(),
     line_items: [
       {
         quantity: 1,
         price_data: {
           currency: 'usd',
-          unit_amount: pricing.depositCents,
+          unit_amount: finalChargeCents,
           product_data: {
             name: `Deposit · ${lineItemName}`,
             description,
@@ -126,9 +369,14 @@ export async function POST(request: Request) {
     metadata: {
       party_id: party.id,
       type: 'party_deposit',
+      ...(giftCardId ? { gift_card_id: giftCardId, gift_card_apply_cents: String(giftCardApplyCents) } : {}),
+      // Stripe webhook reads promo_code_id to record the usage counter
+      // after successful payment — that way a customer who abandons
+      // checkout doesn't burn a use.
+      ...(promoCodeId ? { promo_code_id: promoCodeId } : {}),
     },
-    success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/book/confirm?party_id=${party.id}&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/book?cancelled=true`,
+    success_url: `${siteUrl}/book/confirm?party_id=${party.id}&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${siteUrl}/book?cancelled=true`,
     expires_at: Math.floor(Date.now() / 1000) + 30 * 60, // 30min
   });
 
@@ -149,3 +397,4 @@ function convertTimeToSql(displayTime: string): string {
   if (period === 'AM' && h === 12) h = 0;
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
 }
+

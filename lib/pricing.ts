@@ -4,46 +4,88 @@
 // Server always re-runs these calcs from raw inputs to prevent client tampering
 // ============================================================================
 
+// Private listed first — it's the priority package (whole-venue exclusive,
+// higher revenue per slot). Render order on /book + /parties follows
+// Object.keys order, which preserves insertion order in JS objects.
 export const PACKAGES = {
-  semi: {
-    id: 'semi',
-    name: 'Semi-Private',
-    priceCents: 65000,
-    maxKids: 15,
-    durationMinutes: 120,
-    description: 'Your party, plus a few other families in the space.',
-    includes: [
-      'Up to 15 children',
-      '2 hours of play',
-      'Dedicated party host',
-      'Setup & cleanup',
-    ],
-  },
   private: {
     id: 'private',
     name: 'Private',
     priceCents: 125000,
-    maxKids: 25,
+    includedKids: 16,
+    extraKidPriceCents: 2500,
     durationMinutes: 120,
-    description: 'The whole 4,000 sq ft. Just you. Closes the space.',
+    description: 'The entire venue is yours. We close to the public for your party.',
     includes: [
-      'Up to 25 children',
-      '2 hours, exclusive use',
+      '15 children + the birthday child included',
+      '$25 per extra child (up to 40 total)',
+      'Entire venue, exclusive use',
+      'We close to the public for your party',
       'Dedicated host + helper',
-      'Setup, cleanup, themed decor',
+      'Setup and cleanup',
+    ],
+  },
+  semi: {
+    id: 'semi',
+    name: 'Semi-Private',
+    priceCents: 65000,
+    // Headcount: 10 kids + the birthday child are included.
+    // Each additional kid is $25. Hard cap at MAX_KIDS_PER_PARTY.
+    includedKids: 11,
+    extraKidPriceCents: 2500,
+    durationMinutes: 120,
+    description: 'Your party gets the dedicated party room. Open play continues in the rest of the venue.',
+    includes: [
+      '10 children + the birthday child included',
+      '$25 per extra child (up to 40 total)',
+      '2 hours in the dedicated party room',
+      'Dedicated party host',
+      'Setup & cleanup',
     ],
   },
 } as const;
 
+// Hard ceiling across all packages
+const MAX_KIDS_PER_PARTY = 40;
+
+// 1-hour extension is the only option now. Price differs by package:
+// $500 private, $250 semi-private — looked up via getExtensionPriceCents()
 export const EXTENSIONS = {
-  '30m': { id: '30m', label: '30 minutes', minutes: 30, priceCents: 15000 },
-  '60m': { id: '60m', label: '1 hour', minutes: 60, priceCents: 27500 },
+  '60m': { id: '60m', label: '1 hour', minutes: 60, priceCents: 50000 },
 } as const;
 
-export const PARTY_TIMES = ['10:00 AM', '12:00 PM', '2:00 PM', '5:00 PM'] as const;
+export function getExtensionPriceCents(
+  packageId: PackageId,
+  extensionId: ExtensionId | null,
+): number {
+  if (!extensionId) return 0;
+  return packageId === 'private' ? 50000 : 25000;
+}
 
-// 20% off Mon–Thu afternoons. The two qualifying time slots:
-const DISCOUNT_TIMES = ['12:00 PM', '2:00 PM'] as const;
+// Time slots are different by package:
+// - Private: every hour 10am–6pm. Each booking blocks its 2-hour window
+//   plus a 30-minute buffer (setup/cleanup) — see partyTimeConflict() in
+//   lib/parties.ts. Multiple Private parties can run on the same day as
+//   long as their buffered windows don't overlap.
+// - Semi-Private: two slot options — 1–3pm or 2–4pm. Only one runs per day.
+export const PRIVATE_PARTY_TIMES = [
+  '10:00 AM',
+  '11:00 AM',
+  '12:00 PM',
+  '1:00 PM',
+  '2:00 PM',
+  '3:00 PM',
+  '4:00 PM',
+  '5:00 PM',
+  '6:00 PM',
+] as const;
+export const SEMI_PARTY_TIMES = ['1:00 PM', '2:00 PM'] as const;
+
+export function partyTimesFor(packageId: PackageId): readonly string[] {
+  return packageId === 'private' ? PRIVATE_PARTY_TIMES : SEMI_PARTY_TIMES;
+}
+
+// 20% off all private parties booked Mon–Thu (any time slot).
 const DISCOUNT_RATE = 0.2;
 
 // NYC sales tax
@@ -60,11 +102,17 @@ export interface PartyPricingInput {
   date: Date;
   time: string;
   extensionId?: ExtensionId | null;
+  // Total kids (including the birthday child). Defaults to the package's
+  // included headcount if omitted. Each kid above included gets charged
+  // extraKidPriceCents.
+  headcount?: number;
 }
 
 export interface PartyPricing {
   baseCents: number;
   extensionCents: number;
+  extraKidCount: number;
+  extraKidCents: number;
   discountCents: number;
   discountApplied: boolean;
   subtotalCents: number;
@@ -74,24 +122,30 @@ export interface PartyPricing {
 }
 
 /**
- * The 20% Mon–Thu afternoon discount rule.
- * Only applies to Private package on Mon-Thu at 12pm or 2pm.
+ * The 20% Mon–Thu discount rule.
+ * Applies to any Private party booked Mon–Thu (any time slot).
  */
 export function isWeekdayAfternoonDiscount(input: PartyPricingInput): boolean {
   if (input.packageId !== 'private') return false;
   const day = input.date.getDay(); // 0=Sun, 1=Mon, ..., 4=Thu, 6=Sat
-  const isMonThu = day >= 1 && day <= 4;
-  const isAfternoonSlot = (DISCOUNT_TIMES as readonly string[]).includes(input.time);
-  return isMonThu && isAfternoonSlot;
+  return day >= 1 && day <= 4;
 }
 
 export function calculatePartyPricing(input: PartyPricingInput): PartyPricing {
   const pkg = PACKAGES[input.packageId];
-  const ext = input.extensionId ? EXTENSIONS[input.extensionId] : null;
 
   const baseCents = pkg.priceCents;
-  const extensionCents = ext?.priceCents ?? 0;
-  const preDiscountCents = baseCents + extensionCents;
+  const extensionCents = getExtensionPriceCents(input.packageId, input.extensionId ?? null);
+
+  // Extra-kid surcharge — only beyond included headcount, capped at MAX_KIDS_PER_PARTY
+  const requestedHeadcount = Math.min(
+    Math.max(input.headcount ?? pkg.includedKids, 1),
+    MAX_KIDS_PER_PARTY,
+  );
+  const extraKidCount = Math.max(0, requestedHeadcount - pkg.includedKids);
+  const extraKidCents = extraKidCount * pkg.extraKidPriceCents;
+
+  const preDiscountCents = baseCents + extensionCents + extraKidCents;
 
   const discountApplied = isWeekdayAfternoonDiscount(input);
   const discountCents = discountApplied ? Math.round(preDiscountCents * DISCOUNT_RATE) : 0;
@@ -104,6 +158,8 @@ export function calculatePartyPricing(input: PartyPricingInput): PartyPricing {
   return {
     baseCents,
     extensionCents,
+    extraKidCount,
+    extraKidCents,
     discountCents,
     discountApplied,
     subtotalCents,
