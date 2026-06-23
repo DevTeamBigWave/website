@@ -8,6 +8,7 @@ import { InvoiceThemePicker } from './InvoiceThemePicker';
 import { DiscountPicker } from './DiscountPicker';
 import { ManualPaymentRecorder } from './ManualPaymentRecorder';
 import { RescheduleCard } from './RescheduleCard';
+import { PackageCard } from './PackageCard';
 import { NotesEditor } from './NotesEditor';
 import { DeletePartyButton } from './DeletePartyButton';
 import { requireAdmin } from '@/lib/admin';
@@ -212,6 +213,31 @@ export default async function PartyDetailPage({
                 partyPackage={party.package as 'private' | 'semi'}
                 currentDate={party.date}
                 currentStartTime={party.start_time}
+              />
+            </Card>
+          )}
+
+          {/* Privacy level — upgrade to Private / downgrade to Semi-Private.
+              Owner-only: it re-prices the party. Pricing, blocked_dates,
+              the calendar event, and customer + owner emails all update. */}
+          {me.role === 'owner' && (party.status === 'hold' || party.status === 'confirmed') && (
+            <Card
+              title="Privacy level"
+              subtitle="Switch between Private (whole venue) and Semi-Private (party room). Re-prices the party and updates the calendar + customer email."
+            >
+              <PackageCard
+                partyId={party.id}
+                currentPackage={party.package as 'private' | 'semi'}
+                date={party.date}
+                startTime={party.start_time}
+                headcount={party.headcount}
+                extensionMinutes={party.extension_minutes ?? 0}
+                depositPaidAt={party.deposit_paid_at}
+                hasManualDiscount={
+                  ((party as any).manual_discount_percent ?? 0) > 0 ||
+                  ((party as any).manual_discount_cents ?? 0) > 0 ||
+                  !!(party as any).promo_code_id
+                }
               />
             </Card>
           )}
