@@ -18,7 +18,7 @@ export async function POST(
   const db = supabaseAdmin();
   const { data: party, error: pErr } = await db
     .from('parties')
-    .select('id, parent_name, email, phone, date, start_time, package, child_name, total_cents, subtotal_cents, deposit_cents, deposit_paid_at, add_ons_total_cents, gift_card_applied_cents, balance_paid_amount_cents, balance_invoice_id, manual_discount_percent, manual_discount_cents, invoice_theme, promo_code:promo_code_id(code, label)')
+    .select('id, parent_name, email, phone, date, start_time, package, child_name, headcount, extension_minutes, total_cents, subtotal_cents, deposit_cents, deposit_paid_at, add_ons_total_cents, gift_card_applied_cents, balance_paid_amount_cents, balance_invoice_id, manual_discount_percent, manual_discount_cents, invoice_theme, promo_code:promo_code_id(code, label)')
     .eq('id', partyId)
     .maybeSingle();
   if (pErr || !party) {

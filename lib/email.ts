@@ -564,7 +564,7 @@ export async function sendPartyTwentyFourHourReminder(party: any) {
 
     ${kvpTable([
       ['Time', party.start_time],
-      ['Headcount', `${party.headcount} kids`],
+      ['Headcount', party.headcount != null ? `${party.headcount} kids` : '—'],
       ['Address', '3830 Nostrand Ave, Brooklyn'],
     ])}
 
@@ -1217,7 +1217,7 @@ export async function sendOwnerNotification({
   const rows: Array<[string, string]> = [
     ['Date', `${fmtDate(party.date)} at ${party.start_time}`],
     ['Package', party.package === 'private' ? 'Private' : 'Semi-Private'],
-    ['Party', fmtMoney(fin.party_pre_tax_cents)],
+    ...partyMoneyRows(party, fin.party_pre_tax_cents),
   ];
   if (fin.add_ons_total_cents > 0) {
     rows.push(['Add-ons', fmtMoney(fin.add_ons_total_cents)]);
@@ -1247,7 +1247,7 @@ export async function sendOwnerNotification({
   }
   rows.push(
     ['Birthday child', `${escapeHtml(party.child_name ?? '—')}${party.child_age != null ? `, age ${party.child_age}` : ''}`],
-    ['Headcount', `${party.headcount} kids`],
+    ['Headcount', party.headcount != null ? `${party.headcount} kids` : '—'],
     ['Parent', `${escapeHtml(party.parent_name)} · <a href="mailto:${escapeHtml(party.email)}" style="color:#ff7783;">${escapeHtml(party.email)}</a> · ${escapeHtml(party.phone)}`],
   );
   if (party.weekday_discount_applied) {
