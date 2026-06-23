@@ -7,6 +7,11 @@
 import { stripe } from '@/lib/stripe';
 import { supabaseAdmin } from '@/lib/supabase';
 import { computePartyFinancials } from '@/lib/parties';
+import {
+  calculatePartyPricing,
+  type PackageId,
+  type ExtensionId,
+} from '@/lib/pricing';
 
 const fmtMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
@@ -107,13 +112,27 @@ export async function createOrUpdateBalanceInvoice(
   // then a single NYC tax line on the post-discount subtotal. This is
   // what reconciles "add-ons get taxed too" with the canonical
   // computePartyFinancials math.
-  await stripe.invoiceItems.create({
-    customer: customerId,
-    invoice: invoice.id,
-    amount: financials.party_pre_tax_cents,
-    currency: 'usd',
-    description: `${packageLabel(party.package)} party — ${formatDateLong(party.date)}`,
-  });
+  //
+  // The party portion itself is split into the package base + a separate
+  // "Extra kid over package" line (and time extension / Mon-Thu discount when
+  // present) so the invoice shows the package base on its own line instead of
+  // baking extra kids into it. Extra kids are derived from headcount — the
+  // single source of truth — never a manual add-on. We fetch headcount +
+  // extension here so callers don't all have to select them.
+  const { data: meta } = await db
+    .from('parties')
+    .select('headcount, extension_minutes')
+    .eq('id', party.id)
+    .maybeSingle();
+  for (const line of buildPartyLineItems(party, meta, financials.party_pre_tax_cents)) {
+    await stripe.invoiceItems.create({
+      customer: customerId,
+      invoice: invoice.id,
+      amount: line.amount,
+      currency: 'usd',
+      description: line.description,
+    });
+  }
 
   for (const item of addOns) {
     await stripe.invoiceItems.create({
@@ -195,6 +214,66 @@ export async function createOrUpdateBalanceInvoice(
     hostedUrl: finalized.hosted_invoice_url ?? '',
     balanceDueCents: financials.balance_due_cents,
   };
+}
+
+// Splits the party portion into base + extra-kid (+ extension, − Mon-Thu
+// discount) invoice lines, all derived from headcount via calculatePartyPricing.
+// Falls back to a single combined line if the recomputed breakdown doesn't
+// reconcile exactly with the stored subtotal (legacy rows / custom pricing) so
+// the invoice total can never drift from computePartyFinancials.
+function buildPartyLineItems(
+  party: PartyForInvoice,
+  meta: { headcount: number | null; extension_minutes: number | null } | null,
+  partyPreTaxCents: number,
+): Array<{ amount: number; description: string }> {
+  const fallback = [
+    {
+      amount: partyPreTaxCents,
+      description: `${packageLabel(party.package)} party — ${formatDateLong(party.date)}`,
+    },
+  ];
+  if (!meta) return fallback;
+  try {
+    const extensionId: ExtensionId | null =
+      (meta.extension_minutes ?? 0) >= 60 ? ('60m' as ExtensionId) : null;
+    const b = calculatePartyPricing({
+      packageId: party.package as PackageId,
+      date: new Date(`${party.date}T${party.start_time}`),
+      time: party.start_time,
+      extensionId,
+      headcount: meta.headcount ?? undefined,
+    });
+    // Only itemize if the parts add back up to the stored party subtotal.
+    if (b.subtotalCents !== partyPreTaxCents) return fallback;
+
+    const lines = [
+      {
+        amount: b.baseCents,
+        description: `${packageLabel(party.package)} party — ${formatDateLong(party.date)}`,
+      },
+    ];
+    if (b.extraKidCount > 0) {
+      lines.push({
+        amount: b.extraKidCents,
+        description: `Extra kid over package × ${b.extraKidCount}`,
+      });
+    }
+    if (b.extensionCents > 0) {
+      lines.push({
+        amount: b.extensionCents,
+        description: `Time extension (+${meta.extension_minutes} min)`,
+      });
+    }
+    if (b.discountCents > 0) {
+      lines.push({
+        amount: -b.discountCents,
+        description: 'Mon–Thu 20% discount',
+      });
+    }
+    return lines;
+  } catch {
+    return fallback;
+  }
 }
 
 function buildCreditDescription(args: {

@@ -314,6 +314,30 @@ export async function POST(request: Request) {
   //     party-after-discount and the "balance credit" math goes negative.
   //   - Deposit-only (standard 50%): itemize the party + discount, then a
   //     "balance" credit so the net pulls down to the deposit.
+  // Party portion split into base + extra-kid (+ extension, − Mon-Thu
+  // discount) lines so the invoice always shows the flat package fee and the
+  // extra kids as their own items. These sum to pricing.subtotalCents, so the
+  // grand total is unchanged.
+  const pkgLabel = body.package === 'private' ? 'Private' : 'Semi-Private';
+  const partyLineItems: Array<{ amount: number; description: string }> = [
+    { amount: pricing.baseCents, description: `${pkgLabel} party — ${formatDateLong(body.date)}` },
+  ];
+  if (pricing.extraKidCount > 0) {
+    partyLineItems.push({
+      amount: pricing.extraKidCents,
+      description: `Extra kid over package × ${pricing.extraKidCount}`,
+    });
+  }
+  if (pricing.extensionCents > 0) {
+    partyLineItems.push({
+      amount: pricing.extensionCents,
+      description: `Time extension (+${body.extension_minutes} min)`,
+    });
+  }
+  if (pricing.discountCents > 0) {
+    partyLineItems.push({ amount: -pricing.discountCents, description: 'Mon–Thu 20% discount' });
+  }
+
   if (isCustomDeposit) {
     await stripe.invoiceItems.create({
       customer: customerId,
@@ -326,13 +350,15 @@ export async function POST(request: Request) {
     // Itemize the whole thing pre-tax, then apply F&F as a negative line,
     // then add a single NYC tax line so add-ons get taxed alongside the
     // party (the fix for the bug Gaby caught).
-    await stripe.invoiceItems.create({
-      customer: customerId,
-      invoice: invoice.id,
-      amount: pricing.subtotalCents,
-      currency: 'usd',
-      description: `${body.package === 'private' ? 'Private' : 'Semi-Private'} party — ${formatDateLong(body.date)}`,
-    });
+    for (const line of partyLineItems) {
+      await stripe.invoiceItems.create({
+        customer: customerId,
+        invoice: invoice.id,
+        amount: line.amount,
+        currency: 'usd',
+        description: line.description,
+      });
+    }
     for (const a of body.add_ons) {
       await stripe.invoiceItems.create({
         customer: customerId,
@@ -372,13 +398,15 @@ export async function POST(request: Request) {
     // "balance — invoiced separately" credit pulling the total down to
     // the deposit amount. Add-ons are NOT on this invoice — they'll be
     // billed (with tax) on the balance invoice.
-    await stripe.invoiceItems.create({
-      customer: customerId,
-      invoice: invoice.id,
-      amount: pricing.subtotalCents,
-      currency: 'usd',
-      description: `${body.package === 'private' ? 'Private' : 'Semi-Private'} party — ${formatDateLong(body.date)}`,
-    });
+    for (const line of partyLineItems) {
+      await stripe.invoiceItems.create({
+        customer: customerId,
+        invoice: invoice.id,
+        amount: line.amount,
+        currency: 'usd',
+        description: line.description,
+      });
+    }
     if (invoiceFFCents > 0) {
       await stripe.invoiceItems.create({
         customer: customerId,
