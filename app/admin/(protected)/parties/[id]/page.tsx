@@ -9,6 +9,7 @@ import { DiscountPicker } from './DiscountPicker';
 import { ManualPaymentRecorder } from './ManualPaymentRecorder';
 import { RescheduleCard } from './RescheduleCard';
 import { PackageCard } from './PackageCard';
+import { HeadcountEditor } from './HeadcountEditor';
 import { NotesEditor } from './NotesEditor';
 import { DeletePartyButton } from './DeletePartyButton';
 import { requireAdmin } from '@/lib/admin';
@@ -142,8 +143,26 @@ export default async function PartyDetailPage({
               </Card>
             )}
 
+          {/* Headcount & extra kids — source of truth for extra-kid pricing */}
+          {(party.status === 'hold' || party.status === 'confirmed') && (
+            <Card
+              title="Headcount & extra kids"
+              subtitle="Kids above the package's included count are auto-priced into the party total. Re-prices the party and updates the calendar + customer email."
+            >
+              <HeadcountEditor
+                partyId={party.id}
+                currentHeadcount={party.headcount}
+                partyPackage={party.package as 'private' | 'semi'}
+                date={party.date}
+                startTime={party.start_time}
+                extensionMinutes={party.extension_minutes ?? 0}
+                depositPaidAt={party.deposit_paid_at}
+              />
+            </Card>
+          )}
+
           {/* Add-ons */}
-          <Card title="Add-ons" subtitle="Cake, entertainment, decor, extras — they show up on the balance invoice.">
+          <Card title="Add-ons" subtitle="Cake, entertainment, decor, extras — they show up on the balance invoice. (Extra kids are set on the Headcount card above, not here.)">
             <AddOnsEditor partyId={party.id} initial={(addOns ?? []) as any} />
           </Card>
 

@@ -41,7 +41,12 @@ export function AddOnsEditor({
   );
 
   const grouped = useMemo(() => {
-    return ADD_ON_CATALOG.reduce<Record<string, AddOnCatalogItem[]>>((acc, c) => {
+    // 'extra_kid' is intentionally excluded — extra kids are billed from the
+    // party's headcount (see the Headcount card), and offering it here as an
+    // add-on double-charges. The server rejects it too.
+    return ADD_ON_CATALOG.filter((c) => c.id !== 'extra_kid').reduce<
+      Record<string, AddOnCatalogItem[]>
+    >((acc, c) => {
       (acc[c.category] = acc[c.category] || []).push(c);
       return acc;
     }, {});

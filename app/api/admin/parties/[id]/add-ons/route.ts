@@ -34,6 +34,21 @@ export async function POST(
     return NextResponse.json({ error: 'Unknown catalog item' }, { status: 400 });
   }
 
+  // Extra kids are billed from the party's headcount (folded into the
+  // subtotal by calculatePartyPricing), not as an add-on line. Allowing this
+  // item double-charges — exactly the bug that produced a $775 "Semi-Private
+  // party" line ($650 base + 5 extra kids) alongside a separate "Extra kid"
+  // add-on. Steer the admin to the Headcount card instead.
+  if (body.catalog_id === 'extra_kid') {
+    return NextResponse.json(
+      {
+        error:
+          'Extra kids are billed from the party’s headcount, not as an add-on. Use the Headcount card to set the number of kids — they’re priced automatically.',
+      },
+      { status: 409 },
+    );
+  }
+
   const db = supabaseAdmin();
   const { data, error } = await db
     .from('party_add_ons')
