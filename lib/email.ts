@@ -24,6 +24,39 @@ function partyMoneyRows(party: any, partyPreTaxCents: number): Array<[string, st
   ]);
 }
 
+// A celebratory, plain-language callout that tells the customer exactly what
+// kind of party they booked. Private leans into the "the whole place is
+// yours" excitement (worded so "closed to the public" reads as a perk, not
+// as the business shutting down). Semi-private is reassuring and clear.
+function partyTypeBlurb(pkg: string | null | undefined, childName: string | null): string {
+  const child = escapeHtml(childName ?? 'your little one');
+  if (pkg === 'private') {
+    return `
+      <div style="background:#FFF4F5; border-radius:12px; padding:16px 18px; margin:20px 0;">
+        <p style="margin:0; line-height:1.65; color:#2C4253;">
+          🎉 <strong>The whole place is yours!</strong> You booked a
+          <strong>Private</strong> party — we close Wonderland Playhouse to the
+          public so the entire venue is reserved just for ${child}'s big day.
+          Only your family and friends, all to yourselves.
+        </p>
+      </div>`;
+  }
+  return `
+      <div style="background:#FFF4F5; border-radius:12px; padding:16px 18px; margin:20px 0;">
+        <p style="margin:0; line-height:1.65; color:#2C4253;">
+          🎈 <strong>Your party room is reserved.</strong> You booked a
+          <strong>Semi-Private</strong> party — ${child} gets a dedicated party
+          room, while open play continues in the rest of the venue.
+        </p>
+      </div>`;
+}
+
+// Short inline label for subjects / subtitles: "private" or "semi-private".
+function partyTypeLabel(pkg: string | null | undefined): string {
+  return pkg === 'private' ? 'private' : 'semi-private';
+}
+
+
 let _resend: Resend | null = null;
 function resend(): Resend {
   if (_resend) return _resend;
@@ -239,6 +272,7 @@ export async function sendPartyConfirmation(party: any, addOns: AddOnLite[] = []
   const body = `
     <p style="margin:0 0 16px; line-height:1.65;">Hi ${escapeHtml(firstName)},</p>
     <p style="margin:0 0 16px; line-height:1.65;">${intro}</p>
+    ${partyTypeBlurb(party.package, party.child_name)}
     ${addOnsHtml}
     ${kvpTable(moneyRows)}
 
@@ -814,6 +848,9 @@ export async function sendPartyPlanningCallInvite(party: {
   email: string;
   child_name: string | null;
   date: string;
+  // Drives the "Private / Semi-Private" callout. Optional so older callers
+  // still compile; the blurb just falls back to the semi-private wording.
+  package?: string | null;
   // If passed and > 0, the customer has already picked add-ons — soften
   // the language so the call reads as optional ("looks like you're set,
   // here's the link if you want to chat anyway") instead of required.
@@ -821,10 +858,12 @@ export async function sendPartyPlanningCallInvite(party: {
 }) {
   const firstName = party.parent_name.split(' ')[0] || party.parent_name;
   const hasAddOns = (party.add_ons_total_cents ?? 0) > 0;
+  const typeBlurb = partyTypeBlurb(party.package, party.child_name);
   const body = hasAddOns
     ? `
     <p style="margin:0 0 16px; line-height:1.65;">Hi ${escapeHtml(firstName)},</p>
     <p style="margin:0 0 16px; line-height:1.65;">Your deposit is in and the date is locked. We see you've picked some add-ons — looks like you're already set! If everything's exactly how you want it, no need to do anything else; the planning call below is optional.</p>
+    ${typeBlurb}
     <p style="margin:0 0 8px; line-height:1.65;">If you'd like to chat through theme details, decor specifics, timing, or anything else, grab a 30-minute slot:</p>
 
     ${ctaButton('Schedule planning call (optional)', `${SITE}/inquire`)}
@@ -834,6 +873,7 @@ export async function sendPartyPlanningCallInvite(party: {
     : `
     <p style="margin:0 0 16px; line-height:1.65;">Hi ${escapeHtml(firstName)},</p>
     <p style="margin:0 0 16px; line-height:1.65;">Your deposit is in and the date is locked. Now the fun part — let's nail down the theme, cake, food, entertainment, and any other add-ons.</p>
+    ${typeBlurb}
     <p style="margin:0 0 8px; line-height:1.65;">Grab a 30-minute slot that works for you:</p>
 
     ${ctaButton('Schedule planning call', `${SITE}/inquire`)}
@@ -844,7 +884,7 @@ export async function sendPartyPlanningCallInvite(party: {
     {
       heroEyebrow: 'Next step',
       title: "Let's plan the details.",
-      subtitle: `${escapeHtml(party.child_name ?? 'Your')} party · ${fmtDate(party.date)}`,
+      subtitle: `${escapeHtml(party.child_name ?? 'Your')}'s ${partyTypeLabel(party.package)} party · ${fmtDate(party.date)}`,
     },
     body,
   );

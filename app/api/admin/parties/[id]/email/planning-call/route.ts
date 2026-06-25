@@ -13,7 +13,7 @@ export async function POST(
   const db = supabaseAdmin();
   const { data: party } = await db
     .from('parties')
-    .select('id, parent_name, email, child_name, date')
+    .select('id, parent_name, email, child_name, date, package, add_ons_total_cents')
     .eq('id', partyId)
     .maybeSingle();
   if (!party) return NextResponse.json({ error: 'Party not found' }, { status: 404 });
