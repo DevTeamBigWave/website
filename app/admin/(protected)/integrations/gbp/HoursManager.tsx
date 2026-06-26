@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { OPEN_PLAY_OPEN_HHMM, OPEN_PLAY_CLOSE_HHMM } from '@/lib/hours';
 
 type Override = {
   date: string;
@@ -41,8 +42,8 @@ export function HoursManager({ initial }: { initial: Override[] }) {
   const [items, setItems] = useState<Override[]>(initial);
   const [date, setDate] = useState('');
   const [mode, setMode] = useState<'closed' | 'custom'>('closed');
-  const [open, setOpen] = useState('12:00');
-  const [close, setClose] = useState('19:30');
+  const [open, setOpen] = useState(OPEN_PLAY_OPEN_HHMM);
+  const [close, setClose] = useState(OPEN_PLAY_CLOSE_HHMM);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,12 +52,14 @@ export function HoursManager({ initial }: { initial: Override[] }) {
     if (preset === 'closed') {
       setMode('closed');
     } else if (preset === 'late') {
+      // Opening late: keep normal close, push the open time back.
       setMode('custom');
       setOpen('14:00');
-      setClose('19:30');
+      setClose(OPEN_PLAY_CLOSE_HHMM);
     } else {
+      // Closing early: keep normal open, pull the close time in.
       setMode('custom');
-      setOpen('12:00');
+      setOpen(OPEN_PLAY_OPEN_HHMM);
       setClose('16:00');
     }
   };

@@ -3,11 +3,11 @@
 // sync (lib/gbp.ts) and on-site booking enforcement (parties + open play).
 
 import { supabaseAdmin } from '@/lib/supabase';
+import { OPEN_PLAY_OPEN_MIN, OPEN_PLAY_CLOSE_MIN } from '@/lib/hours';
 
-// Default open-play window: 12:00–19:30 daily. Centralized here so the GBP
-// sync and any window math agree.
-export const VENUE_OPEN_START_MIN = 12 * 60; // 720
-export const VENUE_OPEN_END_MIN = 19 * 60 + 30; // 1170
+// Open-play window — single source of truth is lib/hours (11am–7pm daily).
+export const VENUE_OPEN_START_MIN = OPEN_PLAY_OPEN_MIN;
+export const VENUE_OPEN_END_MIN = OPEN_PLAY_CLOSE_MIN;
 
 export type VenueHoursOverride = {
   date: string; // YYYY-MM-DD
