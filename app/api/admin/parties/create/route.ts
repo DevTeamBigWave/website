@@ -38,6 +38,7 @@ const CreateSchema = z.object({
   child_name: z.string().min(1).max(120),
   child_dob: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   headcount: z.coerce.number().int().min(1).max(40),
+  adult_count: z.coerce.number().int().min(0).max(200).optional(),
   notes: z.string().max(1000).optional(),
   parent_name: z.string().min(1).max(160),
   email: z.string().email().max(160),
@@ -125,6 +126,7 @@ export async function POST(request: Request) {
     time: body.start_time,
     extensionId: body.extension_minutes === 60 ? ('60m' as ExtensionId) : null,
     headcount: body.headcount,
+    adultCount: body.adult_count,
   });
 
   // Compute invoice-side amounts up front so deposit_cents on the row matches
@@ -219,6 +221,7 @@ export async function POST(request: Request) {
       child_age: yearsBetween(body.child_dob, body.date),
       child_dob: body.child_dob,
       headcount: body.headcount,
+      adult_count: body.adult_count ?? 0,
       notes: body.notes ?? null,
       parent_name: body.parent_name,
       email: body.email.trim().toLowerCase(),

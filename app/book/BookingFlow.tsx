@@ -64,6 +64,7 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
     childName: '',
     childDob: '',
     headcount: '',
+    adultCount: '',
     notes: '',
     playlistUrl: '',
     decorTheme: '',
@@ -219,18 +220,24 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
   const pricing = useMemo(() => {
     if (!packageId || !date || !time) return null;
     const headcount = Number(details.headcount);
+    const adultCount = Number(details.adultCount);
     return calculatePartyPricing({
       packageId,
       date,
       time,
       extensionId,
       headcount: Number.isFinite(headcount) && headcount > 0 ? headcount : undefined,
+      adultCount: Number.isFinite(adultCount) && adultCount >= 0 ? adultCount : undefined,
     });
-  }, [packageId, date, time, extensionId, details.headcount]);
+  }, [packageId, date, time, extensionId, details.headcount, details.adultCount]);
 
   const headcountNum = Number(details.headcount);
   const headcountValid =
     Number.isFinite(headcountNum) && headcountNum >= 1 && headcountNum <= 40;
+  const adultCountNum = Number(details.adultCount);
+  const adultCountValid =
+    details.adultCount === '' ||
+    (Number.isFinite(adultCountNum) && adultCountNum >= 0 && adultCountNum <= 200);
 
   // If the customer picked a date that triggers the Mon-Thu auto-discount,
   // any previously-applied promo code is no longer valid (no stacking).
@@ -255,8 +262,9 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
     if (!details.childName.trim()) m.push("child's name");
     if (!details.childDob) m.push("child's birthday");
     if (!headcountValid) m.push('headcount');
+    if (!adultCountValid) m.push('adult count');
     return m;
-  }, [packageId, date, time, details, headcountValid]);
+  }, [packageId, date, time, details, headcountValid, adultCountValid]);
 
   const canSubmit = missingFields.length === 0 && pricing;
 
@@ -277,6 +285,8 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
         childName: details.childName.trim(),
         childDob: details.childDob,
         headcount: Number(details.headcount),
+        adultCount:
+          details.adultCount === '' ? undefined : Number(details.adultCount),
         notes: [details.notes, details.playlistUrl ? `Spotify: ${details.playlistUrl}` : '']
           .filter(Boolean)
           .join('\n\n')
@@ -678,6 +688,27 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                     </p>
                   )}
                 </div>
+                <div>
+                  <FieldInput
+                    label="Total adults attending"
+                    value={details.adultCount}
+                    onChange={(v) => setDetails({ ...details, adultCount: v })}
+                    type="numeric"
+                  />
+                  {(() => {
+                    const kids = Number(details.headcount);
+                    const included = Number.isFinite(kids) && kids > 0
+                      ? kids * 2
+                      : null;
+                    return (
+                      <p className="mt-1.5 text-xs text-slate-400">
+                        2 adults per kid included
+                        {included !== null ? ` (${included} for this party)` : ''}
+                        {' · '}$10 each additional adult
+                      </p>
+                    );
+                  })()}
+                </div>
                 <FieldInput
                   label="Spotify playlist URL (optional)"
                   value={details.playlistUrl}
@@ -867,6 +898,12 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
                     <Row
                       label={`+${pricing.extraKidCount} extra ${pricing.extraKidCount === 1 ? 'kid' : 'kids'} ($25 ea)`}
                       value={fmt(pricing.extraKidCents)}
+                    />
+                  )}
+                  {pricing.extraAdultCount > 0 && (
+                    <Row
+                      label={`+${pricing.extraAdultCount} extra ${pricing.extraAdultCount === 1 ? 'adult' : 'adults'} ($10 ea)`}
+                      value={fmt(pricing.extraAdultCents)}
                     />
                   )}
                   {pricing.discountApplied && (

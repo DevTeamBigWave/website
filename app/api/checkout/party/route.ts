@@ -28,6 +28,11 @@ const PartyCheckoutSchema = z.object({
     .optional(),
   childAge: z.coerce.number().int().min(0).max(18).optional(),
   headcount: z.coerce.number().int().min(1).max(40),
+  // Total adults attending. Each kid in headcount includes 2 free adults;
+  // anything beyond that is billed at $10/adult via calculatePartyPricing.
+  // Optional / defaults to 0 (no extra-adult charge) to keep older clients
+  // and admin flows backward-compatible.
+  adultCount: z.coerce.number().int().min(0).max(200).optional(),
   notes: z.string().max(2000).optional(),
   decorTheme: z.string().max(120).optional(),
   addOns: z
@@ -83,6 +88,7 @@ export async function POST(request: Request) {
     time: body.time,
     extensionId: (body.extensionId ?? null) as ExtensionId | null,
     headcount: body.headcount,
+    adultCount: body.adultCount,
   });
 
   const supabase = supabaseAdmin();
@@ -152,6 +158,7 @@ export async function POST(request: Request) {
       child_age: computeAgeTurning(body.childDob, date, body.childAge),
       child_dob: body.childDob ?? null,
       headcount: body.headcount,
+      adult_count: body.adultCount ?? 0,
       notes: composeNotes(body.notes, body.decorTheme),
       parent_name: body.parentName,
       email: body.email.trim().toLowerCase(),

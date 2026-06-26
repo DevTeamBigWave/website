@@ -140,6 +140,7 @@ function Packages() {
             <ul className="mt-6 flex-1 space-y-2.5 text-sm font-semibold text-white/95">
               <Bullet white>15 children + the birthday child included</Bullet>
               <Bullet white>$25 per extra child (up to 40 total)</Bullet>
+              <Bullet white>32 adults included (2 per kid) · $10 each extra</Bullet>
               <Bullet white>Entire venue — closed to the public</Bullet>
               <Bullet white>2 hours, exclusive use</Bullet>
               <Bullet white>Pick any 2-hour window (first come, first serve)</Bullet>
@@ -173,6 +174,7 @@ function Packages() {
             <ul className="mt-6 flex-1 space-y-2.5 text-sm text-slate-600">
               <Bullet>10 children + the birthday child included</Bullet>
               <Bullet>$25 per extra child (up to 40 total)</Bullet>
+              <Bullet>22 adults included (2 per kid) · $10 each extra</Bullet>
               <Bullet>2 hours in the dedicated party room</Bullet>
               <Bullet>Dedicated party host</Bullet>
               <Bullet>Setup &amp; cleanup</Bullet>
@@ -507,8 +509,8 @@ function Faq() {
       a: "Yes! You are welcome to bring your own food, desserts, and birthday cake, or you can inquire with us about our catering options, including additional pizza pies for adults, custom cakes, cupcakes, and more.\n\nOutside food is subject to an $85 outside food fee, which includes tableware, utensils, setup, cleanup, and garbage handling — so you don't have to worry about bringing a thing.\n\nIf ordering outside food, we recommend scheduling delivery for approximately 30 minutes before the start of your party. Your designated party host will take it from there and make sure everything is set up and ready for your guests. And don't worry — we'll pack up your leftovers for you too!",
     },
     {
-      q: 'Do adults count toward the party guest count? Is there enough seating for parents and family members?',
-      a: "No — we only count children toward the party guest count, not adults. But don't worry, that doesn't mean we don't account for the adults' comfort and enjoyment too!\n\nEach party room is set up with two adult tables for parents and family members, and we can provide an additional table upon request for extra food, desserts, or drinks if needed. There is plenty of seating available so everyone can relax and enjoy the celebration comfortably.",
+      q: 'How many adults are included? Is there enough seating?',
+      a: "Every party package includes 2 adults per kid — so a 16-kid Private comes with 32 adults included, and an 11-kid Semi-Private comes with 22. Each additional adult above that is $10.\n\nWe set up each party room with two adult tables for parents and family members, and we can provide an additional table upon request for extra food, desserts, or drinks. There is plenty of seating available so everyone can relax and enjoy the celebration comfortably.",
     },
     {
       q: 'How does the planning call work?',
