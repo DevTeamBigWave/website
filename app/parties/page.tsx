@@ -419,6 +419,7 @@ function Entertainment() {
     { name: 'Dance party & games', price: '$200', icon: '1F483' /* dancing */ },
     { name: 'Candy-filled piñata', price: '$150', icon: '1FA85' /* piñata */ },
     { name: 'DIY slime station', price: '$250', icon: '1F308' /* rainbow */ },
+    { name: 'DIY squishy station (create your own squishy)', price: '$300', icon: '1F9F8' /* teddy bear (closest squishy proxy) */ },
     { name: 'DIY bracelet making station', price: '$200', icon: '1F48E' /* gem */ },
     { name: 'Glam spa day', price: '$200', icon: '1F485' /* nail polish */ },
   ];

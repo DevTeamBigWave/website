@@ -50,6 +50,7 @@ export const ADD_ON_CATALOG: AddOnCatalogItem[] = [
   { id: 'dance_games', name: 'Dance party & games', category: 'entertainment', price_cents: 20000, singleton: true, fixed: true },
   { id: 'pinata', name: 'Candy-filled piñata', category: 'entertainment', price_cents: 15000, singleton: true, fixed: true },
   { id: 'diy_slime', name: 'DIY slime station', category: 'entertainment', price_cents: 25000, singleton: true, fixed: true },
+  { id: 'diy_squishy', name: 'DIY squishy station', category: 'entertainment', price_cents: 30000, singleton: true, fixed: true },
   { id: 'diy_bracelet', name: 'DIY bracelet making station', category: 'entertainment', price_cents: 20000, singleton: true, fixed: true },
   { id: 'glam_spa', name: 'Glam spa day', category: 'entertainment', price_cents: 20000, singleton: true, fixed: true },
 
