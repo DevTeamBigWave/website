@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { calculateOpenPlayPricing } from '@/lib/pricing';
 import { getGiftCardByCode, balanceCents } from '@/lib/gift-cards';
 import { finalizeOpenPlay } from '@/lib/finalize-booking';
+import { getOverrideForDate } from '@/lib/venue-hours';
 
 const OpenPlaySchema = z.object({
   date: z.string(),
@@ -37,6 +38,15 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: 'That day is closed for a private party. Please pick another day.' },
       { status: 409 }
+    );
+  }
+
+  // Admin closure override for this date (custom hours don't block a day pass).
+  const override = await getOverrideForDate(body.date.split('T')[0]);
+  if (override?.closed) {
+    return NextResponse.json(
+      { error: 'The venue is closed that day. Please pick another day.' },
+      { status: 409 },
     );
   }
 

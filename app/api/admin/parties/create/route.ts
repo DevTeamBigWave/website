@@ -15,6 +15,7 @@ import { requireOwner } from '@/lib/admin';
 import { supabaseAdmin } from '@/lib/supabase';
 import { stripe } from '@/lib/stripe';
 import { calculatePartyPricing, type PackageId, type ExtensionId } from '@/lib/pricing';
+import { getOverrideForDate, partyBlockedByOverride, timeToMinutes } from '@/lib/venue-hours';
 import { partyTimeConflict } from '@/lib/parties';
 import { INVOICE_THEMES, type InvoiceThemeSlug } from '@/lib/invoice-themes';
 import { sendCreatedPartyInvoice } from '@/lib/email';
@@ -106,6 +107,14 @@ export async function POST(request: Request) {
       },
       { status: 409 },
     );
+  }
+
+  // Respect any admin hours override (custom hours / closure) on this date.
+  const dateOverride = await getOverrideForDate(body.date);
+  const startMin = timeToMinutes(body.start_time);
+  const overrideReason = partyBlockedByOverride(dateOverride, startMin, startMin + newDuration);
+  if (overrideReason) {
+    return NextResponse.json({ error: overrideReason }, { status: 409 });
   }
 
   // Authoritative pricing from raw inputs

@@ -10,6 +10,11 @@
 
 import { supabaseAdmin } from '@/lib/supabase';
 import { getIntegration, getValidAccessToken } from '@/lib/google-calendar';
+import {
+  getOverridesInRange,
+  VENUE_OPEN_START_MIN,
+  VENUE_OPEN_END_MIN,
+} from '@/lib/venue-hours';
 
 const ACCOUNTS_API = 'https://mybusinessaccountmanagement.googleapis.com/v1';
 const INFO_API = 'https://mybusinessbusinessinformation.googleapis.com/v1';
@@ -96,10 +101,8 @@ function parseDate(d: string): { year: number; month: number; day: number } {
   return { year: y, month: m, day };
 }
 
-// Open play hours: 12:00–19:30 daily. If we want to mark a date as "open with
-// closure window for private party", we build TWO open periods (before + after).
-const OPEN_START_MIN = 12 * 60; // 12:00 → 720
-const OPEN_END_MIN = 19 * 60 + 30; // 19:30 → 1170
+// Open-play window (12:00–19:30) lives in lib/venue-hours so the booking
+// flows and this sync agree: VENUE_OPEN_START_MIN / VENUE_OPEN_END_MIN.
 
 type SpecialHourPeriod = {
   startDate: { year: number; month: number; day: number };
@@ -126,60 +129,80 @@ export async function buildSpecialHourPeriods(daysAhead: number): Promise<{
   const startDate = today.toISOString().split('T')[0];
   const endDate = cutoff.toISOString().split('T')[0];
 
-  // Pull blocked_dates joined with parties so we know the party time window
+  // blocked_dates carries its own time window (start_time / duration_minutes)
+  // and package_type as of migrations 0026/0027 — no JOIN needed.
   const { data: blocks = [] } = await db
     .from('blocked_dates')
-    .select(`
-      date,
-      block_type,
-      parties ( start_time, duration_minutes, extension_minutes )
-    `)
+    .select('date, block_type, source, start_time, duration_minutes, package_type')
     .gte('date', startDate)
     .lte('date', endDate);
 
+  // Admin-set overrides (custom hours / closures) win over party-derived hours.
+  const overrides = await getOverridesInRange(startDate, endDate);
+  const overrideDates = new Set(overrides.map((o) => o.date));
+
   const periods: SpecialHourPeriod[] = [];
 
+  // 1) Manual overrides take precedence for their date.
+  for (const o of overrides) {
+    const date = parseDate(o.date);
+    if (o.closed) {
+      periods.push({ startDate: date, endDate: date, closed: true });
+    } else if (o.open_minutes != null && o.close_minutes != null) {
+      periods.push({
+        startDate: date,
+        endDate: date,
+        openTime: minutesToHM(o.open_minutes),
+        closeTime: minutesToHM(o.close_minutes),
+      });
+    }
+  }
+
+  // 2) Party / other blocks, only for dates without a manual override.
   for (const row of (blocks ?? []) as any[]) {
+    if (overrideDates.has(row.date)) continue;
     const date = parseDate(row.date);
 
     if (row.block_type === 'full') {
-      // Full-day closure
       periods.push({ startDate: date, endDate: date, closed: true });
       continue;
     }
 
-    if (row.block_type === 'partial' && row.parties) {
-      const startTime = row.parties.start_time;
-      const totalMin =
-        (row.parties.duration_minutes ?? 120) + (row.parties.extension_minutes ?? 0);
-      const partyStart = parseSqlTime(startTime);
-      const partyStartMin = partyStart.hours * 60 + partyStart.minutes;
-      const partyEndMin = partyStartMin + totalMin;
+    // Semi-private parties keep open play running in the rest of the venue, so
+    // the listing should show NORMAL hours — emit no closure for them.
+    if (row.source === 'party' && row.package_type === 'semi') continue;
 
-      // Period 1: open from venue open until party starts (if there's a gap)
-      if (partyStartMin > OPEN_START_MIN) {
-        periods.push({
-          startDate: date,
-          endDate: date,
-          openTime: { hours: OPEN_START_MIN / 60, minutes: 0 },
-          closeTime: minutesToHM(partyStartMin),
-        });
-      }
+    // Private parties (and any other timed partial block) close the venue to
+    // the public during the party window — open before and after.
+    const startTime = row.start_time;
+    if (!startTime) continue;
+    const totalMin = row.duration_minutes ?? 120;
+    const partyStart = parseSqlTime(startTime);
+    const partyStartMin = partyStart.hours * 60 + partyStart.minutes;
+    const partyEndMin = partyStartMin + totalMin;
 
-      // Period 2: open from party end until venue closes (if there's a gap)
-      if (partyEndMin < OPEN_END_MIN) {
-        periods.push({
-          startDate: date,
-          endDate: date,
-          openTime: minutesToHM(partyEndMin),
-          closeTime: minutesToHM(OPEN_END_MIN),
-        });
-      }
-
-      // If party fills the entire open window, mark closed
-      if (partyStartMin <= OPEN_START_MIN && partyEndMin >= OPEN_END_MIN) {
-        periods.push({ startDate: date, endDate: date, closed: true });
-      }
+    // Party fills (or exceeds) the whole open window → closed all day.
+    if (partyStartMin <= VENUE_OPEN_START_MIN && partyEndMin >= VENUE_OPEN_END_MIN) {
+      periods.push({ startDate: date, endDate: date, closed: true });
+      continue;
+    }
+    // Open from venue open until the party starts.
+    if (partyStartMin > VENUE_OPEN_START_MIN) {
+      periods.push({
+        startDate: date,
+        endDate: date,
+        openTime: minutesToHM(VENUE_OPEN_START_MIN),
+        closeTime: minutesToHM(partyStartMin),
+      });
+    }
+    // Open from party end until venue close.
+    if (partyEndMin < VENUE_OPEN_END_MIN) {
+      periods.push({
+        startDate: date,
+        endDate: date,
+        openTime: minutesToHM(partyEndMin),
+        closeTime: minutesToHM(VENUE_OPEN_END_MIN),
+      });
     }
   }
 

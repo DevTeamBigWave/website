@@ -8,6 +8,7 @@ import { finalizeParty } from '@/lib/finalize-booking';
 import { findCatalogItem } from '@/lib/add-ons';
 import { validatePromoCode, recordPromoUse } from '@/lib/promo-codes';
 import { partyTimeConflict } from '@/lib/parties';
+import { getOverrideForDate, partyBlockedByOverride, timeToMinutes } from '@/lib/venue-hours';
 
 const PartyCheckoutSchema = z.object({
   packageId: z.enum(['private', 'semi']),
@@ -121,6 +122,21 @@ export async function POST(request: Request) {
         { status: 409 },
       );
     }
+  }
+
+  // Admin hours override (custom hours / closure) for this date.
+  const overrideForDate = await getOverrideForDate(body.date.split('T')[0]);
+  const partyStartMin = timeToMinutes(body.time);
+  const partyDurationMin =
+    PACKAGES[body.packageId as PackageId].durationMinutes +
+    (body.extensionId ? EXTENSIONS[body.extensionId as ExtensionId].minutes : 0);
+  const overrideReason = partyBlockedByOverride(
+    overrideForDate,
+    partyStartMin,
+    partyStartMin + partyDurationMin,
+  );
+  if (overrideReason) {
+    return NextResponse.json({ error: overrideReason }, { status: 409 });
   }
 
   // Create the party row in 'hold' status. Stripe webhook flips to 'confirmed' on payment.

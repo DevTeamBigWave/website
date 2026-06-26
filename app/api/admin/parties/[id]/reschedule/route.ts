@@ -18,6 +18,7 @@ import {
   type ExtensionId,
 } from '@/lib/pricing';
 import { partyTimeConflict } from '@/lib/parties';
+import { getOverrideForDate, partyBlockedByOverride, timeToMinutes } from '@/lib/venue-hours';
 import { syncPartyEventByPartyId } from '@/lib/google-calendar';
 import { sendPartyRescheduled, sendOwnerNotification } from '@/lib/email';
 
@@ -153,6 +154,18 @@ export async function POST(
       },
       { status: 409 },
     );
+  }
+
+  // Respect any admin hours override (custom hours / closure) on the new date.
+  const newDateOverride = await getOverrideForDate(body.new_date);
+  const newStartMin = timeToMinutes(body.new_start_time);
+  const overrideReason = partyBlockedByOverride(
+    newDateOverride,
+    newStartMin,
+    newStartMin + newDuration,
+  );
+  if (overrideReason) {
+    return NextResponse.json({ error: overrideReason }, { status: 409 });
   }
 
   // Mon-Thu private discount is asymmetric on reschedule:

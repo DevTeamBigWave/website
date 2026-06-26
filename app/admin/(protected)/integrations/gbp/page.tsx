@@ -1,11 +1,23 @@
 import Link from 'next/link';
 import { supabaseAdmin } from '@/lib/supabase';
 import { GbpSetupClient } from './GbpSetupClient';
+import { HoursManager } from './HoursManager';
 
 export const dynamic = 'force-dynamic';
 
 export default async function GbpIntegrationPage() {
   const db = supabaseAdmin();
+  const todayStr = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+  const { data: overrides = [] } = await db
+    .from('venue_hours_override')
+    .select('date, closed, open_minutes, close_minutes, note')
+    .gte('date', todayStr)
+    .order('date', { ascending: true });
   const { data: integration } = await db
     .from('google_integrations')
     .select('id, gbp_account_id, gbp_location_id, gbp_location_title, gbp_last_sync_at, gbp_last_sync_error')
@@ -26,13 +38,15 @@ export default async function GbpIntegrationPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="font-display text-3xl text-slate-700">Google Business Profile</h1>
+        <h1 className="font-display text-3xl text-slate-700">Hours &amp; Google Business</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Automatically push special hours to your Google Maps listing — when a private
-          party is booked, customers see &ldquo;closed 2pm&ndash;4pm&rdquo; (or whatever the window is) on
-          Google search + Maps.
+          Set custom hours and closures, and push them to your Google Maps listing. Private
+          parties show &ldquo;closed 2pm&ndash;4pm&rdquo; (the party window); semi-private parties stay
+          open since open play continues.
         </p>
       </header>
+
+      <HoursManager initial={(overrides ?? []) as any} />
 
       {!connected && (
         <div className="rounded-2xl border border-coral-200 bg-coral-50 p-5 text-sm text-coral-700">

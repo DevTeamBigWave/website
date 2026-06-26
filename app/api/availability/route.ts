@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { getOverridesInRange } from '@/lib/venue-hours';
 
 // Edge-cached for performance. Stripe webhook calls revalidatePath('/api/availability') on success.
 export const revalidate = 60;
@@ -40,6 +41,24 @@ export async function GET(request: Request) {
     totalMinutes: row.duration_minutes ?? 120,
     packageType: row.package_type, // 'private' | 'semi' | null
   }));
+
+  // Admin closure overrides grey out the date on the public calendar too.
+  // (Custom-hours overrides are enforced server-side at checkout.)
+  const overrides = await getOverridesInRange(
+    from.toISOString().split('T')[0],
+    to.toISOString().split('T')[0],
+  );
+  for (const o of overrides) {
+    if (!o.closed) continue;
+    availability.push({
+      date: o.date,
+      blockType: 'full',
+      reason: o.note ?? 'Closed',
+      startTime: null,
+      totalMinutes: 0,
+      packageType: null,
+    });
+  }
 
   return NextResponse.json({
     availability,
