@@ -48,22 +48,6 @@ export function HoursManager({ initial }: { initial: Override[] }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const applyPreset = (preset: 'closed' | 'late' | 'early') => {
-    if (preset === 'closed') {
-      setMode('closed');
-    } else if (preset === 'late') {
-      // Opening late: keep normal close, push the open time back.
-      setMode('custom');
-      setOpen('14:00');
-      setClose(OPEN_PLAY_CLOSE_HHMM);
-    } else {
-      // Closing early: keep normal open, pull the close time in.
-      setMode('custom');
-      setOpen(OPEN_PLAY_OPEN_HHMM);
-      setClose('16:00');
-    }
-  };
-
   const submit = async () => {
     setError(null);
     if (!date) {
@@ -158,12 +142,6 @@ export function HoursManager({ initial }: { initial: Override[] }) {
 
       {/* Add form */}
       <div className="mt-5 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <div className="flex flex-wrap gap-2">
-          <Preset label="Closed all day" onClick={() => applyPreset('closed')} active={mode === 'closed'} />
-          <Preset label="Opening late" onClick={() => applyPreset('late')} active={mode === 'custom'} />
-          <Preset label="Closing early" onClick={() => applyPreset('early')} active={mode === 'custom'} />
-        </div>
-
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Date</span>
@@ -242,16 +220,3 @@ function toMin(hhmm: string): number {
   return h * 60 + m;
 }
 
-function Preset({ label, onClick, active }: { label: string; onClick: () => void; active?: boolean }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${
-        active ? 'border-coral bg-coral-50 text-coral-700' : 'border-slate-200 text-slate-600 hover:border-slate-400'
-      }`}
-    >
-      {label}
-    </button>
-  );
-}
