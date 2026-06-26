@@ -142,6 +142,7 @@ export async function PATCH(
     time: party.start_time,
     extensionId,
     headcount: party.headcount,
+    adultCount: (party as { adult_count?: number | null }).adult_count ?? undefined,
   });
 
   // No-stacking guard: the automatic Mon–Thu 20% (Private-only) can't combine

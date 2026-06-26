@@ -14,6 +14,7 @@ function partyMoneyRows(party: any, partyPreTaxCents: number): Array<[string, st
     time: party.start_time ?? '12:00',
     extensionMinutes: party.extension_minutes ?? 0,
     headcount: party.headcount ?? null,
+    adultCount: party.adult_count ?? null,
     storedSubtotalCents: partyPreTaxCents,
   });
   return lines.map((l) => [

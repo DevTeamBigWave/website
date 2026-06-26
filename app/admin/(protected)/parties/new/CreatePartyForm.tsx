@@ -46,6 +46,7 @@ export function CreatePartyForm() {
   const [childName, setChildName] = useState('');
   const [childDob, setChildDob] = useState('');
   const [headcount, setHeadcount] = useState(String(PACKAGES.private.includedKids));
+  const [adultCount, setAdultCount] = useState('');
   const [parentName, setParentName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -147,17 +148,19 @@ export function CreatePartyForm() {
   const pricing = useMemo(() => {
     if (!date) return null;
     try {
+      const adults = parseInt(adultCount, 10);
       return calculatePartyPricing({
         packageId: pkg,
         date: new Date(`${date}T${startTime}:00`),
         time: startTime,
         extensionId: extension60 ? '60m' : null,
         headcount: parseInt(headcount, 10) || PACKAGES[pkg].includedKids,
+        adultCount: Number.isFinite(adults) && adults >= 0 ? adults : undefined,
       });
     } catch {
       return null;
     }
-  }, [pkg, date, startTime, extension60, headcount]);
+  }, [pkg, date, startTime, extension60, headcount, adultCount]);
 
   // Mirror computePartyFinancials exactly so every amount displayed here
   // matches what the customer is actually about to be invoiced.
@@ -276,6 +279,10 @@ export function CreatePartyForm() {
           child_name: childName.trim(),
           child_dob: childDob || undefined,
           headcount: parseInt(headcount, 10),
+          adult_count: (() => {
+            const n = parseInt(adultCount, 10);
+            return Number.isFinite(n) && n >= 0 ? n : 0;
+          })(),
           notes: notes.trim() || undefined,
           parent_name: parentName.trim(),
           email: email.trim(),
@@ -346,6 +353,29 @@ export function CreatePartyForm() {
                 {pricing && pricing.extraKidCount > 0 && (
                   <span className="ml-1 font-semibold text-coral">
                     · +{pricing.extraKidCount} extra ({fmt(pricing.extraKidCents)})
+                  </span>
+                )}
+              </p>
+            </Field>
+
+            <Field label="Adult count (total adults attending)">
+              <input
+                type="number"
+                onFocus={(e) => e.currentTarget.select()}
+                min={0}
+                max={200}
+                value={adultCount}
+                onChange={(e) => setAdultCount(e.target.value)}
+                placeholder="leave blank to skip"
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
+              />
+              <p className="mt-1 text-[11px] text-slate-400">
+                {pricing?.includedAdults
+                  ? `${pricing.includedAdults} adults included (2 per kid). Each extra adult +$10.`
+                  : '2 adults per kid included. Each extra adult +$10.'}
+                {pricing && pricing.extraAdultCount > 0 && (
+                  <span className="ml-1 font-semibold text-coral">
+                    · +{pricing.extraAdultCount} extra ({fmt(pricing.extraAdultCents)})
                   </span>
                 )}
               </p>
@@ -904,6 +934,12 @@ export function CreatePartyForm() {
                 <Row
                   label={`Extra kids × ${pricing.extraKidCount}`}
                   value={fmt(pricing.extraKidCents)}
+                />
+              )}
+              {pricing.extraAdultCount > 0 && (
+                <Row
+                  label={`Extra adults × ${pricing.extraAdultCount}`}
+                  value={fmt(pricing.extraAdultCents)}
                 />
               )}
               {pricing.discountApplied && (

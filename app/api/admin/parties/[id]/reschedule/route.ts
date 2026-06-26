@@ -195,6 +195,7 @@ export async function POST(
       time: body.new_start_time,
       extensionId: (party.extension_minutes ?? 0) >= 60 ? ('60m' as ExtensionId) : null,
       headcount: party.headcount,
+      adultCount: (party as { adult_count?: number | null }).adult_count ?? undefined,
     });
     updates.subtotal_cents = recomputed.subtotalCents;
     updates.discount_cents = recomputed.discountCents; // 0

@@ -225,6 +225,7 @@ function buildEventBody(
       time: party.start_time,
       extensionMinutes: party.extension_minutes,
       headcount: party.headcount,
+      adultCount: (party as { adult_count?: number | null }).adult_count ?? null,
       storedSubtotalCents: fin.party_pre_tax_cents,
     })) {
       lines.push(`  ${line.label}: ${line.cents < 0 ? '−' : ''}${fmt(Math.abs(line.cents))}`);
