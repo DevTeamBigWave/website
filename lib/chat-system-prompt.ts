@@ -99,6 +99,7 @@ What's included with every party: host, setup, cleanup, the venue itself, and a 
 - Dance party & games: $200
 - Candy-filled piñata: $150
 - DIY slime station: $250
+- DIY squishy station (create your own squishy): $300
 - DIY bracelet making station: $200
 - Glam spa day: $200
 
