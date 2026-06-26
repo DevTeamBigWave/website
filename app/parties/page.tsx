@@ -239,6 +239,8 @@ function Difference() {
               <CompareRow label="Included headcount" semi="10 + birthday child" priv="15 + birthday child" />
               <CompareRow label="Extra child" semi="$25 each" priv="$25 each" />
               <CompareRow label="Max children" semi="40" priv="40" />
+              <CompareRow label="Included adults" semi="22 (2 per kid)" priv="32 (2 per kid)" />
+              <CompareRow label="Extra adult" semi="$10 each" priv="$10 each" />
               <CompareRow label="Party host" semi="✓" priv="✓ + helper" />
               <CompareRow label="Setup &amp; cleanup" semi="✓" priv="✓" />
               <CompareRow label="Mon-Thu 20% discount" semi="—" priv="Yes — all slots" />
