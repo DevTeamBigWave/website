@@ -6,6 +6,22 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireOwner } from '@/lib/admin';
 import { supabaseAdmin } from '@/lib/supabase';
+import { syncSpecialHoursToGbp } from '@/lib/gbp';
+
+export const maxDuration = 30;
+
+// Push the new hours to Google immediately (best-effort). Returns true if it
+// landed; false if Google isn't connected / no location / API error — in which
+// case the daily cron will pick it up. Never throws.
+async function pushToGoogle(): Promise<boolean> {
+  try {
+    await syncSpecialHoursToGbp();
+    return true;
+  } catch (err) {
+    console.warn('GBP sync after hours change failed (cron will retry):', err);
+    return false;
+  }
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -88,7 +104,8 @@ export async function POST(request: Request) {
     );
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ ok: true });
+  const googleSynced = await pushToGoogle();
+  return NextResponse.json({ ok: true, googleSynced });
 }
 
 // Remove the override for a date (?date=YYYY-MM-DD).
@@ -103,5 +120,6 @@ export async function DELETE(request: Request) {
     .delete()
     .eq('date', date);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true });
+  const googleSynced = await pushToGoogle();
+  return NextResponse.json({ ok: true, googleSynced });
 }

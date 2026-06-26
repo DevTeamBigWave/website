@@ -47,9 +47,11 @@ export function HoursManager({ initial }: { initial: Override[] }) {
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
 
   const submit = async () => {
     setError(null);
+    setFeedback(null);
     if (!date) {
       setError('Pick a date.');
       return;
@@ -87,6 +89,11 @@ export function HoursManager({ initial }: { initial: Override[] }) {
       setItems((prev) => [...prev.filter((p) => p.date !== date), next].sort((a, b) => a.date.localeCompare(b.date)));
       setDate('');
       setNote('');
+      setFeedback(
+        data.googleSynced
+          ? 'Saved — pushed to Google Maps ✓'
+          : 'Saved — Google will update on the next sync (connect Google or hit “Sync now”).',
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed');
     } finally {
@@ -201,6 +208,7 @@ export function HoursManager({ initial }: { initial: Override[] }) {
         </label>
 
         {error && <p className="text-xs text-coral-700">{error}</p>}
+        {feedback && <p className="text-xs text-sky-700">{feedback}</p>}
 
         <button
           type="button"
