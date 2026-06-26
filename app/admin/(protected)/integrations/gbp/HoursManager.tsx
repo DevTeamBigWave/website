@@ -149,7 +149,7 @@ export function HoursManager({ initial }: { initial: Override[] }) {
 
       {/* Add form */}
       <div className="mt-5 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="block">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Date</span>
             <input
@@ -157,7 +157,7 @@ export function HoursManager({ initial }: { initial: Override[] }) {
               value={date}
               min={todayStr()}
               onChange={(e) => setDate(e.target.value)}
-              className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
+              className="mt-1 block w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
             />
           </label>
           <label className="block">
@@ -165,7 +165,7 @@ export function HoursManager({ initial }: { initial: Override[] }) {
             <select
               value={mode}
               onChange={(e) => setMode(e.target.value as 'closed' | 'custom')}
-              className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
+              className="mt-1 block w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
             >
               <option value="closed">Closed all day</option>
               <option value="custom">Custom hours</option>
@@ -174,14 +174,14 @@ export function HoursManager({ initial }: { initial: Override[] }) {
         </div>
 
         {mode === 'custom' && (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="block">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Open</span>
               <input
                 type="time"
                 value={open}
                 onChange={(e) => setOpen(e.target.value)}
-                className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
+                className="mt-1 block w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
               />
             </label>
             <label className="block">
@@ -190,7 +190,7 @@ export function HoursManager({ initial }: { initial: Override[] }) {
                 type="time"
                 value={close}
                 onChange={(e) => setClose(e.target.value)}
-                className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
+                className="mt-1 block w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
               />
             </label>
           </div>
@@ -203,7 +203,7 @@ export function HoursManager({ initial }: { initial: Override[] }) {
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="e.g. Staff training, holiday"
-            className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
+            className="mt-1 block w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
           />
         </label>
 
