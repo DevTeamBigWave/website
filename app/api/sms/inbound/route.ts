@@ -20,7 +20,8 @@
 // ============================================================================
 
 import Anthropic from '@anthropic-ai/sdk';
-import { SYSTEM_PROMPT } from '@/lib/chat-system-prompt';
+import { buildBotSystemPrompt } from '@/lib/bot-knowledge';
+import { TOOLS, runTool } from '@/lib/chat-tools';
 import {
   validateTwilioSignature,
   classifyKeyword,
@@ -35,7 +36,8 @@ export const runtime = 'nodejs';
 export const maxDuration = 30;
 
 const MODEL = 'claude-sonnet-4-6';
-const MAX_TOKENS = 320;
+const MAX_TOKENS = 400;
+const MAX_TOOL_TURNS = 4;
 
 const XML_HEADERS = { 'content-type': 'text/xml; charset=utf-8' } as const;
 
@@ -104,20 +106,55 @@ export async function POST(request: Request) {
       return xml(START_REPLY);
   }
 
-  // Otherwise, let the chat brain answer — briefly, for SMS.
-  try {
-    const message = await client().messages.create({
-      model: MODEL,
-      max_tokens: MAX_TOKENS,
-      system: SYSTEM_PROMPT + SMS_SYSTEM_PROMPT_ADDENDUM,
-      messages: [{ role: 'user', content: body }],
-    });
+  // Otherwise, let the chat brain answer — briefly, for SMS. Same tools as the
+  // website chat: check_availability (calendar) + quote_party_price (exact
+  // prices from lib/pricing.ts). Public base URL so the availability tool can
+  // reach /api/availability.
+  const baseUrl =
+    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || `${proto}://${host}`;
 
-    const reply = message.content
-      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-      .map((b) => b.text)
-      .join('')
-      .trim();
+  try {
+    const systemPrompt = await buildBotSystemPrompt(SMS_SYSTEM_PROMPT_ADDENDUM);
+    const messages: Anthropic.MessageParam[] = [{ role: 'user', content: body }];
+    let reply = '';
+
+    for (let turn = 0; turn <= MAX_TOOL_TURNS; turn++) {
+      const message = await client().messages.create({
+        model: MODEL,
+        max_tokens: MAX_TOKENS,
+        system: systemPrompt,
+        tools: TOOLS,
+        messages,
+      });
+
+      messages.push({ role: 'assistant', content: message.content });
+
+      if (message.stop_reason === 'tool_use') {
+        const toolResults: Anthropic.ToolResultBlockParam[] = [];
+        for (const block of message.content) {
+          if (block.type !== 'tool_use') continue;
+          const result = await runTool(
+            block.name,
+            block.input as Record<string, unknown>,
+            baseUrl,
+          );
+          toolResults.push({
+            type: 'tool_result',
+            tool_use_id: block.id,
+            content: result,
+          });
+        }
+        messages.push({ role: 'user', content: toolResults });
+        continue;
+      }
+
+      reply = message.content
+        .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+        .map((b) => b.text)
+        .join('')
+        .trim();
+      break;
+    }
 
     if (!reply) {
       return xml(
