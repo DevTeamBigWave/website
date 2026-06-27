@@ -34,6 +34,9 @@ export type GbpLocation = {
     administrativeArea?: string;
     postalCode?: string;
   };
+  // Public identifiers from location.metadata (when available)
+  placeId?: string;
+  mapsUri?: string;
 };
 
 async function gbpFetch(url: string, init?: RequestInit): Promise<any> {
@@ -74,14 +77,26 @@ export async function listAccounts(): Promise<GbpAccount[]> {
 
 export async function listLocations(accountResourceName: string): Promise<GbpLocation[]> {
   // accountResourceName format: "accounts/12345"
-  // Endpoint: GET /v1/{parent=accounts/*}/locations?readMask=name,title,storefrontAddress
-  const url = `${INFO_API}/${accountResourceName}/locations?readMask=name,title,storefrontAddress&pageSize=100`;
+  // metadata carries the public placeId + canonical Google Maps URL.
+  const url = `${INFO_API}/${accountResourceName}/locations?readMask=name,title,storefrontAddress,metadata&pageSize=100`;
   const data = await gbpFetch(url);
   return (data.locations ?? []).map((l: any) => ({
     name: l.name,
     title: l.title ?? l.name,
     storefrontAddress: l.storefrontAddress,
+    placeId: l.metadata?.placeId,
+    mapsUri: l.metadata?.mapsUri,
   }));
+}
+
+// Fetch just the public identifiers (place id + canonical Maps URL) for one
+// location. Used when a location is selected so we can store them for SEO.
+export async function getLocationPublicInfo(
+  locationResourceName: string,
+): Promise<{ placeId?: string; mapsUri?: string }> {
+  const url = `${INFO_API}/${locationResourceName}?readMask=metadata`;
+  const data = await gbpFetch(url);
+  return { placeId: data.metadata?.placeId, mapsUri: data.metadata?.mapsUri };
 }
 
 // Time helpers — break "HH:MM:SS" into { hours, minutes }

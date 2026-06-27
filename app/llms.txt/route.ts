@@ -1,4 +1,4 @@
-import { SITE_URL } from '@/lib/site';
+import { SITE_URL, GOOGLE_MAPS_URL } from '@/lib/site';
 
 // /llms.txt — a clean markdown brief for AI answer engines (ChatGPT, Perplexity,
 // Google AI Overviews). Plain facts + key links so the site can be cited
@@ -50,7 +50,9 @@ export async function GET() {
 ## Contact
 - Phone: (718) 889-1777
 - Email: info@wonderlandplayhouse.com
-- Instagram: https://www.instagram.com/wonderlandplayhouseny
+- Instagram: https://www.instagram.com/wonderlandplayhouseny${
+    GOOGLE_MAPS_URL ? `\n- Google Maps: ${GOOGLE_MAPS_URL}` : ''
+  }
 `;
 
   return new Response(body, {
