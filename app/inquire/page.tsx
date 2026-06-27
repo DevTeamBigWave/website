@@ -6,6 +6,7 @@ export const metadata = {
   title: 'Book a call',
   description:
     'Talk to us about your birthday party, membership, or anything else. Free 20-minute call.',
+  alternates: { canonical: '/inquire' },
 };
 
 export default function InquirePage() {

@@ -4,10 +4,9 @@ import { AnnouncementBar, Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { BlogContent } from '@/components/BlogContent';
 import { getPostBySlug, getPublishedPosts } from '@/lib/blog';
+import { SITE_URL as SITE } from '@/lib/site';
 
 export const dynamic = 'force-dynamic';
-
-const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://wonderlandplayhouse.com';
 
 const fmtDate = (iso: string | null) =>
   iso

@@ -6,6 +6,7 @@ export const metadata = {
   title: 'Book a Party',
   description:
     'Book a birthday party at Wonderland Playhouse. Pick a date, lock it in with a 50% deposit.',
+  alternates: { canonical: '/book' },
 };
 
 export default function BookPage({

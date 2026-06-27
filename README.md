@@ -122,6 +122,25 @@ In Vercel, add these cron routes (or run via Supabase pg_cron):
 - [ ] Instagram feed embed
 - [ ] Analytics (Plausible recommended over GA4 for a small biz)
 
+## SEO / AI-search
+
+The site ships indexable with a full SEO + AI-answer-engine setup:
+
+- **No site-wide noindex.** Public pages are indexable; `robots: { index: false }` is scoped only to private routes (admin, waiver, booking-confirm, membership welcome/manage, unsubscribe, gift-card-sent).
+- `app/robots.ts`, `app/sitemap.ts` — robots + sitemap, absolute URLs on the canonical domain (`lib/site.ts`).
+- `app/llms.txt/route.ts` — `/llms.txt` brief for ChatGPT / Perplexity / Google AI Overviews.
+- `app/opengraph-image.tsx` — generated 1200×630 share image (also serves the Twitter card).
+- Per-page canonical URLs + Open Graph + Twitter card metadata.
+- JSON-LD: Organization + WebSite + LocalBusiness (hours sourced from `lib/hours.ts`) in `app/layout.tsx`; FAQPage on `/parties`; BlogPosting on blog posts.
+- GA4 via `components/Analytics.tsx`, gated on `NEXT_PUBLIC_GA_MEASUREMENT_ID` (the client's own property).
+
+**After deploy — do these manually:**
+
+1. Set `NEXT_PUBLIC_GA_MEASUREMENT_ID` (the client's GA4 `G-XXXXXXXXXX`) in the env.
+2. Verify the domain in [Google Search Console](https://search.google.com/search-console) and submit `https://www.wonderlandplayhouse.com/sitemap.xml`.
+3. Verify in [Bing Webmaster Tools](https://www.bing.com/webmasters) and submit the same sitemap.
+4. Confirm Google picks the `www` host (canonical/robots/sitemap all use `www`); make sure the non-`www` apex 301-redirects to `www` at the DNS/host level.
+
 ## Deploy
 
 ```bash
