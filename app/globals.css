@@ -18,3 +18,17 @@ h1, h2, h3, h4 {
   letter-spacing: -0.01em;
   font-weight: 600;
 }
+
+/* iOS Safari auto-zooms into a focused field whenever its font-size is < 16px,
+   forcing users to pinch back out. Force 16px on form controls at phone widths
+   (covers the chat bot and every input) so focusing never triggers a zoom.
+   !important is needed to beat Tailwind's text-sm. Desktop keeps its smaller
+   text since desktop browsers don't zoom on focus. We do NOT disable pinch-zoom
+   (no maximum-scale), so accessibility zoom still works. */
+@media (max-width: 767px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
