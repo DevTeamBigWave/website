@@ -54,7 +54,7 @@ export const PACKAGES = {
 } as const;
 
 // Hard ceiling across all packages
-const MAX_KIDS_PER_PARTY = 40;
+export const MAX_KIDS_PER_PARTY = 40;
 
 // 1-hour extension is the only option now. Price differs by package:
 // $500 private, $250 semi-private — looked up via getExtensionPriceCents()
@@ -94,10 +94,10 @@ export function partyTimesFor(packageId: PackageId): readonly string[] {
 }
 
 // 20% off all private parties booked Mon–Thu (any time slot).
-const DISCOUNT_RATE = 0.2;
+export const DISCOUNT_RATE = 0.2;
 
 // NYC sales tax
-const TAX_RATE = 0.08875;
+export const TAX_RATE = 0.08875;
 
 // Open play
 export const OPEN_PLAY_PRICE_CENTS = 2500;
