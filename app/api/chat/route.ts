@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { SYSTEM_PROMPT } from '@/lib/chat-system-prompt';
+import { buildBotSystemPrompt } from '@/lib/bot-knowledge';
 import { TOOLS, runTool } from '@/lib/chat-tools';
 
 const MODEL = 'claude-opus-4-7';
@@ -54,13 +54,14 @@ export async function POST(request: Request) {
       };
 
       try {
+        const systemPrompt = await buildBotSystemPrompt();
         let toolTurns = 0;
         while (toolTurns <= MAX_TOOL_TURNS) {
           const stream = client().messages.stream({
             model: MODEL,
             max_tokens: MAX_TOKENS,
             thinking: { type: 'disabled' },
-            system: SYSTEM_PROMPT,
+            system: systemPrompt,
             tools: TOOLS,
             messages,
           });
