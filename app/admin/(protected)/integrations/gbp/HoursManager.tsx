@@ -49,6 +49,14 @@ export function HoursManager({ initial }: { initial: Override[] }) {
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
 
+  // One uniform control style so date / time / select / text all match height
+  // and width. appearance-none keeps native date/time pickers from rendering
+  // wider/shorter than the rest on iOS; the select keeps its native chevron.
+  const inputClass =
+    'mt-1 block h-11 w-full min-w-0 appearance-none rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-700 transition focus:border-coral focus:outline-none focus:ring-2 focus:ring-coral/15';
+  const selectClass =
+    'mt-1 block h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-700 transition focus:border-coral focus:outline-none focus:ring-2 focus:ring-coral/15';
+
   const submit = async () => {
     setError(null);
     setFeedback(null);
@@ -157,7 +165,7 @@ export function HoursManager({ initial }: { initial: Override[] }) {
               value={date}
               min={todayStr()}
               onChange={(e) => setDate(e.target.value)}
-              className="mt-1 block w-full min-w-0 max-w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
+              className={inputClass}
             />
           </label>
           <label className="block">
@@ -165,7 +173,7 @@ export function HoursManager({ initial }: { initial: Override[] }) {
             <select
               value={mode}
               onChange={(e) => setMode(e.target.value as 'closed' | 'custom')}
-              className="mt-1 block w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
+              className={selectClass}
             >
               <option value="closed">Closed all day</option>
               <option value="custom">Custom hours</option>
@@ -181,7 +189,7 @@ export function HoursManager({ initial }: { initial: Override[] }) {
                 type="time"
                 value={open}
                 onChange={(e) => setOpen(e.target.value)}
-                className="mt-1 block w-full min-w-0 max-w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
+                className={inputClass}
               />
             </label>
             <label className="block">
@@ -190,7 +198,7 @@ export function HoursManager({ initial }: { initial: Override[] }) {
                 type="time"
                 value={close}
                 onChange={(e) => setClose(e.target.value)}
-                className="mt-1 block w-full min-w-0 max-w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
+                className={inputClass}
               />
             </label>
           </div>
@@ -203,7 +211,7 @@ export function HoursManager({ initial }: { initial: Override[] }) {
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="e.g. Staff training, holiday"
-            className="mt-1 block w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
+            className={inputClass}
           />
         </label>
 
