@@ -6,6 +6,7 @@ export const metadata = {
   title: 'Book a tour',
   description:
     'Come see Wonderland Playhouse in person. Free 30-minute walkthrough of our magical, low-stim play space in Brooklyn.',
+  alternates: { canonical: '/tour' },
 };
 
 export default function TourPage() {

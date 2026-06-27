@@ -6,6 +6,7 @@ export const metadata = {
   title: 'Gift Cards',
   description:
     'Wonderland Playhouse gift cards — $25 to $250 or custom amounts. Redeemable for parties, open play, and memberships.',
+  alternates: { canonical: '/gift-cards' },
 };
 
 const DENOMINATIONS = [

@@ -1,6 +1,5 @@
 import type { MetadataRoute } from 'next';
-
-const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://wonderlandplayhouse.com';
+import { SITE_URL } from '@/lib/site';
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -8,10 +7,21 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/admin', '/admin/', '/api/', '/book/confirm'],
+        // Keep private / transactional / auth routes out of the index.
+        disallow: [
+          '/admin',
+          '/admin/',
+          '/api/',
+          '/book/confirm',
+          '/gift-cards/sent',
+          '/memberships/manage',
+          '/memberships/welcome',
+          '/unsubscribe',
+          '/waiver',
+        ],
       },
     ],
-    sitemap: `${SITE}/sitemap.xml`,
-    host: SITE,
+    sitemap: `${SITE_URL}/sitemap.xml`,
+    host: SITE_URL,
   };
 }

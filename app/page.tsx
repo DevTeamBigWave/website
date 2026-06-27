@@ -3,6 +3,12 @@ import Link from 'next/link';
 import { AnnouncementBar, Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 
+export const metadata = {
+  description:
+    "Brooklyn's magical, low-stim birthday venue and indoor play space for kids 0–8. Private & semi-private parties, drop-in open play, and memberships in Sheepshead Bay.",
+  alternates: { canonical: '/' },
+};
+
 export default function HomePage() {
   return (
     <>
