@@ -308,7 +308,9 @@ export function ChatWidget() {
               onChange={(e) => setInput(e.target.value)}
               placeholder={loading ? 'Wonderland is typing…' : 'Type a message'}
               disabled={loading}
-              className="flex-1 rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 placeholder:text-slate-400 focus:border-coral focus:outline-none"
+              /* 16px font (text-base) so iOS/iPadOS never zooms on focus —
+                 belt-and-suspenders alongside the global touch-device rule. */
+              className="flex-1 rounded-full border border-slate-200 bg-white px-4 py-2.5 text-base text-slate-700 placeholder:text-slate-400 focus:border-coral focus:outline-none"
             />
             <button
               type="submit"
