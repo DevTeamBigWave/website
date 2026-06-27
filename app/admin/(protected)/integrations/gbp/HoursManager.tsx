@@ -157,7 +157,7 @@ export function HoursManager({ initial }: { initial: Override[] }) {
               value={date}
               min={todayStr()}
               onChange={(e) => setDate(e.target.value)}
-              className="mt-1 block w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
+              className="mt-1 block w-full min-w-0 max-w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
             />
           </label>
           <label className="block">
@@ -181,7 +181,7 @@ export function HoursManager({ initial }: { initial: Override[] }) {
                 type="time"
                 value={open}
                 onChange={(e) => setOpen(e.target.value)}
-                className="mt-1 block w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
+                className="mt-1 block w-full min-w-0 max-w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
               />
             </label>
             <label className="block">
@@ -190,7 +190,7 @@ export function HoursManager({ initial }: { initial: Override[] }) {
                 type="time"
                 value={close}
                 onChange={(e) => setClose(e.target.value)}
-                className="mt-1 block w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
+                className="mt-1 block w-full min-w-0 max-w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
               />
             </label>
           </div>
