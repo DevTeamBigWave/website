@@ -1,5 +1,22 @@
 import { NextResponse } from 'next/server';
 import { syncSpecialHoursToGbp } from '@/lib/gbp';
+import { supabaseAdmin } from '@/lib/supabase';
+
+// Drop venue hours overrides whose date is already in the past — they're done
+// and no longer affect Google or bookings, so keep the table tidy.
+async function cleanupPastOverrides() {
+  const nycToday = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+  try {
+    await supabaseAdmin().from('venue_hours_override').delete().lt('date', nycToday);
+  } catch (err) {
+    console.warn('[gbp-sync] past-override cleanup failed (non-fatal):', err);
+  }
+}
 
 // Daily cron — pushes special hours to Google Business Profile based on
 // confirmed private parties in the next 90 days. Open play visitors see
@@ -25,6 +42,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
   try {
+    await cleanupPastOverrides();
     const result = await syncSpecialHoursToGbp();
     console.log('[gbp-sync] ok:', result);
     return NextResponse.json({ ok: true, ...result });

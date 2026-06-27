@@ -117,7 +117,7 @@ export async function createOrUpdateBalanceInvoice(
   // extension here so callers don't all have to select them.
   const { data: meta } = await db
     .from('parties')
-    .select('headcount, extension_minutes')
+    .select('headcount, adult_count, extension_minutes')
     .eq('id', party.id)
     .maybeSingle();
   for (const line of buildPartyLineItems(party, meta, financials.party_pre_tax_cents)) {
@@ -219,7 +219,7 @@ export async function createOrUpdateBalanceInvoice(
 // the invoice total can never drift from computePartyFinancials.
 function buildPartyLineItems(
   party: PartyForInvoice,
-  meta: { headcount: number | null; extension_minutes: number | null } | null,
+  meta: { headcount: number | null; adult_count: number | null; extension_minutes: number | null } | null,
   partyPreTaxCents: number,
 ): Array<{ amount: number; description: string }> {
   const lines = partyPortionLines({
@@ -228,6 +228,7 @@ function buildPartyLineItems(
     time: party.start_time,
     extensionMinutes: meta?.extension_minutes ?? 0,
     headcount: meta?.headcount ?? null,
+    adultCount: meta?.adult_count ?? null,
     storedSubtotalCents: partyPreTaxCents,
   });
   // The base line (always first) carries the party date on the invoice.

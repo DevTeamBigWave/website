@@ -14,6 +14,7 @@ function partyMoneyRows(party: any, partyPreTaxCents: number): Array<[string, st
     time: party.start_time ?? '12:00',
     extensionMinutes: party.extension_minutes ?? 0,
     headcount: party.headcount ?? null,
+    adultCount: party.adult_count ?? null,
     storedSubtotalCents: partyPreTaxCents,
   });
   return lines.map((l) => [
@@ -512,7 +513,7 @@ export async function sendOpenPlayConfirmation(ticket: any) {
       <div style="font-size:32px; font-weight:800; letter-spacing:5px; margin-top:12px; font-family:'Courier New', monospace; color:#fdda26;">${ticket.ticket_code.toUpperCase()}</div>
     </div>
 
-    <p style="margin:0 0 12px; line-height:1.65; font-size:14px;">Arrive any time during open hours (12pm–7:30pm). Stay up to 2 hours. <strong>Grip socks required</strong> for kids and adults — we sell them at the door if you forget.</p>
+    <p style="margin:0 0 12px; line-height:1.65; font-size:14px;">Arrive any time during open hours (11am–7pm). Stay up to 2 hours. <strong>Grip socks required</strong> for kids and adults — we sell them at the door if you forget.</p>
 
     ${ctaButton('Sign waiver now', `${SITE}/waiver?email=${encodeURIComponent(ticket.email)}`)}
 

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { OPEN_PLAY_OPEN_HHMM, OPEN_PLAY_CLOSE_HHMM } from '@/lib/hours';
 
 type Override = {
   date: string;
@@ -41,28 +42,16 @@ export function HoursManager({ initial }: { initial: Override[] }) {
   const [items, setItems] = useState<Override[]>(initial);
   const [date, setDate] = useState('');
   const [mode, setMode] = useState<'closed' | 'custom'>('closed');
-  const [open, setOpen] = useState('12:00');
-  const [close, setClose] = useState('19:30');
+  const [open, setOpen] = useState(OPEN_PLAY_OPEN_HHMM);
+  const [close, setClose] = useState(OPEN_PLAY_CLOSE_HHMM);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const applyPreset = (preset: 'closed' | 'late' | 'early') => {
-    if (preset === 'closed') {
-      setMode('closed');
-    } else if (preset === 'late') {
-      setMode('custom');
-      setOpen('14:00');
-      setClose('19:30');
-    } else {
-      setMode('custom');
-      setOpen('12:00');
-      setClose('16:00');
-    }
-  };
+  const [feedback, setFeedback] = useState<string | null>(null);
 
   const submit = async () => {
     setError(null);
+    setFeedback(null);
     if (!date) {
       setError('Pick a date.');
       return;
@@ -100,6 +89,11 @@ export function HoursManager({ initial }: { initial: Override[] }) {
       setItems((prev) => [...prev.filter((p) => p.date !== date), next].sort((a, b) => a.date.localeCompare(b.date)));
       setDate('');
       setNote('');
+      setFeedback(
+        data.googleSynced
+          ? 'Saved — pushed to Google Maps ✓'
+          : 'Saved — Google will update on the next sync (connect Google or hit “Sync now”).',
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed');
     } finally {
@@ -155,13 +149,7 @@ export function HoursManager({ initial }: { initial: Override[] }) {
 
       {/* Add form */}
       <div className="mt-5 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <div className="flex flex-wrap gap-2">
-          <Preset label="Closed all day" onClick={() => applyPreset('closed')} active={mode === 'closed'} />
-          <Preset label="Opening late" onClick={() => applyPreset('late')} active={mode === 'custom'} />
-          <Preset label="Closing early" onClick={() => applyPreset('early')} active={mode === 'custom'} />
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="block">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Date</span>
             <input
@@ -169,7 +157,7 @@ export function HoursManager({ initial }: { initial: Override[] }) {
               value={date}
               min={todayStr()}
               onChange={(e) => setDate(e.target.value)}
-              className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
+              className="mt-1 block w-full min-w-0 max-w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
             />
           </label>
           <label className="block">
@@ -177,7 +165,7 @@ export function HoursManager({ initial }: { initial: Override[] }) {
             <select
               value={mode}
               onChange={(e) => setMode(e.target.value as 'closed' | 'custom')}
-              className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
+              className="mt-1 block w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
             >
               <option value="closed">Closed all day</option>
               <option value="custom">Custom hours</option>
@@ -186,14 +174,14 @@ export function HoursManager({ initial }: { initial: Override[] }) {
         </div>
 
         {mode === 'custom' && (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="block">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Open</span>
               <input
                 type="time"
                 value={open}
                 onChange={(e) => setOpen(e.target.value)}
-                className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
+                className="mt-1 block w-full min-w-0 max-w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
               />
             </label>
             <label className="block">
@@ -202,7 +190,7 @@ export function HoursManager({ initial }: { initial: Override[] }) {
                 type="time"
                 value={close}
                 onChange={(e) => setClose(e.target.value)}
-                className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
+                className="mt-1 block w-full min-w-0 max-w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
               />
             </label>
           </div>
@@ -215,11 +203,12 @@ export function HoursManager({ initial }: { initial: Override[] }) {
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="e.g. Staff training, holiday"
-            className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
+            className="mt-1 block w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
           />
         </label>
 
         {error && <p className="text-xs text-coral-700">{error}</p>}
+        {feedback && <p className="text-xs text-sky-700">{feedback}</p>}
 
         <button
           type="button"
@@ -239,16 +228,3 @@ function toMin(hhmm: string): number {
   return h * 60 + m;
 }
 
-function Preset({ label, onClick, active }: { label: string; onClick: () => void; active?: boolean }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${
-        active ? 'border-coral bg-coral-50 text-coral-700' : 'border-slate-200 text-slate-600 hover:border-slate-400'
-      }`}
-    >
-      {label}
-    </button>
-  );
-}

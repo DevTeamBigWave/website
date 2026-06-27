@@ -67,7 +67,7 @@ Wonderland Playhouse — small, family-owned magical, low-stim birthday venue an
 Offerings:
 - Private parties ($1,250 — whole venue, closed to public). Mon–Thu private parties are 20% off (limited-time).
 - Semi-private parties ($650 — dedicated party room, open play continues elsewhere).
-- Open play: $25/kid, 12pm–7:30pm every day (closed during private parties — booking page shows partial closures).
+- Open play: $25/kid, 11am–7pm every day (closed during private parties — booking page shows partial closures).
 - Memberships: $150/month unlimited.
 - Gift cards available.
 

@@ -79,6 +79,7 @@ export async function PATCH(
     time: party.start_time,
     extensionId,
     headcount: body.headcount,
+    adultCount: (party as { adult_count?: number | null }).adult_count ?? undefined,
   });
 
   const updates: Record<string, unknown> = {

@@ -4,6 +4,12 @@
 // Server always re-runs these calcs from raw inputs to prevent client tampering
 // ============================================================================
 
+// Both packages include 2 adults per kid (so the included adult count scales
+// with the headcount — a 20-kid Private = 40 included adults). Each adult
+// beyond that is $10.
+export const ADULTS_PER_KID = 2;
+export const EXTRA_ADULT_PRICE_CENTS = 1000;
+
 // Private listed first — it's the priority package (whole-venue exclusive,
 // higher revenue per slot). Render order on /book + /parties follows
 // Object.keys order, which preserves insertion order in JS objects.
@@ -19,6 +25,7 @@ export const PACKAGES = {
     includes: [
       '15 children + the birthday child included',
       '$25 per extra child (up to 40 total)',
+      '32 adults included (2 per kid) · $10 each extra',
       'Entire venue, exclusive use',
       'We close to the public for your party',
       'Dedicated host + helper',
@@ -38,6 +45,7 @@ export const PACKAGES = {
     includes: [
       '10 children + the birthday child included',
       '$25 per extra child (up to 40 total)',
+      '22 adults included (2 per kid) · $10 each extra',
       '2 hours in the dedicated party room',
       'Dedicated party host',
       'Setup & cleanup',
@@ -106,6 +114,10 @@ export interface PartyPricingInput {
   // included headcount if omitted. Each kid above included gets charged
   // extraKidPriceCents.
   headcount?: number;
+  // Total adults attending. Each kid in headcount includes ADULTS_PER_KID
+  // free adults; anything above that is billed at EXTRA_ADULT_PRICE_CENTS.
+  // Omit (or 0) to skip the extra-adult line entirely (legacy rows do this).
+  adultCount?: number;
 }
 
 export interface PartyPricing {
@@ -113,6 +125,9 @@ export interface PartyPricing {
   extensionCents: number;
   extraKidCount: number;
   extraKidCents: number;
+  includedAdults: number;
+  extraAdultCount: number;
+  extraAdultCents: number;
   discountCents: number;
   discountApplied: boolean;
   subtotalCents: number;
@@ -145,7 +160,15 @@ export function calculatePartyPricing(input: PartyPricingInput): PartyPricing {
   const extraKidCount = Math.max(0, requestedHeadcount - pkg.includedKids);
   const extraKidCents = extraKidCount * pkg.extraKidPriceCents;
 
-  const preDiscountCents = baseCents + extensionCents + extraKidCents;
+  // Extra-adult surcharge. Included adults = headcount × 2, so adding kids
+  // also adds free adults. adultCount=0 (or omitted) means "uncounted" —
+  // produces no charge, which keeps legacy rows pre-policy unaffected.
+  const includedAdults = requestedHeadcount * ADULTS_PER_KID;
+  const reportedAdults = Math.max(0, input.adultCount ?? 0);
+  const extraAdultCount = Math.max(0, reportedAdults - includedAdults);
+  const extraAdultCents = extraAdultCount * EXTRA_ADULT_PRICE_CENTS;
+
+  const preDiscountCents = baseCents + extensionCents + extraKidCents + extraAdultCents;
 
   const discountApplied = isWeekdayAfternoonDiscount(input);
   const discountCents = discountApplied ? Math.round(preDiscountCents * DISCOUNT_RATE) : 0;
@@ -160,6 +183,9 @@ export function calculatePartyPricing(input: PartyPricingInput): PartyPricing {
     extensionCents,
     extraKidCount,
     extraKidCents,
+    includedAdults,
+    extraAdultCount,
+    extraAdultCents,
     discountCents,
     discountApplied,
     subtotalCents,
@@ -188,6 +214,7 @@ export function partyPortionLines(input: {
   time: string;
   extensionMinutes?: number | null;
   headcount?: number | null;
+  adultCount?: number | null;
   storedSubtotalCents: number;
 }): PartyPortionLine[] {
   const pkg = PACKAGES[input.packageId];
@@ -203,6 +230,7 @@ export function partyPortionLines(input: {
       time: input.time,
       extensionId,
       headcount: input.headcount ?? undefined,
+      adultCount: input.adultCount ?? undefined,
     });
     // Only itemize if the parts add back up to the stored subtotal.
     if (b.subtotalCents !== input.storedSubtotalCents) return single;
@@ -210,6 +238,9 @@ export function partyPortionLines(input: {
     const lines: PartyPortionLine[] = [{ label: `${pkg.name} party`, cents: b.baseCents }];
     if (b.extraKidCount > 0) {
       lines.push({ label: `Extra kid over package × ${b.extraKidCount}`, cents: b.extraKidCents });
+    }
+    if (b.extraAdultCount > 0) {
+      lines.push({ label: `Extra adult over package × ${b.extraAdultCount}`, cents: b.extraAdultCents });
     }
     if (b.extensionCents > 0) {
       lines.push({ label: `Time extension (+${input.extensionMinutes} min)`, cents: b.extensionCents });

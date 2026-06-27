@@ -101,7 +101,7 @@ function parseDate(d: string): { year: number; month: number; day: number } {
   return { year: y, month: m, day };
 }
 
-// Open-play window (12:00–19:30) lives in lib/venue-hours so the booking
+// Open-play window (11:00–19:00) lives in lib/venue-hours so the booking
 // flows and this sync agree: VENUE_OPEN_START_MIN / VENUE_OPEN_END_MIN.
 
 type SpecialHourPeriod = {
