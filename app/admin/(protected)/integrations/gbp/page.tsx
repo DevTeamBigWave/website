@@ -20,7 +20,7 @@ export default async function GbpIntegrationPage() {
     .order('date', { ascending: true });
   const { data: integration } = await db
     .from('google_integrations')
-    .select('id, gbp_account_id, gbp_location_id, gbp_location_title, gbp_last_sync_at, gbp_last_sync_error')
+    .select('id, gbp_account_id, gbp_location_id, gbp_location_title, gbp_place_id, gbp_maps_uri, gbp_last_sync_at, gbp_last_sync_error')
     .eq('scope', 'calendar')
     .order('connected_at', { ascending: false })
     .limit(1)
@@ -82,6 +82,36 @@ export default async function GbpIntegrationPage() {
             {integration?.gbp_location_title ?? integration?.gbp_location_id}
           </p>
           <p className="mt-1 text-xs text-slate-500 font-mono">{integration?.gbp_location_id}</p>
+
+          {(integration?.gbp_maps_uri || integration?.gbp_place_id) && (
+            <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-600">
+              <p className="font-bold uppercase tracking-wider text-slate-500">
+                Public Google listing (for SEO)
+              </p>
+              {integration?.gbp_maps_uri && (
+                <p className="mt-1 break-all">
+                  Maps URL:{' '}
+                  <a
+                    href={integration.gbp_maps_uri}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-mono text-sky-700 underline"
+                  >
+                    {integration.gbp_maps_uri}
+                  </a>
+                </p>
+              )}
+              {integration?.gbp_place_id && (
+                <p className="mt-1 break-all font-mono">Place ID: {integration.gbp_place_id}</p>
+              )}
+              <p className="mt-2 text-slate-500">
+                Paste the Maps URL into <code>NEXT_PUBLIC_GOOGLE_MAPS_URL</code> (and the Place ID
+                into <code>NEXT_PUBLIC_GOOGLE_PLACE_ID</code>) so it shows in the site&rsquo;s
+                search structured data.
+              </p>
+            </div>
+          )}
+
           {integration?.gbp_last_sync_at && (
             <p className="mt-3 text-sm text-slate-600">
               Last synced{' '}

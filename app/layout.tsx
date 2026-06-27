@@ -3,8 +3,16 @@ import { Fredoka, Nunito } from 'next/font/google';
 import './globals.css';
 import { ChatWidget } from '@/components/ChatWidget';
 import { Analytics } from '@/components/Analytics';
-import { SITE_URL } from '@/lib/site';
+import { SITE_URL, GOOGLE_MAPS_URL } from '@/lib/site';
 import { OPEN_PLAY_OPEN_HHMM, OPEN_PLAY_CLOSE_HHMM } from '@/lib/hours';
+
+// Verified social / listing profiles for JSON-LD sameAs. Instagram is known;
+// the Google Maps listing is added when its env var is set (the GBP API
+// captures the canonical URL — see lib/site.ts).
+const SAME_AS = [
+  'https://www.instagram.com/wonderlandplayhouseny',
+  ...(GOOGLE_MAPS_URL ? [GOOGLE_MAPS_URL] : []),
+];
 
 const display = Fredoka({
   subsets: ['latin'],
@@ -68,7 +76,7 @@ const STRUCTURED_DATA = {
       logo: `${SITE_URL}/logo.jpg`,
       email: 'info@wonderlandplayhouse.com',
       telephone: '+1-718-889-1777',
-      sameAs: ['https://www.instagram.com/wonderlandplayhouseny'],
+      sameAs: SAME_AS,
     },
     {
       '@type': 'WebSite',
@@ -117,7 +125,8 @@ const STRUCTURED_DATA = {
           closes: OPEN_PLAY_CLOSE_HHMM,
         },
       ],
-      sameAs: ['https://www.instagram.com/wonderlandplayhouseny'],
+      sameAs: SAME_AS,
+      ...(GOOGLE_MAPS_URL ? { hasMap: GOOGLE_MAPS_URL } : {}),
       priceRange: '$$',
       areaServed: 'Brooklyn, NY',
     },
