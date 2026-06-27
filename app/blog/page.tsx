@@ -9,6 +9,7 @@ export const metadata = {
   title: 'Blog — Brooklyn kid birthdays, party planning, play space tips',
   description:
     'Honest, parent-to-parent guides to throwing birthdays in Brooklyn, picking a play space, and what works for kids 0–8.',
+  alternates: { canonical: '/blog' },
 };
 
 const fmtDate = (iso: string | null) => {

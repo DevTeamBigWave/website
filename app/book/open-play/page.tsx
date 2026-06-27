@@ -6,6 +6,7 @@ export const metadata = {
   title: 'Reserve Open Play',
   description:
     'Reserve a 2-hour open play visit at Wonderland Playhouse. $25 per child + tax. Adults free, under 10 months free.',
+  alternates: { canonical: '/book/open-play' },
 };
 
 export default function BookOpenPlayPage({

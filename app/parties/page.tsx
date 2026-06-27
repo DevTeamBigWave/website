@@ -7,11 +7,58 @@ export const metadata = {
   title: 'Birthday Parties',
   description:
     "Brooklyn's private and semi-private birthday parties for kids 0-8. Decor, host, custom desserts, entertainment — one-stop-shop.",
+  alternates: { canonical: '/parties' },
+};
+
+// FAQ structured data — mirrors the visible Q&A in <Faq /> below so Google and
+// AI answer engines can surface these answers directly. Plain-text answers (the
+// visible list has one JSX answer, expressed here as text).
+const FAQ_JSONLD = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: [
+    {
+      q: 'How do I lock in my date?',
+      a: 'Pay a 50% deposit at checkout — your date is confirmed the moment Stripe processes it. The balance is due 7 days before your party.',
+    },
+    {
+      q: 'What if I need to cancel or reschedule?',
+      a: 'All birthday party deposits are non-refundable. If you need to cancel your event, your party may be rescheduled to a future available date based on Wonderland Playhouse availability. Certain custom add-ons, vendors, décor, entertainment, or specialty items that have already been ordered may not be refundable, so notify us as soon as possible.',
+    },
+    {
+      q: 'Can I bring my own food and cake?',
+      a: 'Yes — you are welcome to bring your own food, desserts, and birthday cake, or inquire about our catering options. Outside food is subject to an $85 outside food fee, which includes tableware, utensils, setup, cleanup, and garbage handling. We recommend scheduling delivery about 30 minutes before your party start time, and we pack up your leftovers for you.',
+    },
+    {
+      q: 'How many adults are included? Is there enough seating?',
+      a: 'Every party package includes 2 adults per kid — a 16-kid Private comes with 32 adults included, and an 11-kid Semi-Private comes with 22. Each additional adult is $10. We set up each party room with two adult tables and can add a table on request; there is plenty of seating.',
+    },
+    {
+      q: 'How does the planning call work?',
+      a: "After you book, you'll get a link to schedule a planning call to go over theme, timing, and add-ons. We do a second call one week before to finalize details.",
+    },
+    {
+      q: 'Are waivers required?',
+      a: 'Yes — every guest signs a waiver. After booking we email you a link to share with your guests so they can sign before they arrive.',
+    },
+    {
+      q: 'Can I tour the space first?',
+      a: 'Absolutely. Book a free 30-minute tour at /tour.',
+    },
+  ].map((f) => ({
+    '@type': 'Question',
+    name: f.q,
+    acceptedAnswer: { '@type': 'Answer', text: f.a },
+  })),
 };
 
 export default function PartiesPage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_JSONLD) }}
+      />
       <AnnouncementBar />
       <Header />
       <Hero />

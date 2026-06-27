@@ -6,6 +6,7 @@ export const metadata = {
   title: 'Memberships',
   description:
     'Wonderland Playhouse membership — $150/month, unlimited open play visits for kids 0-8 in Brooklyn.',
+  alternates: { canonical: '/memberships' },
 };
 
 export default function MembershipsPage() {

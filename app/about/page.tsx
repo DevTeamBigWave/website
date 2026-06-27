@@ -7,6 +7,7 @@ export const metadata = {
   title: 'About',
   description:
     'Wonderland Playhouse is a magical, low-stim birthday venue and indoor play space in Brooklyn for kids 0-8. Open play, private birthday parties, memberships.',
+  alternates: { canonical: '/about' },
 };
 
 export default function AboutPage() {
