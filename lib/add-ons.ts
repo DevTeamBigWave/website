@@ -37,7 +37,7 @@ export const ADD_ON_CATALOG: AddOnCatalogItem[] = [
   { id: 'custom_cake', name: 'Custom cake', category: 'food', price_cents: 25000, hint: 'Starting at $250 — adjust price for the actual quote', singleton: true },
 
   // Decor
-  { id: 'themed_decor', name: 'Balloons & theme-based decor', category: 'decor', price_cents: 55000, singleton: true, fixed: true },
+  { id: 'themed_decor', name: 'Balloons & theme-based decor', category: 'decor', price_cents: 60000, singleton: true, fixed: true },
   { id: 'goodie_bags', name: 'Upgraded theme-based goodie bags', category: 'decor', price_cents: 800, hint: 'Each — adjust qty' },
 
   // Entertainment (45-min activities — one of each per party)
