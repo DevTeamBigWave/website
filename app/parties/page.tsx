@@ -413,7 +413,7 @@ function AddOns() {
     { name: 'Upgrade included pizzas to kosher', price: '+$20 per pie', icon: '1F355' /* pizza */ },
     { name: 'Additional regular pizza pie', price: '$25', icon: '1F355' /* pizza */ },
     { name: 'Additional kosher pizza pie', price: '$40', icon: '1F355' /* pizza */ },
-    { name: 'Balloons & theme-based decor', price: 'Starting at $550', icon: '1F388' /* balloon */ },
+    { name: 'Balloons & theme-based decor', price: 'Starting at $600', icon: '1F388' /* balloon */ },
     { name: 'Upgraded theme-based goodie bags', price: '$8 each', icon: '1F381' /* wrapped gift */ },
     { name: 'French fries', price: '$30', icon: '1F35F' /* fries */ },
     { name: 'Chicken nuggets', price: '$50', icon: '1F357' /* poultry leg */ },

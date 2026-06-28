@@ -96,7 +96,7 @@ What's included with every party: host, setup, cleanup, the venue itself, and a 
 - 1-hour extension: $500 for private parties, $250 for semi-private
 - Outside food fee (includes tableware for adults): $85
 - Additional pizza pie: $25 (kosher available upon request)
-- Balloons & theme-based decor: starting at $550
+- Balloons & theme-based decor: starting at $600
 - Upgraded theme-based goodie bags: $8 each
 - French fries: $30
 - Chicken nuggets: $50
