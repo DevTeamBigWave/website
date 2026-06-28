@@ -9,10 +9,21 @@ export const metadata = {
   alternates: { canonical: '/book' },
 };
 
+type BookSearchParams = {
+  cancelled?: string;
+  // Funnel handoff prefills (non-destructive — see BookingFlow).
+  package?: string;
+  headcount?: string;
+  parentName?: string;
+  email?: string;
+  phone?: string;
+  source?: string;
+};
+
 export default function BookPage({
   searchParams,
 }: {
-  searchParams: Promise<{ cancelled?: string }>;
+  searchParams: Promise<BookSearchParams>;
 }) {
   return (
     <>
@@ -29,8 +40,21 @@ export default function BookPage({
 async function BookingFlowWrapper({
   searchParams,
 }: {
-  searchParams: Promise<{ cancelled?: string }>;
+  searchParams: Promise<BookSearchParams>;
 }) {
   const sp = await searchParams;
-  return <BookingFlow cancelled={sp.cancelled === 'true'} />;
+  const prefillPackage =
+    sp.package === 'private' || sp.package === 'semi' ? sp.package : undefined;
+  return (
+    <BookingFlow
+      cancelled={sp.cancelled === 'true'}
+      prefill={{
+        package: prefillPackage,
+        headcount: sp.headcount,
+        parentName: sp.parentName,
+        email: sp.email,
+        phone: sp.phone,
+      }}
+    />
+  );
 }
