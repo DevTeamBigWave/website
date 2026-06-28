@@ -37,11 +37,27 @@ function timeStringToMinutes(t: string): number {
   return h * 60 + m;
 }
 
-export function BookingFlow({ cancelled }: { cancelled: boolean }) {
-  // Selection state — Private is the priority package, so pre-select it.
-  // The auto-scroll-to-date effect is gated on a ref so this default doesn't
-  // jump past the package picker on mount.
-  const [packageId, setPackageId] = useState<PackageId | null>('private');
+export type BookingPrefill = {
+  package?: PackageId;
+  headcount?: string;
+  parentName?: string;
+  email?: string;
+  phone?: string;
+};
+
+export function BookingFlow({
+  cancelled,
+  prefill,
+}: {
+  cancelled: boolean;
+  prefill?: BookingPrefill;
+}) {
+  // Selection state — Private is the priority package, so pre-select it. A
+  // funnel handoff can prefill the package; user picks still override (the
+  // prefill only seeds the initial value once, on mount).
+  const [packageId, setPackageId] = useState<PackageId | null>(
+    prefill?.package ?? 'private',
+  );
   const userPickedPackage = useRef(false);
   const [date, setDate] = useState<Date | null>(null);
   const [time, setTime] = useState<string | null>(null);
@@ -58,12 +74,17 @@ export function BookingFlow({ cancelled }: { cancelled: boolean }) {
     setExtensionId(null);
   };
   const [details, setDetails] = useState({
-    parentName: '',
-    email: '',
-    phone: '',
+    // Seed from the funnel handoff once (initial state only — never overwrites
+    // a field the user later edits).
+    parentName: prefill?.parentName ?? '',
+    email: prefill?.email ?? '',
+    phone: prefill?.phone ?? '',
     childName: '',
     childDob: '',
-    headcount: '',
+    headcount:
+      prefill?.headcount && /^\d+$/.test(prefill.headcount)
+        ? prefill.headcount
+        : '',
     adultCount: '',
     notes: '',
     playlistUrl: '',
