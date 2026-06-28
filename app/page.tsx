@@ -59,8 +59,15 @@ function Hero() {
           </div>
 
           <Link
+            href="/go/party-planner"
+            className="mt-5 inline-flex items-center gap-2 rounded-full bg-sunshine px-5 py-3 text-sm font-extrabold text-slate-700 shadow-card transition hover:bg-sunshine-400"
+          >
+            ✨ Not sure which package? Take the 30-sec Party Planner →
+          </Link>
+
+          <Link
             href="/parties"
-            className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-coral hover:text-coral-700"
+            className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-coral hover:text-coral-700"
           >
             <span className="inline-flex items-center justify-center rounded-full bg-sunshine px-2.5 py-1 text-xs font-extrabold text-slate-700">
               20% OFF
