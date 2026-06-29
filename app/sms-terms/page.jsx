@@ -12,7 +12,7 @@ export default function SmsTermsPage() {
       <div className="legal__inner">
         <p className="legal__eyebrow">Wonderland Playhouse · Brooklyn</p>
         <h1>SMS Terms &amp; Conditions</h1>
-        <p className="legal__meta">Effective date: [EFFECTIVE DATE]</p>
+        <p className="legal__meta">Effective date: June 29, 2026</p>
 
         <p>
           These Terms &amp; Conditions govern the Wonderland Playhouse text

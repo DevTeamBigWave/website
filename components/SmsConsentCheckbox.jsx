@@ -42,20 +42,21 @@ export default function SmsConsentCheckbox({ onChange }) {
           display: flex;
           align-items: flex-start;
           gap: 10px;
-          font-size: 0.875rem;
+          font-size: 0.8125rem;
           line-height: 1.5;
-          color: #4a463f;
+          color: #50758f;
           cursor: pointer;
         }
         .sms-consent input {
           margin-top: 3px;
-          width: 16px;
-          height: 16px;
+          width: 18px;
+          height: 18px;
           flex-shrink: 0;
-          accent-color: #b5651d;
+          accent-color: #ff7783;
         }
         .sms-consent__text a {
-          color: #b5651d;
+          color: #ff7783;
+          font-weight: 700;
           text-decoration: underline;
         }
       `}</style>
