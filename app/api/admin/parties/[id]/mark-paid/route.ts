@@ -17,6 +17,7 @@ import {
 } from '@/lib/email';
 import { maybeSendPlanningCallInvite } from '@/lib/planning-call';
 import { createOrUpdateBalanceInvoice } from '@/lib/party-invoice';
+import { sendManualPaymentReceivedSms } from '@/lib/sms-notify';
 
 const Schema = z.object({
   kind: z.enum(['deposit', 'balance']),
@@ -274,6 +275,17 @@ export async function POST(
   } catch (err) {
     console.error('Manual-payment customer email failed:', err);
   }
+  sendManualPaymentReceivedSms({
+    parent_name: fullParty.parent_name,
+    phone: fullParty.phone,
+    child_name: fullParty.child_name,
+    kind: body.kind,
+    amountCents:
+      body.kind === 'deposit'
+        ? (fullParty.deposit_cents as number)
+        : amountClosedCents || fin.balance_due_cents,
+    remainingCents: fin.balance_due_cents,
+  });
 
   // Notify the owner so the paper trail lands in their inbox too
   try {

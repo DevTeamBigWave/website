@@ -106,3 +106,145 @@ export async function sendBalancePaymentSms(
     console.error('[sms-notify] balance reminder failed:', err),
   );
 }
+
+// --- Party lifecycle (text versions of the lifecycle emails) ---------------
+
+export function sendPartyRescheduledSms(party: PartyLike): void {
+  const to = party.phone?.trim();
+  if (!to) return;
+  const who = party.child_name ? `${firstName(party.child_name)}'s` : 'your';
+  const body = `Hi ${firstName(
+    party.parent_name,
+  )}! ${who} party at Wonderland Playhouse has been rescheduled to ${partyWhen(
+    party.date,
+    party.start_time,
+  )}. See you then — reply with any questions. Reply STOP to opt out.`;
+  void sendSms({ to, body, sender: 'system' }).catch((err) =>
+    console.error('[sms-notify] reschedule failed:', err),
+  );
+}
+
+export function sendPartyCancelledSms(party: PartyLike): void {
+  const to = party.phone?.trim();
+  if (!to) return;
+  const who = party.child_name ? `${firstName(party.child_name)}'s` : 'your';
+  const body = `Hi ${firstName(
+    party.parent_name,
+  )}! ${who} party at Wonderland Playhouse on ${partyWhen(
+    party.date,
+  )} has been cancelled. Questions? Call (718) 889-1777. Reply STOP to opt out.`;
+  void sendSms({ to, body, sender: 'system' }).catch((err) =>
+    console.error('[sms-notify] cancel failed:', err),
+  );
+}
+
+export function sendManualPaymentReceivedSms(args: {
+  parent_name?: string | null;
+  phone?: string | null;
+  child_name?: string | null;
+  kind: 'deposit' | 'balance';
+  amountCents: number;
+  remainingCents: number;
+}): void {
+  const to = args.phone?.trim();
+  if (!to) return;
+  const who = args.child_name ? `${firstName(args.child_name)}'s` : 'your';
+  const tail =
+    args.remainingCents > 0
+      ? `Balance remaining: ${fmtMoney(args.remainingCents)}.`
+      : `You're all paid up! 🎉`;
+  const body = `Hi ${firstName(args.parent_name)}! We received your ${
+    args.kind
+  } payment of ${fmtMoney(args.amountCents)} for ${who} party at Wonderland Playhouse. ${tail} Thank you! Reply STOP to opt out.`;
+  void sendSms({ to, body, sender: 'system' }).catch((err) =>
+    console.error('[sms-notify] payment receipt failed:', err),
+  );
+}
+
+export function sendCreatedInvoiceSms(args: {
+  parent_name?: string | null;
+  phone?: string | null;
+  child_name?: string | null;
+  kind: 'deposit' | 'full';
+  amountCents: number;
+  payLink: string | null;
+}): void {
+  const to = args.phone?.trim();
+  if (!to || !args.payLink) return;
+  const who = args.child_name ? `${firstName(args.child_name)}'s` : 'your';
+  const label = args.kind === 'full' ? 'invoice' : 'deposit invoice';
+  const body = `Hi ${firstName(args.parent_name)}! Your ${label} for ${who} party at Wonderland Playhouse (${fmtMoney(
+    args.amountCents,
+  )}) is ready: ${args.payLink}. Pay to lock in your date. Reply STOP to opt out.`;
+  void sendSms({ to, body, sender: 'system' }).catch((err) =>
+    console.error('[sms-notify] created invoice failed:', err),
+  );
+}
+
+export function sendOpenPlayConfirmationSms(ticket: {
+  parent_name?: string | null;
+  phone?: string | null;
+  date: string;
+}): void {
+  const to = ticket.phone?.trim();
+  if (!to) return;
+  const body = `Hi ${firstName(
+    ticket.parent_name,
+  )}! You're booked for open play at Wonderland Playhouse on ${partyWhen(
+    ticket.date,
+  )}. Grip socks required (sold at the door). See you soon! Reply STOP to opt out.`;
+  void sendSms({ to, body, sender: 'system' }).catch((err) =>
+    console.error('[sms-notify] open play confirm failed:', err),
+  );
+}
+
+export function sendMembershipWelcomeSms(args: {
+  parent_name?: string | null;
+  phone?: string | null;
+  child_name?: string | null;
+}): void {
+  const to = args.phone?.trim();
+  if (!to) return;
+  const kid = args.child_name ? firstName(args.child_name) : 'your little one';
+  const body = `Hi ${firstName(
+    args.parent_name,
+  )}! Welcome to the Wonderland Pass 🎉 ${kid} now has unlimited open play at Wonderland Playhouse. Manage anytime: https://www.wonderlandplayhouse.com/memberships/manage. Reply STOP to opt out.`;
+  void sendSms({ to, body, sender: 'system' }).catch((err) =>
+    console.error('[sms-notify] membership welcome failed:', err),
+  );
+}
+
+export function sendPlanningCallSms(args: {
+  parent_name?: string | null;
+  phone?: string | null;
+  child_name?: string | null;
+}): void {
+  const to = args.phone?.trim();
+  if (!to) return;
+  const who = args.child_name ? `${firstName(args.child_name)}'s` : 'your';
+  const body = `Hi ${firstName(
+    args.parent_name,
+  )}! ${who} party deposit is in and your date is locked 🎉 Want to plan theme, cake & add-ons? Grab a free 30-min call: https://www.wonderlandplayhouse.com/inquire. Reply STOP to opt out.`;
+  void sendSms({ to, body, sender: 'system' }).catch((err) =>
+    console.error('[sms-notify] planning call failed:', err),
+  );
+}
+
+export function sendBalanceUpdatedSms(
+  party: PartyLike,
+  opts: { changeNote: string; balanceCents: number },
+): void {
+  const to = party.phone?.trim();
+  if (!to || opts.balanceCents < 50) return;
+  const who = party.child_name ? `${firstName(party.child_name)}'s` : 'your';
+  const body = `Hi ${firstName(
+    party.parent_name,
+  )}! ${who} party total at Wonderland Playhouse was updated (${
+    opts.changeNote
+  }). New balance due: ${fmtMoney(
+    opts.balanceCents,
+  )}. We'll text your pay link before the party. Reply STOP to opt out.`;
+  void sendSms({ to, body, sender: 'system' }).catch((err) =>
+    console.error('[sms-notify] balance updated failed:', err),
+  );
+}
