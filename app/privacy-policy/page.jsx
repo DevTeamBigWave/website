@@ -1,5 +1,4 @@
 // Route: /privacy-policy
-// Replace [EFFECTIVE DATE] and [LEGAL ENTITY NAME] before publishing.
 
 export const metadata = {
   title: "Privacy Policy — Wonderland Playhouse",
@@ -13,10 +12,10 @@ export default function PrivacyPolicyPage() {
       <div className="legal__inner">
         <p className="legal__eyebrow">Wonderland Playhouse · Brooklyn</p>
         <h1>Privacy Policy</h1>
-        <p className="legal__meta">Effective date: [EFFECTIVE DATE]</p>
+        <p className="legal__meta">Effective date: June 29, 2026</p>
 
         <p>
-          This Privacy Policy explains how [LEGAL ENTITY NAME], doing business as
+          This Privacy Policy explains how Wonderland Playhouse LLC, doing business as
           Wonderland Playhouse (“Wonderland Playhouse,” “we,” “us,” or “our”),
           collects, uses, and shares information when you visit
           wonderlandplayhouse.com, book a party or visit, purchase a membership
