@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import SmsConsentCheckbox from '@/components/SmsConsentCheckbox';
+import { recordSmsConsent } from '@/lib/sms-consent';
 
 type Slot = { startISO: string; endISO: string };
 type ApiResponse = {
@@ -32,6 +34,7 @@ export function AppointmentFlow({
     phone: '',
     notes: '',
   });
+  const [smsConsent, setSmsConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState<{
@@ -114,6 +117,13 @@ export function AppointmentFlow({
         setError(data.error ?? 'Could not book. Try again.');
         setSubmitting(false);
         return;
+      }
+      if (smsConsent && details.phone.trim()) {
+        recordSmsConsent({
+          phone: details.phone.trim(),
+          name: details.parentName.trim() || undefined,
+          source: 'appointment',
+        });
       }
       setConfirmed({
         startISO: data.startISO,
@@ -276,6 +286,9 @@ export function AppointmentFlow({
                       placeholder="Date you're thinking about, kid's age, questions..."
                     />
                   </label>
+                </div>
+                <div className="sm:col-span-2">
+                  <SmsConsentCheckbox onChange={setSmsConsent} />
                 </div>
               </div>
             </Section>
