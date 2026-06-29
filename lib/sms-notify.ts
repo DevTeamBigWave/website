@@ -26,6 +26,11 @@ function pkgLabel(pkg?: string | null): string {
   return pkg === 'private' ? 'Private' : 'Semi-Private';
 }
 
+function fmtMoney(cents: number): string {
+  const dollars = cents / 100;
+  return Number.isInteger(dollars) ? `$${dollars}` : `$${dollars.toFixed(2)}`;
+}
+
 type PartyLike = {
   parent_name?: string | null;
   phone?: string | null;
@@ -67,5 +72,37 @@ export async function sendPartyReminderSms(
         )}! Big day tomorrow — ${who} party at Wonderland Playhouse, ${when}. Can't wait to see you! Reply STOP to opt out.`;
   await sendSms({ to, body, sender: 'system' }).catch((err) =>
     console.error('[sms-notify] reminder failed:', err),
+  );
+}
+
+// Balance/payment reminders WITH the Stripe pay link. Skipped if there's no
+// phone, no working pay link, or nothing meaningful owed — so we never text a
+// broken or pointless reminder.
+export async function sendBalancePaymentSms(
+  party: PartyLike,
+  opts: {
+    kind: 'invoice_ready' | 'due' | 'overdue';
+    payLink: string | null;
+    balanceCents: number;
+  },
+): Promise<void> {
+  const to = party.phone?.trim();
+  if (!to || !opts.payLink || opts.balanceCents < 50) return;
+
+  const first = firstName(party.parent_name);
+  const who = party.child_name ? `${firstName(party.child_name)}'s` : 'your';
+  const amt = fmtMoney(opts.balanceCents);
+
+  let body: string;
+  if (opts.kind === 'invoice_ready') {
+    body = `Hi ${first}! The balance for ${who} party at Wonderland Playhouse (${amt}) is ready to pay: ${opts.payLink} — reply with any questions. Reply STOP to opt out.`;
+  } else if (opts.kind === 'due') {
+    body = `Hi ${first}! Reminder — the ${amt} balance for ${who} party at Wonderland Playhouse is now due. Pay securely here: ${opts.payLink}. Reply STOP to opt out.`;
+  } else {
+    body = `Hi ${first}! ${who} party is almost here and a ${amt} balance is still due. Please pay to confirm everything: ${opts.payLink}. Reply STOP to opt out.`;
+  }
+
+  await sendSms({ to, body, sender: 'system' }).catch((err) =>
+    console.error('[sms-notify] balance reminder failed:', err),
   );
 }
