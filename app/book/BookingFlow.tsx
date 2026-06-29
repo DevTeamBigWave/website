@@ -14,6 +14,8 @@ import {
 } from '@/lib/pricing';
 import { GiftCardInput } from '@/components/GiftCardInput';
 import { ADD_ON_CATALOG, CATEGORY_LABEL } from '@/lib/add-ons';
+import SmsConsentCheckbox from '@/components/SmsConsentCheckbox';
+import { recordSmsConsent } from '@/lib/sms-consent';
 
 type AvailabilityRow = {
   date: string;
@@ -92,6 +94,7 @@ export function BookingFlow({
   });
   const [selectedAddOns, setSelectedAddOns] = useState<Record<string, number>>({});
   const [inspirationUrls, setInspirationUrls] = useState<string[]>([]);
+  const [smsConsent, setSmsConsent] = useState(false);
   // Applied promo, with the kind/discount info so the summary + submit
   // button can render the right thing (skip_deposit short-circuits Stripe;
   // percent_off recomputes the deposit before paying).
@@ -293,6 +296,15 @@ export function BookingFlow({
     if (!canSubmit || !packageId || !date || !time) return;
     setSubmitting(true);
     setError(null);
+
+    // Log SMS opt-in (decoupled + keepalive so it survives the Stripe redirect).
+    if (smsConsent) {
+      recordSmsConsent({
+        phone: details.phone.trim(),
+        name: details.parentName.trim() || undefined,
+        source: 'party_booking',
+      });
+    }
 
     try {
       const body = {
@@ -813,6 +825,9 @@ export function BookingFlow({
                   if (promo) setGiftCard(null);
                 }}
               />
+              <div className="pt-1">
+                <SmsConsentCheckbox onChange={setSmsConsent} />
+              </div>
               {error && (
                 <p className="rounded-xl bg-coral-50 px-4 py-3 text-sm text-coral-700">
                   {error}
