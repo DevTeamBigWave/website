@@ -22,15 +22,14 @@ export default function SmsConsentCheckbox({ onChange }) {
         onChange={handleChange}
       />
       <span className="sms-consent__text">
-        I agree to receive transactional and promotional text messages from
-        Wonderland Playhouse at the number provided (booking confirmations,
-        reminders, and offers). Consent is not a condition of purchase. Message
-        frequency varies. Msg &amp; data rates may apply. Reply STOP to cancel,
-        HELP for help. See our{" "}
+        I agree to receive transactional and promotional texts from Wonderland
+        Playhouse at the number provided. Consent is not a condition of purchase.
+        Msg frequency varies. Msg &amp; data rates may apply. Reply STOP to
+        cancel, HELP for help. See our{" "}
         <a href="/privacy-policy" target="_blank" rel="noopener noreferrer">
           Privacy Policy
         </a>{" "}
-        and{" "}
+        &amp;{" "}
         <a href="/sms-terms" target="_blank" rel="noopener noreferrer">
           SMS Terms
         </a>
