@@ -9,7 +9,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 export const dynamic = 'force-dynamic';
 
 // Bump when the consent wording in SmsConsentCheckbox changes.
-const SMS_CONSENT_VERSION = '2026-06-29';
+const SMS_CONSENT_VERSION = '2026-06-29.2';
 
 const Schema = z.object({
   phone: z.string().min(7).max(40),
