@@ -13,6 +13,7 @@ import {
 import { createPartyEventIfNotExists } from '@/lib/google-calendar';
 import { redeemFromCard } from '@/lib/gift-cards';
 import { maybeSendPlanningCallInvite } from '@/lib/planning-call';
+import { sendPartyConfirmationSms } from '@/lib/sms-notify';
 
 type FinalizePartyOptions = {
   paymentIntent?: string;
@@ -146,6 +147,11 @@ export async function finalizeParty(partyId: string, opts: FinalizePartyOptions 
   if (party.deposit_paid_at) {
     void maybeSendPlanningCallInvite(party);
   }
+
+  // Transactional booking confirmation by text (in addition to the email).
+  // Fire-and-forget; only runs on the first hold→confirmed transition since
+  // this is the update success path. Logged to the SMS inbox.
+  sendPartyConfirmationSms(party);
 
   if (calendarResult.status === 'rejected') {
     console.error('Calendar event creation failed:', calendarResult.reason);
