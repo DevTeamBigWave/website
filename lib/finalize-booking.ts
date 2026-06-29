@@ -13,7 +13,7 @@ import {
 import { createPartyEventIfNotExists } from '@/lib/google-calendar';
 import { redeemFromCard } from '@/lib/gift-cards';
 import { maybeSendPlanningCallInvite } from '@/lib/planning-call';
-import { sendPartyConfirmationSms } from '@/lib/sms-notify';
+import { sendPartyConfirmationSms, sendOpenPlayConfirmationSms } from '@/lib/sms-notify';
 
 type FinalizePartyOptions = {
   paymentIntent?: string;
@@ -208,6 +208,7 @@ export async function finalizeOpenPlay(
   await sendOpenPlayConfirmation(ticket).catch((err) =>
     console.error('Open play confirmation email failed:', err),
   );
+  sendOpenPlayConfirmationSms(ticket);
 
   return ticket;
 }

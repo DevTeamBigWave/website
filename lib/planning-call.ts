@@ -6,11 +6,13 @@
 
 import { supabaseAdmin } from '@/lib/supabase';
 import { sendPartyPlanningCallInvite } from '@/lib/email';
+import { sendPlanningCallSms } from '@/lib/sms-notify';
 
 export async function maybeSendPlanningCallInvite(party: {
   id: string;
   parent_name: string;
   email: string;
+  phone?: string | null;
   child_name: string | null;
   date: string;
   // Drives the Private / Semi-Private callout in the email.
@@ -22,16 +24,19 @@ export async function maybeSendPlanningCallInvite(party: {
 }): Promise<boolean> {
   if (party.planning_call_email_sent_at) return false;
 
-  // The package drives the email's Private/Semi-Private callout. Most callers
-  // pass it; if not, fetch it so the copy is always correct.
+  // The package drives the email's Private/Semi-Private callout, and we need
+  // the phone for the text version. Most callers pass these; fetch whatever's
+  // missing so both are always correct.
   let pkg = party.package ?? null;
-  if (!pkg) {
+  let phone = party.phone ?? null;
+  if (!pkg || !phone) {
     const { data } = await supabaseAdmin()
       .from('parties')
-      .select('package')
+      .select('package, phone')
       .eq('id', party.id)
       .maybeSingle();
-    pkg = data?.package ?? null;
+    pkg = pkg ?? data?.package ?? null;
+    phone = phone ?? data?.phone ?? null;
   }
 
   try {
@@ -47,6 +52,11 @@ export async function maybeSendPlanningCallInvite(party: {
       .from('parties')
       .update({ planning_call_email_sent_at: new Date().toISOString() })
       .eq('id', party.id);
+    sendPlanningCallSms({
+      parent_name: party.parent_name,
+      phone,
+      child_name: party.child_name,
+    });
     return true;
   } catch (err) {
     console.error('Planning-call auto-send failed:', err);

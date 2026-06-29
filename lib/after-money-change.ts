@@ -20,6 +20,8 @@ import {
   sendPartyBalanceUpdated,
   sendOwnerNotification,
 } from '@/lib/email';
+import { computePartyFinancials } from '@/lib/parties';
+import { sendBalanceUpdatedSms } from '@/lib/sms-notify';
 
 export async function afterMoneyChange(partyId: string, changeNote: string) {
   try {
@@ -27,7 +29,7 @@ export async function afterMoneyChange(partyId: string, changeNote: string) {
     const { data: party } = await db
       .from('parties')
       .select(
-        'id, parent_name, email, child_name, package, date, start_time, headcount, extension_minutes, subtotal_cents, total_cents, deposit_cents, deposit_paid_at, add_ons_total_cents, gift_card_applied_cents, balance_paid_amount_cents, balance_invoice_id, manual_discount_percent, manual_discount_cents, promo_code:promo_code_id(code, label)',
+        'id, parent_name, email, phone, child_name, package, date, start_time, headcount, extension_minutes, subtotal_cents, total_cents, deposit_cents, deposit_paid_at, add_ons_total_cents, gift_card_applied_cents, balance_paid_amount_cents, balance_invoice_id, manual_discount_percent, manual_discount_cents, promo_code:promo_code_id(code, label)',
       )
       .eq('id', partyId)
       .maybeSingle();
@@ -61,6 +63,10 @@ export async function afterMoneyChange(partyId: string, changeNote: string) {
       } catch (err) {
         console.error('balance-updated customer email failed:', err);
       }
+      sendBalanceUpdatedSms(party as any, {
+        changeNote,
+        balanceCents: computePartyFinancials(party as any).balance_due_cents,
+      });
     }
 
     try {

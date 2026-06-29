@@ -11,6 +11,7 @@ import {
   sendPartyCancelled,
   sendOwnerNotification,
 } from '@/lib/email';
+import { sendPartyCancelledSms } from '@/lib/sms-notify';
 
 export async function POST(
   _request: Request,
@@ -60,6 +61,7 @@ export async function POST(
 
   // Cancellation notifications — fire-and-forget so a Resend hiccup
   // doesn't fail the API call.
+  sendPartyCancelledSms(party);
   void (async () => {
     try {
       await sendPartyCancelled({ party });

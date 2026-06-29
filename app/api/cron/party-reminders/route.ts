@@ -11,7 +11,7 @@ import {
 import { stripe } from '@/lib/stripe';
 import { createOrUpdateBalanceInvoice } from '@/lib/party-invoice';
 import { computePartyFinancials } from '@/lib/parties';
-import { sendPartyReminderSms } from '@/lib/sms-notify';
+import { sendPartyReminderSms, sendBalancePaymentSms } from '@/lib/sms-notify';
 
 // Daily cron — runs each of:
 // - Auto-send balance invoice 14 days out (only if not already sent)
@@ -152,6 +152,12 @@ export async function GET(request: Request) {
         })),
       }).catch((err) => console.error('Auto-invoice email failed:', err));
 
+      await sendBalancePaymentSms(party as any, {
+        kind: 'invoice_ready',
+        payLink: hostedUrl,
+        balanceCents: balanceDueCents,
+      });
+
       results.auto_invoice.sent += 1;
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'unknown';
@@ -209,6 +215,11 @@ export async function GET(request: Request) {
     try {
       const payLink = await freshPayLink(party);
       await sendBalanceDueReminder({ party, payLink });
+      await sendBalancePaymentSms(party as any, {
+        kind: 'due',
+        payLink,
+        balanceCents: fin.balance_due_cents,
+      });
       await db
         .from('parties')
         .update({ balance_due_reminder_sent_at: new Date().toISOString() })
@@ -268,6 +279,11 @@ export async function GET(request: Request) {
     try {
       const payLink = await freshPayLink(party);
       await sendBalanceOverdueReminder({ party, payLink });
+      await sendBalancePaymentSms(party as any, {
+        kind: 'overdue',
+        payLink,
+        balanceCents: fin.balance_due_cents,
+      });
       await db
         .from('parties')
         .update({ balance_overdue_reminder_sent_at: new Date().toISOString() })

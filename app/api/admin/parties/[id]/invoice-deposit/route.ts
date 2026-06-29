@@ -14,6 +14,7 @@ import { requireAdmin } from '@/lib/admin';
 import { supabaseAdmin } from '@/lib/supabase';
 import { stripe } from '@/lib/stripe';
 import { sendCreatedPartyInvoice, sendOwnerNotification } from '@/lib/email';
+import { sendCreatedInvoiceSms } from '@/lib/sms-notify';
 import { computePartyFinancials } from '@/lib/parties';
 
 export const maxDuration = 60;
@@ -168,6 +169,15 @@ export async function POST(
   } catch (err) {
     console.error('Themed wrapper email failed (Stripe email still sent):', err);
   }
+
+  sendCreatedInvoiceSms({
+    parent_name: party.parent_name,
+    phone: party.phone,
+    child_name: party.child_name,
+    kind: 'deposit',
+    amountCents: depositAmount,
+    payLink: finalized.hosted_invoice_url ?? null,
+  });
 
   // Owner paper trail.
   sendOwnerNotification({
