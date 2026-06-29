@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { OPEN_PLAY_PRICE_CENTS, calculateOpenPlayPricing, fmt } from '@/lib/pricing';
 import { OPEN_PLAY_HOURS_DISPLAY } from '@/lib/hours';
 import { GiftCardInput } from '@/components/GiftCardInput';
+import SmsConsentCheckbox from '@/components/SmsConsentCheckbox';
+import { recordSmsConsent } from '@/lib/sms-consent';
 
 type AvailabilityRow = {
   date: string;
@@ -51,6 +53,7 @@ export function OpenPlayFlow({ cancelled }: { cancelled: boolean }) {
     phone: '',
   });
   const [paymentMethod, setPaymentMethod] = useState<'online' | 'at_door'>('online');
+  const [smsConsent, setSmsConsent] = useState(false);
   const [giftCard, setGiftCard] = useState<{ code: string; balanceCents: number } | null>(null);
   const [monthIndex, setMonthIndex] = useState(0);
 
@@ -182,6 +185,14 @@ export function OpenPlayFlow({ cancelled }: { cancelled: boolean }) {
     if (!canSubmit || !date) return;
     setSubmitting(true);
     setError(null);
+
+    if (smsConsent) {
+      recordSmsConsent({
+        phone: details.phone.trim(),
+        name: details.parentName.trim() || undefined,
+        source: 'open_play',
+      });
+    }
 
     try {
       const body = {
@@ -460,6 +471,9 @@ export function OpenPlayFlow({ cancelled }: { cancelled: boolean }) {
                   required
                   type="tel"
                 />
+                <div className="sm:col-span-2">
+                  <SmsConsentCheckbox onChange={setSmsConsent} />
+                </div>
               </div>
             </Section>
           )}
