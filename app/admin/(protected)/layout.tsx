@@ -14,6 +14,7 @@ const baseNav = [
   { href: '/admin/parties', label: 'Parties' },
   { href: '/admin/memberships', label: 'Memberships' },
   { href: '/admin/customers', label: 'Customers' },
+  { href: '/admin/messages', label: 'Messages' },
   { href: '/admin/waivers', label: 'Waivers' },
   { href: '/admin/waiver-qr', label: 'Waiver QR' },
   { href: '/admin/gift-cards', label: 'Gift Cards' },
