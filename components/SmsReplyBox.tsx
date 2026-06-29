@@ -38,6 +38,10 @@ export function SmsReplyBox({ to }: { to: string }) {
 
   return (
     <div className="border-t border-slate-200 bg-white p-3">
+      <p className="mb-2 text-xs text-slate-400">
+        The AI already replied automatically — you only need to step in for
+        something it can&rsquo;t handle.
+      </p>
       {error && (
         <p className="mb-2 rounded-lg bg-coral-50 px-3 py-2 text-sm text-coral-700">
           {error}

@@ -64,8 +64,10 @@ export default async function MessagesPage() {
       <header>
         <h1 className="font-display text-3xl text-slate-700">Messages</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Every text to and from the business number. The AI answers
-          automatically; open a thread to read it or reply yourself.
+          Monitor every text to and from the business number. The AI answers
+          automatically — hours, open play, prices, availability — and always
+          points people to booking a party. You don&rsquo;t need to reply; open a
+          thread to read along.
         </p>
       </header>
 

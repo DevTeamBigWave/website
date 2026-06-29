@@ -11,6 +11,7 @@ import {
 import { stripe } from '@/lib/stripe';
 import { createOrUpdateBalanceInvoice } from '@/lib/party-invoice';
 import { computePartyFinancials } from '@/lib/parties';
+import { sendPartyReminderSms } from '@/lib/sms-notify';
 
 // Daily cron — runs each of:
 // - Auto-send balance invoice 14 days out (only if not already sent)
@@ -170,6 +171,7 @@ export async function GET(request: Request) {
   for (const party of sevenDay ?? []) {
     try {
       await sendPartySevenDayReminder(party);
+      await sendPartyReminderSms(party, 7);
       await db
         .from('parties')
         .update({ reminder_7d_sent_at: new Date().toISOString() })
@@ -230,6 +232,7 @@ export async function GET(request: Request) {
   for (const party of oneDay ?? []) {
     try {
       await sendPartyTwentyFourHourReminder(party);
+      await sendPartyReminderSms(party, 1);
       await db
         .from('parties')
         .update({ reminder_24h_sent_at: new Date().toISOString() })
