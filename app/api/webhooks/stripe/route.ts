@@ -14,6 +14,7 @@ import { finalizeParty, finalizeOpenPlay } from '@/lib/finalize-booking';
 import { createPartyEventIfNotExists, syncPartyEventByPartyId } from '@/lib/google-calendar';
 import { computePartyFinancials } from '@/lib/parties';
 import { maybeSendPlanningCallInvite } from '@/lib/planning-call';
+import { sendManualPaymentReceivedSms } from '@/lib/sms-notify';
 
 const fmtMoneyShort = (c: number) => `$${(c / 100).toFixed(2)}`;
 
@@ -263,6 +264,14 @@ export async function POST(request: Request) {
           } catch (err) {
             console.error('Stripe-paid customer receipt failed:', err);
           }
+          sendManualPaymentReceivedSms({
+            parent_name: partyForEmails.parent_name,
+            phone: partyForEmails.phone,
+            child_name: partyForEmails.child_name,
+            kind,
+            amountCents: invoice.amount_paid ?? 0,
+            remainingCents: fin.balance_due_cents,
+          });
           try {
             await sendOwnerNotification({
               subject: `💳 Stripe ${kind} paid · ${fmtMoneyShort(invoice.amount_paid ?? 0)} · ${partyForEmails.child_name ?? 'party'}`,
@@ -451,6 +460,7 @@ export const config = {
 };
 
 import { sendMembershipWelcome } from '@/lib/email';
+import { sendMembershipWelcomeSms } from '@/lib/sms-notify';
 
 async function handleMembershipCheckoutCompleted(
   supabase: ReturnType<typeof supabaseAdmin>,
@@ -564,4 +574,5 @@ async function handleMembershipCheckoutCompleted(
   } catch (err) {
     console.error('Membership welcome email failed:', err);
   }
+  sendMembershipWelcomeSms({ parent_name: parentName, phone, child_name: childName });
 }

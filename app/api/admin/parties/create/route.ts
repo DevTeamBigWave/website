@@ -19,6 +19,7 @@ import { getOverrideForDate, partyBlockedByOverride, timeToMinutes } from '@/lib
 import { partyTimeConflict } from '@/lib/parties';
 import { INVOICE_THEMES, type InvoiceThemeSlug } from '@/lib/invoice-themes';
 import { sendCreatedPartyInvoice } from '@/lib/email';
+import { sendCreatedInvoiceSms } from '@/lib/sms-notify';
 
 export const maxDuration = 60;
 
@@ -492,6 +493,15 @@ export async function POST(request: Request) {
   } catch (err) {
     console.error('Themed wrapper email failed (Stripe email still sent):', err);
   }
+
+  sendCreatedInvoiceSms({
+    parent_name: body.parent_name,
+    phone: body.phone,
+    child_name: body.child_name,
+    kind: isFull ? 'full' : 'deposit',
+    amountCents: invoiceAmountCents,
+    payLink: finalized.hosted_invoice_url ?? null,
+  });
 
   return NextResponse.json({
     ok: true,

@@ -21,6 +21,7 @@ import { partyTimeConflict } from '@/lib/parties';
 import { getOverrideForDate, partyBlockedByOverride, timeToMinutes } from '@/lib/venue-hours';
 import { syncPartyEventByPartyId } from '@/lib/google-calendar';
 import { sendPartyRescheduled, sendOwnerNotification } from '@/lib/email';
+import { sendPartyRescheduledSms } from '@/lib/sms-notify';
 
 export const maxDuration = 30;
 
@@ -253,6 +254,8 @@ export async function POST(
       party: fullParty,
     }),
   ]).catch((err) => console.error('Reschedule emails failed:', err));
+
+  sendPartyRescheduledSms(fullParty);
 
   // Calendar event time + description re-sync. notifyAttendees=true so
   // Google sends the parent its native "event moved" iCal notice.
