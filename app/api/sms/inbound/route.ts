@@ -22,6 +22,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { buildBotSystemPrompt } from '@/lib/bot-knowledge';
 import { TOOLS, runTool } from '@/lib/chat-tools';
+import { logSms } from '@/lib/sms-log';
 import {
   validateTwilioSignature,
   classifyKeyword,
@@ -96,27 +97,42 @@ export async function POST(request: Request) {
 
   if (!from || !body) return xml();
 
-  // Compliance keywords first — never hand these to the AI.
-  switch (classifyKeyword(body)) {
-    case 'stop':
-      return xml(STOP_REPLY);
-    case 'help':
-      return xml(HELP_REPLY);
-    case 'start':
-      return xml(START_REPLY);
+  // Figure out the reply text + who's "speaking", then log the whole exchange
+  // (inbound + outbound) to sms_messages so it shows in the admin SMS inbox.
+  let reply: string;
+  let sender: 'ai' | 'system' = 'system';
+
+  const keyword = classifyKeyword(body);
+  if (keyword === 'stop') {
+    reply = STOP_REPLY;
+  } else if (keyword === 'help') {
+    reply = HELP_REPLY;
+  } else if (keyword === 'start') {
+    reply = START_REPLY;
+  } else {
+    // Let the chat brain answer — briefly, for SMS. Same tools as the website
+    // chat: check_availability (calendar) + quote_party_price (exact prices).
+    sender = 'ai';
+    reply = await computeAiReply(body, `${proto}://${host}`);
   }
 
-  // Otherwise, let the chat brain answer — briefly, for SMS. Same tools as the
-  // website chat: check_availability (calendar) + quote_party_price (exact
-  // prices from lib/pricing.ts). Public base URL so the availability tool can
-  // reach /api/availability.
-  const baseUrl =
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || `${proto}://${host}`;
+  // Best-effort logging — never block or fail the reply on it.
+  await logSms([
+    { contactPhone: from, direction: 'inbound', body, status: 'received' },
+    { contactPhone: from, direction: 'outbound', body: reply, sender, status: 'sent' },
+  ]);
 
+  return xml(reply);
+}
+
+const SMS_FALLBACK =
+  'Thanks for texting Wonderland Playhouse! For info & booking visit https://www.wonderlandplayhouse.com or call (718) 889-1777.';
+
+async function computeAiReply(body: string, origin: string): Promise<string> {
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || origin;
   try {
     const systemPrompt = await buildBotSystemPrompt(SMS_SYSTEM_PROMPT_ADDENDUM);
     const messages: Anthropic.MessageParam[] = [{ role: 'user', content: body }];
-    let reply = '';
 
     for (let turn = 0; turn <= MAX_TOOL_TURNS; turn++) {
       const message = await client().messages.create({
@@ -148,27 +164,17 @@ export async function POST(request: Request) {
         continue;
       }
 
-      reply = message.content
+      const text = message.content
         .filter((b): b is Anthropic.TextBlock => b.type === 'text')
         .map((b) => b.text)
         .join('')
         .trim();
-      break;
+      return text || SMS_FALLBACK;
     }
-
-    if (!reply) {
-      return xml(
-        'Thanks for texting Wonderland Playhouse! Info & booking: https://www.wonderlandplayhouse.com or call (718) 889-1777.',
-      );
-    }
-
-    return xml(reply);
+    return SMS_FALLBACK;
   } catch (err) {
     console.error('[sms/inbound] AI reply failed:', err);
-    // Fail safe with a useful, on-brand fallback rather than silence.
-    return xml(
-      'Thanks for texting Wonderland Playhouse! For info & booking visit https://www.wonderlandplayhouse.com or call (718) 889-1777.',
-    );
+    return SMS_FALLBACK;
   }
 }
 
