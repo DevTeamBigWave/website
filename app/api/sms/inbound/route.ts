@@ -178,13 +178,24 @@ async function computeAiReply(body: string, origin: string): Promise<string> {
   }
 }
 
-// Twilio only POSTs. A GET is handy for a quick "is it deployed?" check.
+// Twilio only POSTs. A GET is a quick readiness check — reports whether each
+// required env var is present (booleans only, never the values themselves).
 export async function GET() {
+  const hasAuth = Boolean(process.env.TWILIO_AUTH_TOKEN);
+  const hasSid = Boolean(process.env.TWILIO_ACCOUNT_SID);
+  const hasNumber = Boolean(process.env.TWILIO_PHONE_NUMBER);
   return new Response(
     JSON.stringify({
       ok: true,
       service: 'sms-inbound',
-      configured: Boolean(process.env.TWILIO_AUTH_TOKEN),
+      configured: hasAuth, // back-compat: inbound needs the auth token
+      inbound_ready: hasAuth,
+      outbound_ready: hasAuth && hasSid && hasNumber,
+      env: {
+        TWILIO_AUTH_TOKEN: hasAuth,
+        TWILIO_ACCOUNT_SID: hasSid,
+        TWILIO_PHONE_NUMBER: hasNumber,
+      },
     }),
     { status: 200, headers: { 'content-type': 'application/json' } },
   );
