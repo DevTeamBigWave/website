@@ -148,19 +148,19 @@ export default function TermsPage() {
         dangerouslySetInnerHTML={{
           __html: `
         .legal {
-          background: #faf7f2;
-          color: #2c2a28;
+          background: var(--brand-bg);
+          color: var(--brand-fg);
           padding: 64px 20px 96px;
         }
         .legal__inner {
           max-width: 720px;
           margin: 0 auto;
-          font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
-            Helvetica, Arial, sans-serif;
+          font-family: var(--font-sans), Nunito, system-ui, sans-serif;
           font-size: 1.0625rem;
           line-height: 1.7;
         }
         .legal h1 {
+          font-family: var(--font-display), Fredoka, system-ui, sans-serif;
           font-size: 2.25rem;
           line-height: 1.15;
           margin: 0 0 8px;
@@ -168,20 +168,21 @@ export default function TermsPage() {
           letter-spacing: -0.01em;
         }
         .legal__meta {
-          color: #8a8276;
+          color: var(--brand-muted);
           font-size: 0.9rem;
           margin: 0 0 36px;
         }
         .legal h2 {
+          font-family: var(--font-display), Fredoka, system-ui, sans-serif;
           font-size: 1.3rem;
           margin: 40px 0 12px;
-          font-weight: 700;
+          font-weight: 600;
         }
         .legal p {
           margin: 0 0 16px;
         }
         .legal a {
-          color: #b5651d;
+          color: var(--brand-accent);
           text-decoration: underline;
         }
         .legal strong {
