@@ -2,9 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Brand color tokens — the single source of truth for raw CSS (e.g. the legal
+   pages' scoped styles). Values mirror the Tailwind palette in tailwind.config.ts
+   so utility classes and raw CSS stay one system. */
+:root {
+  --brand-bg: #FFFBF5;          /* cream */
+  --brand-surface: #FFFFFF;
+  --brand-fg: #2C4253;          /* slate-700 */
+  --brand-muted: #67869F;       /* slate-400 */
+  --brand-border: #D8E2EB;      /* slate-100 */
+  --brand-accent: #ff7783;      /* coral */
+  --brand-accent-strong: #B43E47; /* coral-700 */
+}
+
 html, body {
-  background-color: #FFFBF5;
-  color: #2C4253;
+  background-color: var(--brand-bg);
+  color: var(--brand-fg);
 }
 
 body {
